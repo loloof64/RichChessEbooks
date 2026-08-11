@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rce.local/schemas/patches.schema.json",
+  "title": "patches.json",
+  "description": "User corrections layered over moves.json at read time. Written by the Flutter app only.",
+  "type": "object",
+  "required": ["schema_version", "source_sha256", "patches"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Must equal manifest.source.sha256. A mismatch means these corrections target another edition and their bbox values cannot be trusted."
+    },
+    "patches": {
+      "type": "array",
+      "description": "Applied in array order; for a given move_id and type, the last one wins.",
+      "items": { "$ref": "#/$defs/patch" }
+    }
+  },
+  "$defs": {
+    "patch": {
+      "type": "object",
+      "required": ["move_id", "type", "value", "source", "timestamp"],
+      "properties": {
+        "move_id": { "type": "string" },
+        "type": { "type": "string", "enum": ["san_edit", "bbox_edit", "fen_override"] },
+        "value": { "type": "object" },
+        "source": { "type": "string", "enum": ["user", "auto"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "san_edit" } } },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "object",
+                "required": ["san"],
+                "properties": {
+                  "san": {
+                    "type": "string",
+                    "description": "Retyped move. Revalidated by dartchess against the parent position; the FEN is recomputed, never taken from the patch."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "bbox_edit" } } },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "object",
+                "required": ["page", "bbox"],
+                "properties": {
+                  "page": { "type": "integer", "minimum": 1 },
+                  "bbox": {
+                    "type": "object",
+                    "description": "Same coordinate system as moves.json: PDF points, origin bottom-left.",
+                    "required": ["x", "y", "w", "h"],
+                    "properties": {
+                      "x": { "type": "number" },
+                      "y": { "type": "number" },
+                      "w": { "type": "number", "exclusiveMinimum": 0 },
+                      "h": { "type": "number", "exclusiveMinimum": 0 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "fen_override" } } },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "object",
+                "required": ["fen"],
+                "properties": {
+                  "fen": {
+                    "type": "string",
+                    "description": "Position entered directly, for cases that cannot be replayed: diagrams with no move, non-standard positions."
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

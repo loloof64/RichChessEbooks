@@ -10,10 +10,28 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # .rce archive handling
+  archive: ^4.0.9
+  crypto: ^3.0.7
+  file_picker: ^11.0.3
+  path: ^1.9.1
+  path_provider: ^2.1.5
+
+  # PDF rendering with per-page transform matrices
+  pdfrx: ^2.4.7
+
+  # Chess logic and board rendering
+  chessground: ^10.1.1
+  dartchess: ^0.13.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Lets tests redirect the archive cache to a temporary directory instead of
+  # a real platform-provided one.
+  path_provider_platform_interface: ^2.1.2
+  plugin_platform_interface: ^2.1.8
 
 flutter:
   uses-material-design: true

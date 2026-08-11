@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Pipeline (Python)
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+# Per-step artefacts written by the pipeline, and its output archives
+work/
+*.rce

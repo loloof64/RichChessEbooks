@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rce.local/schemas/manifest.schema.json",
+  "title": "manifest.json",
+  "description": "Metadata of a .rce archive.",
+  "type": "object",
+  "required": ["schema_version", "source", "notation", "generator"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this manifest schema."
+    },
+    "source": {
+      "type": "object",
+      "required": ["path", "filename", "media_type", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path of the original document inside the archive.",
+          "examples": ["source/book.pdf"]
+        },
+        "filename": { "type": "string" },
+        "media_type": {
+          "type": "string",
+          "enum": ["application/pdf", "application/epub+zip"],
+          "description": "EPUB is reserved for v2; the v1 pipeline emits PDF only."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the original file's bytes. Ties patches.json to this exact edition."
+        },
+        "page_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "notation": {
+      "type": "object",
+      "required": ["style"],
+      "properties": {
+        "style": {
+          "type": "string",
+          "enum": ["figurine_unicode", "figurine_font", "letters"]
+        },
+        "language": {
+          "type": ["string", "null"],
+          "description": "ISO 639-1 code of the piece letters. Null when style is figurine_unicode.",
+          "examples": ["fr", "en", "de"]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "font_names": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Fonts identified as figurine fonts, when style is figurine_font."
+        }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "required": ["name", "version", "generated_at"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "description": "Denormalised totals, for display before moves.json is parsed.",
+      "properties": {
+        "games": { "type": "integer", "minimum": 0 },
+        "moves": { "type": "integer", "minimum": 0 },
+        "ok": { "type": "integer", "minimum": 0 },
+        "uncertain": { "type": "integer", "minimum": 0 },
+        "broken": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

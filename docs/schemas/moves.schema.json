@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rce.local/schemas/moves.schema.json",
+  "title": "moves.json",
+  "description": "Moves extracted from the source document. Written by the pipeline, never edited by the app.",
+  "type": "object",
+  "required": ["schema_version", "games", "moves"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "games": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/game" }
+    },
+    "moves": {
+      "type": "array",
+      "description": "Flat list of tree nodes. Order carries no meaning; structure comes from parent_id.",
+      "items": { "$ref": "#/$defs/move" }
+    }
+  },
+  "$defs": {
+    "game": {
+      "type": "object",
+      "required": ["id", "initial_fen", "root_move_id"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": {
+          "type": ["string", "null"],
+          "description": "Heading found above the moves, when one was identified."
+        },
+        "initial_fen": {
+          "type": "string",
+          "description": "Position before the first move. Standard start position unless the book sets up a study."
+        },
+        "root_move_id": {
+          "type": ["string", "null"],
+          "description": "First move of the main line. Null for a diagram-only entry."
+        },
+        "page_start": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "move": {
+      "type": "object",
+      "required": [
+        "id", "game_id", "parent_id", "san", "fen", "uci",
+        "ply", "page", "bbox", "variation_index", "status", "confidence"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "game_id": { "type": "string" },
+        "parent_id": {
+          "type": ["string", "null"],
+          "description": "Move played immediately before. Null for a game's first move."
+        },
+        "san": {
+          "type": "string",
+          "description": "Move in standard algebraic notation, normalised to latin letters (KQRBN) whatever the printed notation."
+        },
+        "uci": {
+          "type": ["string", "null"],
+          "pattern": "^[a-h][1-8][a-h][1-8][qrbn]?$",
+          "description": "Long algebraic form, used by the app to highlight from/to. Null when status is broken."
+        },
+        "fen": {
+          "type": ["string", "null"],
+          "description": "Position AFTER san is played. Null when status is broken."
+        },
+        "ply": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based half-move index within the game, for labels like 12. or 12…"
+        },
+        "page": { "type": "integer", "minimum": 1, "description": "1-based page number." },
+        "bbox": { "$ref": "#/$defs/bbox" },
+        "variation_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 on the main line, >0 inside a variation. Distinguishes siblings of one parent."
+        },
+        "comment": {
+          "type": ["string", "null"],
+          "description": "Prose attached to the move, when it was read as coherent."
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["ok", "uncertain", "broken"],
+          "description": "ok: legal and unambiguous. uncertain: accepted after an OCR-style repair. broken: no legal reading."
+        },
+        "repair": {
+          "type": ["object", "null"],
+          "description": "Present when status is uncertain: what the page actually showed, and what was substituted.",
+          "properties": {
+            "raw": { "type": "string" },
+            "reason": { "type": "string" }
+          }
+        }
+      }
+    },
+    "bbox": {
+      "type": "object",
+      "description": "PDF user-space points, origin at the BOTTOM-LEFT of the rotated page. y is the box's bottom edge.",
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number", "exclusiveMinimum": 0 },
+        "h": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}
