@@ -58,6 +58,22 @@ class PipelineResult:
             f"  (ok {counts['ok']}, uncertain {counts['uncertain']}, broken {counts['broken']})",
             f"Skipped:     {counts['skipped']} move-shaped tokens rejected before validation",
         ]
+        diagnosis = self.parsed.ambiguity_diagnosis()
+        if diagnosis["total"]:
+            lines.append(
+                f"Ambiguous:   {diagnosis['total']} moves named a square two pieces reach"
+                f"  ({diagnosis['settled_from_consumed']} settled from the figurine,"
+                f" {diagnosis['downstream_of_repair']} below an earlier repair)"
+            )
+            # A book whose ambiguities mostly sit below a repair is not asking
+            # for a cleverer disambiguator: it is reporting that the repairs
+            # above them put the board somewhere the book never went. See
+            # `ParseResult.ambiguity_diagnosis`.
+            if diagnosis["downstream_of_repair"] > diagnosis["clean_line"]:
+                lines.append(
+                    "             <- most sit below a repair: suspect the repairs, "
+                    "not the disambiguation"
+                )
         if self.rce_path:
             lines.append(f"\nArchive:     {self.rce_path}")
         return "\n".join(lines)

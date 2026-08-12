@@ -74,15 +74,23 @@ class Token:
     start: int  # offset into the page's character stream
     end: int
     bbox: BBox | None
+    #: Characters destroyed inside this token's span by the glyph recovery
+    #: pass, in printed order. Empty for every token of a book that did not
+    #: need it. Only collected for moves — it exists so that `parse` can tell a
+    #: disambiguating letter that was eaten from one that was never printed.
+    consumed: str = ""
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "kind": self.kind,
             "text": self.text,
             "raw": self.raw,
             "page": self.page,
             "bbox": self.bbox.to_json() if self.bbox else None,
         }
+        if self.consumed:
+            payload["consumed"] = self.consumed
+        return payload
 
 
 def normalise(text: str) -> str:
@@ -136,8 +144,10 @@ def _tokenize_page(
         # Move numbers and promotions may carry internal spaces ("14 ." or
         # "e8 = Q"); squeeze them so downstream code sees canonical text.
         text_out = match.group() if kind == "annotation" else re.sub(r"\s+", "", match.group())
+        consumed = ""
         if kind == "move":
             text_out = text_out.translate(to_san)
+            consumed = "".join(c.consumed for c in page.chars[start:end])
         yield Token(
             kind=kind,
             text=text_out,
@@ -146,6 +156,7 @@ def _tokenize_page(
             start=start,
             end=end,
             bbox=page.bbox_for(start, end),
+            consumed=consumed,
         )
         cursor = end
 

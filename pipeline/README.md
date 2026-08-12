@@ -278,7 +278,10 @@ Two decisions inside that pass, both measured:
   swallowed with the symbol and the move becomes `♘e4` — still legal, no longer the one
   printed, which is precisely the failure this pipeline refuses everywhere else. At 80%
   the same ambiguity costs a character instead (`♘g5` can come out `♘5`), the move is
-  unreadable and the reader is asked.
+  unreadable and the reader is asked. The characters a figurine covers are kept on it as
+  `consumed` rather than dropped: one of them is sometimes the disambiguating letter, and
+  this is the last place it exists — see [the ambiguity
+  decision](#three-decisions-worth-knowing-about).
 - **Modelling the even division does not work.** Since the symbol's real width is
   measured, the word's remaining characters can be re-laid-out to predict which ones the
   symbol covers. Tried, and worse on both books: 77% → 68% and 46% → 12%. Tesseract's
@@ -301,7 +304,59 @@ the settings it was measured with, and they are not incidental:
 - **Upscaling is not free.** 2x helps, 4x hurts (92% → 84%), and `--psm 13` and `6`
   read the same as `7`.
 
-## Two decisions worth knowing about
+## Three decisions worth knowing about
+
+**An ambiguous move is not an illegal one, and is mostly a symptom.** When a move names
+a piece and a square two of them can legally reach — `Nd2` with knights on b1 and f3 —
+the token is not corrupt: the piece and the destination are legal, only the origin is
+unsaid. So the edit-distance repair below is *not* run on it. It is built for wrong
+characters and would answer a question nobody asked.
+
+What makes this case worth separating is that it should almost never happen.
+`python-chess` already excludes the moves of a pinned piece from `legal_moves`, so the
+usual reason a book prints no disambiguation — only one of the two pieces may legally go
+there — never reaches this path:
+
+```
+Rb1 pinned by the rook on a1, Cf3 free, both "reach" d2
+pseudo-legal to d2 : f3d2, e1d2, b1d2
+legal to d2        : Nd2, Kd2          parse_san("Nd2") -> f3d2, unambiguous
+```
+
+An ambiguity that survives that therefore means one of two things, and they call for
+opposite reactions. Either the **token** lost a character, or the **board is not the one
+the book was on** — an earlier repair put a piece somewhere the book never did. In the
+second case the ambiguity is evidence *against that repair*, and resolving it would
+launder a wrong position into a plausible one.
+
+So only one kind of evidence is admitted, the kind that is actually on the page:
+
+- **The letter the figurine covered.** `glyphs.repair_page` writes a figurine over the
+  characters the scanner read under a piece symbol, and a symbol is twice a letter wide,
+  so the range can also swallow the disambiguating letter beside it (`♘bd2` → `♘d2`).
+  Those characters are now kept on the `Char` as `consumed` and travel to the parser on
+  the token. If exactly one legal reading starts on a file or rank named in them, that is
+  the move, recorded `uncertain` at confidence **0.6** — below the 0.75 of a look-alike
+  repair, because what is being read is a character that no longer exists, recovered from
+  a range that also holds the scanner's guess at the symbol and can name a file by
+  accident. If none match, or two do, the move stays `broken`.
+- **Nothing else.** Playing the rest of the line under each candidate and keeping the one
+  that stays legal would settle many more — and, on a board that is already wrong, would
+  settle them by picking whichever candidate lets the corrupted line continue. It is not
+  implemented until the measurement below says the board can be trusted.
+
+That measurement is `ParseResult.ambiguity_diagnosis()`, printed by `run().report()`:
+
+```
+Ambiguous:   1 moves named a square two pieces reach  (0 settled from the figurine, 1 below an earlier repair)
+             <- most sit below a repair: suspect the repairs, not the disambiguation
+```
+
+`downstream_of_repair` counts the ambiguities standing below a move accepted after a
+repair, with the distance in plies. A book whose ambiguities are mostly those is not
+asking for a cleverer disambiguator: it is reporting that `_MAX_REPAIR_COST` is too
+generous *for it*. A book whose ambiguities sit on clean lines is the case where a
+lookahead would be sound. Which of the two the corpus is has not been measured yet.
 
 **Repairs are conservative.** When a move does not parse, it is compared against the
 position's legal moves under an edit distance where scanner confusions (`0`/`O`,
@@ -322,8 +377,10 @@ unnumbered sequences.
 
 `tests/test_parse.py` covers the move tree and the legality pass — variation branching,
 comment attachment, castling written with zeros, repairs, and the ambiguity cases
-(`Nd2` where both `Nbd2` and `Nfd2` are legal). It builds tokens directly rather than
-going through a PDF, since that part of the job does not need a document.
+(`Nd2` where both `Nbd2` and `Nfd2` are legal): settled when the figurine covered the
+letter, left `broken` when what it covered names neither candidate or both, and counted
+either way by `ambiguity_diagnosis`. It builds tokens directly rather than going through
+a PDF, since that part of the job does not need a document.
 
 `tests/test_glyphs.py` covers the half of the recovery pass that does not need the
 model: which crops are offered to it, with a stub in its place, and how a recognised

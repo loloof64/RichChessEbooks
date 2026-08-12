@@ -10,14 +10,17 @@ import chess
 import pytest
 
 from rce_pipeline.extract import BBox
-from rce_pipeline.parse import _confusable_distance, parse_tokens
+from rce_pipeline.parse import _ambiguous_candidates, _confusable_distance, parse_tokens
 from rce_pipeline.tokenize import Token
 
 BOX = BBox(72.0, 640.0, 18.0, 10.0)
 
 
-def tok(kind: str, text: str, page: int = 1) -> Token:
-    return Token(kind=kind, text=text, raw=text, page=page, start=0, end=len(text), bbox=BOX)
+def tok(kind: str, text: str, page: int = 1, consumed: str = "") -> Token:
+    return Token(
+        kind=kind, text=text, raw=text, page=page,
+        start=0, end=len(text), bbox=BOX, consumed=consumed,
+    )
 
 
 def moves(*pairs: tuple[str, str]) -> list[Token]:
@@ -202,6 +205,50 @@ class TestLegality:
         assert "ambiguous" in ambiguous.repair["reason"]
         assert ambiguous.repair["raw"] == "Nd2"
 
+    def test_settles_an_ambiguity_from_the_letter_the_figurine_covered(self):
+        # The same position, but the token came from a repaired scan: the
+        # figurine was written over `4)` — the scanner's reading of the knight
+        # — and over the `b` of the disambiguation printed beside it.
+        result = parse_tokens(
+            moves(("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                  ("move_number", "2."), ("move", "Nf3"), ("move", "Nf6"),
+                  ("move_number", "3."))
+            + [tok("move", "Nd2", consumed="4)b")]
+        )
+
+        settled = result.moves[-1]
+        assert settled.san == "Nbd2"
+        assert settled.status == "uncertain"
+        assert settled.fen is not None
+        assert settled.uci == "b1d2"
+        # Below a look-alike repair: the evidence is a destroyed character.
+        assert settled.confidence == pytest.approx(0.6)
+        assert result.ambiguities[-1]["settled_by"] == "consumed"
+
+    def test_stays_broken_when_the_covered_letter_names_no_candidate(self):
+        # Only the scanner's guess at the symbol was under the figurine; the
+        # disambiguation was never printed or never covered.
+        result = parse_tokens(
+            moves(("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                  ("move_number", "2."), ("move", "Nf3"), ("move", "Nf6"),
+                  ("move_number", "3."))
+            + [tok("move", "Nd2", consumed="4)")]
+        )
+
+        assert result.moves[-1].status == "broken"
+        assert result.ambiguities[-1]["settled_by"] is None
+
+    def test_stays_broken_when_the_covered_letters_name_both_candidates(self):
+        result = parse_tokens(
+            moves(("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                  ("move_number", "2."), ("move", "Nf3"), ("move", "Nf6"),
+                  ("move_number", "3."))
+            + [tok("move", "Nd2", consumed="bf")]
+        )
+
+        assert result.moves[-1].status == "broken"
+        assert sorted(result.ambiguities[-1]["candidates"]) == ["Nbd2", "Nfd2"]
+
     def test_keeps_an_explicit_disambiguation(self):
         result = parse_tokens(
             moves(
@@ -306,6 +353,84 @@ class TestConfusableDistance:
 
         assert result.moves[-1].status == "broken"
         assert result.moves[-1].fen is None
+
+
+class TestAmbiguityDiagnosis:
+    """Where a book's ambiguities come from — the measurement, not a fix.
+
+    `python-chess` excludes the moves of a pinned piece from `legal_moves`, so
+    the usual reason a book prints no disambiguation — only one of the two
+    pieces may legally go there — never reaches this path. An ambiguity that
+    survives means either the token lost a character or the board is not the
+    one the book was on, and only the second is a reason to distrust the FENs
+    that follow. Telling them apart is what these counts are for.
+    """
+
+    def _ambiguity_below_a_repair(self):
+        # `8f5` is repaired to `Bf5` (8/B is a confusable pair), and the
+        # ambiguity arrives one ply later.
+        return parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nf6"),
+                ("move_number", "3."), ("move", "Bf4"), ("move", "8f5"),
+                ("move_number", "4."), ("move", "Nd2"),
+            )
+        )
+
+    def test_counts_an_ambiguity_standing_below_a_repair(self):
+        result = self._ambiguity_below_a_repair()
+
+        assert result.moves[-2].status == "uncertain"  # the repaired Bf5
+        diagnosis = result.ambiguity_diagnosis()
+        assert diagnosis["total"] == 1
+        assert diagnosis["downstream_of_repair"] == 1
+        assert diagnosis["clean_line"] == 0
+        assert diagnosis["nearest_repair_plies"] == [1]
+
+    def test_counts_an_ambiguity_on_a_line_with_no_repair_above_it(self):
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nf6"),
+                ("move_number", "3."), ("move", "Nd2"),
+            )
+        )
+
+        diagnosis = result.ambiguity_diagnosis()
+        assert diagnosis["downstream_of_repair"] == 0
+        assert diagnosis["clean_line"] == 1
+        assert result.ambiguities[0]["upstream_repair_distance"] is None
+
+    def test_an_unambiguous_book_reports_nothing(self):
+        result = parse_tokens(
+            moves(("move_number", "1."), ("move", "e4"), ("move", "e5"))
+        )
+
+        assert result.counts()["ambiguous"] == 0
+        assert result.ambiguity_diagnosis()["total"] == 0
+
+    def test_ambiguities_stay_out_of_the_contract_file(self):
+        result = self._ambiguity_below_a_repair()
+
+        assert "ambiguities" not in result.to_json()
+
+
+class TestAmbiguousCandidates:
+    def test_a_partial_disambiguation_narrows_the_set(self):
+        # Both white rooks sit on the a-file and both reach a3, so naming the
+        # file changes nothing and only the rank can settle it.
+        board = chess.Board("4k3/8/8/R7/8/8/8/R3K3 w - - 0 1")
+
+        assert len(_ambiguous_candidates(board, "Ra3")) == 2
+        assert len(_ambiguous_candidates(board, "Raa3")) == 2
+        assert len(_ambiguous_candidates(board, "R1a3")) == 1
+
+    def test_a_capture_reads_the_same_with_or_without_the_x(self):
+        board = chess.Board("4k3/8/8/R7/8/r7/8/R3K3 w - - 0 1")
+
+        assert len(_ambiguous_candidates(board, "Rxa3")) == 2
+        assert len(_ambiguous_candidates(board, "Ra3")) == 2
 
 
 def test_starting_position_is_the_default():

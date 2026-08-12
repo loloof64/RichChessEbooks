@@ -75,12 +75,23 @@ class BBox:
 
 @dataclass
 class Char:
-    """One character of the page stream, with where it was printed."""
+    """One character of the page stream, with where it was printed.
+
+    `consumed` holds the characters this one replaced, when it did not come
+    from the text layer: :mod:`rce_pipeline.glyphs` writes a figurine over the
+    characters the scanner read under a piece symbol, and those characters are
+    not only noise. A symbol is about twice as wide as a letter, so its box can
+    cover the disambiguating letter printed next to it (`♘bd2` arriving as
+    `♘d2`), and that letter is knowable here and nowhere later. `parse` uses it
+    to tell a move whose disambiguator was destroyed from one that was never
+    printed — two failures that look identical by the time the board is built.
+    """
 
     char: str
     bbox: BBox
     font: str
     size: float
+    consumed: str = ""
 
 
 @dataclass
@@ -111,8 +122,17 @@ class Page:
             "width": self.width,
             "height": self.height,
             "text": self.text,
+            # `consumed` is omitted where empty, which is every character of a
+            # book that needed no glyph recovery: the artefact carries one
+            # entry per character of the book and does not need the noise.
             "chars": [
-                {"char": c.char, "bbox": c.bbox.to_json(), "font": c.font, "size": c.size}
+                {
+                    "char": c.char,
+                    "bbox": c.bbox.to_json(),
+                    "font": c.font,
+                    "size": c.size,
+                    **({"consumed": c.consumed} if c.consumed else {}),
+                }
                 for c in self.chars
             ],
         }

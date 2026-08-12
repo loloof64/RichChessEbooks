@@ -341,6 +341,12 @@ def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
                     bbox=glyph.bbox,
                     font=GLYPH_FONT,
                     size=round(glyph.bbox.h, 2),
+                    # What the figurine covers is mostly the scanner's guess at
+                    # the symbol, which is worthless — but a symbol is twice a
+                    # letter's width, so the range can also swallow the
+                    # disambiguating letter beside it (`♘bd2` -> `♘d2`). Kept
+                    # because this is the last place it exists.
+                    consumed="".join(c.char for c in page.chars[start:end]),
                 ),
             )
         )

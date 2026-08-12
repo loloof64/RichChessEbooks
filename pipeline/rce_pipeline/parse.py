@@ -47,11 +47,30 @@ _CONFUSABLE_PAIRS = frozenset(
 #: shows it in red and the user settles it against the printed page.
 _MAX_REPAIR_COST = 0.5
 
+#: Confidence given to an ambiguity settled by a character the glyph pass
+#: destroyed. Below the 0.75 of a look-alike repair on purpose: that repair
+#: reads a character that is still on the page, this one leans on a character
+#: that is gone, recovered from what a figurine was written over — which also
+#: holds the scanner's guess at the symbol, and that guess can contain a file
+#: letter by accident.
+_CONSUMED_DISAMBIGUATION_CONFIDENCE = 0.6
+
+#: The characters a SAN disambiguator can be: an origin file or an origin rank.
+_DISAMBIGUATION_CHARS = frozenset("abcdefgh12345678")
+
 #: Comments longer than this are truncated; a runaway match usually means the
 #: tokeniser swallowed a whole page of prose.
 _MAX_COMMENT_LENGTH = 600
 
 _TRAILING_ANNOTATION = re.compile(r"[!?]+$")
+
+#: A SAN piece move, with the disambiguation it may or may not carry. Only
+#: piece moves reach the ambiguity path: a pawn move names its origin file
+#: whenever it captures, and cannot be ambiguous otherwise.
+_PIECE_MOVE = re.compile(
+    r"^(?P<piece>[KQRBN])(?P<from_file>[a-h])?(?P<from_rank>[1-8])?x?"
+    r"(?P<to>[a-h][1-8])[+#]?$"
+)
 
 
 @dataclass
@@ -116,6 +135,9 @@ class ParseResult:
     moves: list[MoveNode] = field(default_factory=list)
     #: Move-shaped tokens rejected before validation, kept for diagnostics.
     skipped: list[dict[str, Any]] = field(default_factory=list)
+    #: One entry per move whose SAN named a piece and a square two pieces could
+    #: legally reach. Diagnostics, not contract: it never reaches `moves.json`.
+    ambiguities: list[dict[str, Any]] = field(default_factory=list)
 
     def counts(self) -> dict[str, int]:
         return {
@@ -125,6 +147,40 @@ class ParseResult:
             "uncertain": sum(1 for m in self.moves if m.status == "uncertain"),
             "broken": sum(1 for m in self.moves if m.status == "broken"),
             "skipped": len(self.skipped),
+            "ambiguous": len(self.ambiguities),
+        }
+
+    def ambiguity_diagnosis(self) -> dict[str, Any]:
+        """Where the ambiguities of this book come from.
+
+        A correctly typeset book read on a correct board should produce almost
+        none. `python-chess` already excludes the moves of a pinned piece from
+        `legal_moves`, so the usual reason a book omits a disambiguator — only
+        one of the two pieces can legally go there — never reaches this path.
+        When an ambiguity does appear, something upstream is wrong, and this
+        counts which of the two candidates it is:
+
+        - `downstream_of_repair`: an earlier move in the same line was accepted
+          after a repair, so the board may not be the book's. The ambiguity is
+          then evidence *against that repair*, and resolving it — by lookahead
+          or otherwise — would launder a wrong position into a plausible one.
+        - `clean_line`: no repair above it. The board is as good as this
+          pipeline can make it, and the token itself is what lost the letter.
+
+        `settled_from_consumed` counts those the glyph pass could answer, which
+        are `clean_line` cases by construction. A book whose ambiguities are
+        mostly `downstream_of_repair` is telling you `_MAX_REPAIR_COST` is too
+        generous for it, not that it needs a cleverer disambiguator.
+        """
+        downstream = [a for a in self.ambiguities if a["upstream_repair_distance"] is not None]
+        return {
+            "total": len(self.ambiguities),
+            "downstream_of_repair": len(downstream),
+            "clean_line": len(self.ambiguities) - len(downstream),
+            "settled_from_consumed": sum(
+                1 for a in self.ambiguities if a["settled_by"] == "consumed"
+            ),
+            "nearest_repair_plies": sorted(a["upstream_repair_distance"] for a in downstream),
         }
 
     def to_json(self) -> dict[str, Any]:
@@ -256,7 +312,8 @@ def parse_tokens(
             continue
 
         board_before = level.board.copy()
-        move, san, status, confidence, repair = _resolve(board_before, token.text)
+        resolution = _resolve(board_before, token.text, token.consumed)
+        move = resolution.move
 
         move_counter += 1
         sibling_key = (game.id, level.parent_id)
@@ -264,18 +321,36 @@ def parse_tokens(
             id=f"{game.id}-m{move_counter}",
             game_id=game.id,
             parent_id=level.parent_id,
-            san=san,
+            san=resolution.san,
             uci=move.uci() if move else None,
             fen=None,
             ply=board_before.ply() + 1,
             page=token.page,
             bbox=token.bbox,
             variation_index=child_counts.get(sibling_key, 0),
-            confidence=confidence,
-            status=status,
-            repair=repair,
+            confidence=resolution.confidence,
+            status=resolution.status,
+            repair=resolution.repair,
         )
         child_counts[sibling_key] = node.variation_index + 1
+
+        if resolution.candidates:
+            result.ambiguities.append(
+                {
+                    "move_id": node.id,
+                    "page": token.page,
+                    "raw": token.text,
+                    "consumed": token.consumed,
+                    "candidates": resolution.candidates,
+                    "settled_by": resolution.settled_by,
+                    # The distance, in plies, to the nearest move above this
+                    # one that was accepted after a repair — the measurement
+                    # that says whether the board can be trusted here at all.
+                    "upstream_repair_distance": _upstream_repair_distance(
+                        by_id, level.parent_id
+                    ),
+                }
+            )
 
         if move is not None:
             level.board.push(move)
@@ -305,13 +380,27 @@ def _append_comment(node: MoveNode, text: str) -> None:
     node.comment = merged[:_MAX_COMMENT_LENGTH]
 
 
-def _resolve(
-    board: chess.Board, raw: str
-) -> tuple[chess.Move | None, str, str, float, dict[str, str] | None]:
+@dataclass
+class _Resolution:
+    """What `_resolve` made of one move token."""
+
+    move: chess.Move | None
+    san: str
+    status: str
+    confidence: float
+    repair: dict[str, str] | None = None
+    #: The legal readings, when the token failed for being ambiguous rather
+    #: than illegal. Empty otherwise, and empty is what marks the difference.
+    candidates: list[str] = field(default_factory=list)
+    #: What settled the ambiguity, when something did.
+    settled_by: str | None = None
+
+
+def _resolve(board: chess.Board, raw: str, consumed: str = "") -> _Resolution:
     """Read `raw` as a move in `board`, repairing it if needed.
 
-    Returns the move (None when unreadable), the SAN to record, the status,
-    a confidence in [0, 1], and — when a repair was applied — what it changed.
+    `consumed` is the characters the glyph pass destroyed inside this token,
+    and is only ever consulted for an ambiguous move; see `_settle_ambiguity`.
     """
     candidate = _TRAILING_ANNOTATION.sub("", raw.strip())
     # Castling printed with zeros is a typographic variant, not a scanning
@@ -320,13 +409,9 @@ def _resolve(
 
     try:
         move = board.parse_san(plain)
-        return move, board.san(move), "ok", 1.0, None
+        return _Resolution(move, board.san(move), "ok", 1.0)
     except chess.AmbiguousMoveError:
-        # The move names a piece and a destination two pieces can reach: the
-        # book printed a disambiguation letter (Nbd2) that did not survive
-        # extraction. Worth telling apart from an outright illegal move,
-        # because it is the easiest kind for the user to settle.
-        failure = "ambiguous: the disambiguating letter is missing"
+        return _settle_ambiguity(board, plain, raw, consumed)
     except (ValueError, AssertionError):
         failure = "no legal reading in this position"
 
@@ -341,22 +426,137 @@ def _resolve(
             best.append((legal, legal_san))
 
     if best_cost > _MAX_REPAIR_COST or not best:
-        return None, plain, "broken", 0.0, {"raw": raw, "reason": failure}
+        return _Resolution(None, plain, "broken", 0.0, {"raw": raw, "reason": failure})
 
     if len(best) > 1:
         # Two legal moves are equally plausible readings. Choosing one at
         # random would hide the problem; leave it for the user to settle.
         options = ", ".join(san for _, san in best[:4])
-        return None, plain, "broken", 0.0, {"raw": raw, "reason": f"ambiguous between {options}"}
+        return _Resolution(
+            None, plain, "broken", 0.0,
+            {"raw": raw, "reason": f"ambiguous between {options}"},
+        )
 
     move, legal_san = best[0]
-    return (
+    return _Resolution(
         move,
         legal_san,
         "uncertain",
         max(0.0, 1.0 - best_cost / 2.0),
         {"raw": raw, "reason": f"read as {legal_san} (edit cost {best_cost:g})"},
     )
+
+
+def _settle_ambiguity(
+    board: chess.Board, plain: str, raw: str, consumed: str
+) -> _Resolution:
+    """Handle a move naming a piece and a square two of them can reach.
+
+    The edit-distance repair is deliberately not tried here. It is built for a
+    token whose characters are wrong, and this token's are not: the piece and
+    the destination are legal, only the origin is unsaid. Letting it run would
+    answer a question nobody asked, and could return some *other* legal move
+    that happens to look alike.
+
+    The one thing that can answer, when it is there, is a character the glyph
+    pass destroyed. A figurine is written over the characters the scanner read
+    under a piece symbol, and — being twice a letter wide — sometimes over the
+    disambiguating letter beside it. If exactly one of the legal readings
+    starts on a file or rank named in what was destroyed, that is the move the
+    book printed. If none do, or if two do, the answer is not on the page and
+    the move is `broken`: the user settles it against the print.
+    """
+    candidates = _ambiguous_candidates(board, plain)
+    sans = [board.san(move) for move in candidates]
+
+    hints = {ch for ch in consumed if ch in _DISAMBIGUATION_CHARS}
+    matched = [
+        (move, san)
+        for move, san in zip(candidates, sans)
+        if _origin_hints(move.from_square) & hints
+    ]
+    if len(matched) == 1:
+        move, san = matched[0]
+        return _Resolution(
+            move,
+            san,
+            "uncertain",
+            _CONSUMED_DISAMBIGUATION_CONFIDENCE,
+            {"raw": raw, "reason": f"read as {san}: '{consumed}' was under the figurine"},
+            candidates=sans,
+            settled_by="consumed",
+        )
+
+    options = ", ".join(sans[:4]) or "no legal reading"
+    return _Resolution(
+        None,
+        plain,
+        "broken",
+        0.0,
+        {"raw": raw, "reason": f"ambiguous: the disambiguating letter is missing ({options})"},
+        candidates=sans,
+    )
+
+
+def _ambiguous_candidates(board: chess.Board, san: str) -> list[chess.Move]:
+    """The legal moves `san` could name, when it names more than one.
+
+    Built from the piece and the destination rather than by comparing SAN
+    strings, so a token that already carries part of its disambiguation
+    (`Raa4`, two rooks on the a-file) narrows the set instead of missing it.
+    Whether the token spells the capture is not used: books drop the `x`, and
+    a wider set only makes the caller more cautious.
+    """
+    parts = _PIECE_MOVE.match(san)
+    if parts is None:
+        return []
+
+    piece_type = chess.PIECE_SYMBOLS.index(parts["piece"].lower())
+    to_square = chess.parse_square(parts["to"])
+    from_file = parts["from_file"]
+    from_rank = parts["from_rank"]
+
+    candidates = []
+    for legal in board.legal_moves:
+        if legal.to_square != to_square:
+            continue
+        if board.piece_type_at(legal.from_square) != piece_type:
+            continue
+        if from_file and chess.square_file(legal.from_square) != chess.FILE_NAMES.index(from_file):
+            continue
+        if from_rank and chess.square_rank(legal.from_square) != chess.RANK_NAMES.index(from_rank):
+            continue
+        candidates.append(legal)
+    return candidates
+
+
+def _origin_hints(square: int) -> set[str]:
+    """The two characters that could disambiguate a move leaving `square`."""
+    return {
+        chess.FILE_NAMES[chess.square_file(square)],
+        chess.RANK_NAMES[chess.square_rank(square)],
+    }
+
+
+def _upstream_repair_distance(
+    by_id: dict[str, MoveNode], parent_id: str | None
+) -> int | None:
+    """Plies back to the nearest ancestor accepted after a repair, if any.
+
+    Walks through a variation into the line it branched from, which is right:
+    the position really does descend from there.
+    """
+    distance = 1
+    node_id = parent_id
+    while node_id is not None:
+        node = by_id.get(node_id)
+        if node is None:
+            return None
+        if node.status == "uncertain":
+            return distance
+        node_id = node.parent_id
+        distance += 1
+    return None
 
 
 def _confusable_distance(a: str, b: str) -> float:

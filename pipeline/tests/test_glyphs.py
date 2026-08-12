@@ -22,6 +22,7 @@ from rce_pipeline.glyphs import (
     placement_score,
     repair_page,
 )
+from rce_pipeline.tokenize import tokenize_pages
 
 CHAR_WIDTH = 5.0
 LINE_HEIGHT = 14.0
@@ -65,6 +66,24 @@ class TestRepair:
         repaired = repair_page(page("1.Dxe4"), [glyph("N", 30.0, 1.5 * CHAR_WIDTH)])
 
         assert repaired.text == "1.♘xe4"
+
+    def test_keeps_the_letter_it_covered_for_the_parser(self):
+        # "1.♘bd2" scanned as "1.Dbd2": the symbol covers the scanner's `D`
+        # and the `b` that says which knight. Writing the figurine destroys
+        # both — and the `b` is the answer to the ambiguity that creates.
+        repaired = repair_page(page("1.Dbd2"), [glyph("N", 30.0, 2 * CHAR_WIDTH)])
+
+        assert repaired.text == "1.♘d2"
+        assert next(c for c in repaired.chars if c.char == "♘").consumed == "Db"
+
+    def test_the_covered_letter_reaches_the_move_token(self):
+        # The offsets survive the rewrite: the token's span indexes the
+        # repaired stream, not the one the scanner produced.
+        repaired = repair_page(page("1.Dbd2"), [glyph("N", 30.0, 2 * CHAR_WIDTH)])
+
+        move = next(t for t in tokenize_pages([repaired]) if t.kind == "move")
+        assert move.text == "Nd2"
+        assert move.consumed == "Db"
 
     def test_symbol_carries_its_own_box_and_font(self):
         repaired = repair_page(page("1.Dxe4"), [glyph("Q", 30.0, 2 * CHAR_WIDTH)])
