@@ -4,15 +4,15 @@ Extracts chess moves — with the box each one occupies on its page — from a P
 book, and packages them into a `.rce` archive for the Flutter reader.
 
 v1 handles two notations: **figurine Unicode**, and **plain letters** in any of the
-supported languages (`en`, `fr`, `de`, `es`, `it`, `nl`). Figurine *fonts* are detected
-but cannot be parsed — their text layer holds latin letters bearing no relation to the
-pieces drawn.
+supported languages (`en`, `fr`, `de`, `es`, `it`, `nl`).
 
-It needs a real text layer. On a **scanned** book the embedded layer is OCR output, and
-for chess notation that output is unusable: every piece symbol lands on an arbitrary
-character (`♘`→`4)`, `♕`→`W`, `♗`→`2`), and the squares beside them get dragged down
-too (`g6`→`26`, `e6`→`eb`). Detection will report this rather than pretend; see the
-scan notes below.
+Both are read from the text layer. A third kind of book has no readable piece symbols in
+that layer at all — a **scan**, whose OCR lands every symbol on an arbitrary character
+(`♘`→`4)`, `♕`→`W`, `♗`→`2`), and a **figurine font**, whose layer holds the latin
+letters the font draws pieces from. For those the symbols are read off the page images
+by a trained classifier and written back in as figurines, after which the rest of the
+pipeline is unchanged; see [Books whose symbols are only in the
+image](#books-whose-symbols-are-only-in-the-image).
 
 ## Running it
 
@@ -25,10 +25,13 @@ will land on its move.
 Locally, if you want it:
 
 ```bash
-pip install -e .[dev]
+pip install -e .[dev]          # .[glyphs] alone for the recogniser without pytest
 python -c "from rce_pipeline import run; print(run('book.pdf', output_path='book.rce').report())"
 pytest
 ```
+
+The recogniser's dependencies (`scikit-learn`, `scikit-image`, `numpy`, `pillow`) are an
+extra rather than a requirement: a book with a usable text layer never loads them.
 
 ## The five steps
 
@@ -39,7 +42,8 @@ dominates the runtime and is the one you least often need to repeat.
 | Module | Does | Artefact |
 | --- | --- | --- |
 | `extract.py` | Text and per-**character** geometry, via PyMuPDF | `01_pages.json` |
-| `scan.py` | Scans only: printed lines rebuilt from the OCR boxes, and their crops | — |
+| `scan.py` | Printed lines rebuilt from the layer's boxes, and their crops | — |
+| `glyphs.py` | The piece symbols in those crops, written back into the pages | `01b_glyphs.json` |
 | `notation.py` | Figurine Unicode, figurine font, or letters — and which language | `02_notation.json` |
 | `tokenize.py` | Typed tokens (move, number, bracket, prose), each keeping its box | `03_tokens.json` |
 | `parse.py` | Move tree, legality against `python-chess`, FEN reconstruction | `04_moves.json` |
@@ -48,13 +52,13 @@ dominates the runtime and is the one you least often need to repeat.
 Character granularity in step 1 is what lets a box cover the move alone: books glue
 moves to their punctuation (`14.Nf3!,` `e4)`), and a word-level box would swallow it.
 
-`scan.py` sits beside step 1 rather than in the chain: it is only useful on a scan,
-and nothing downstream consumes it yet. It is described under [Scanned
-books](#scanned-books).
+`scan.py` and `glyphs.py` sit beside step 1 rather than in the chain: they run only when
+`run(glyph_model=...)` is given and the book needs them. They are described under [Books
+whose symbols are only in the image](#books-whose-symbols-are-only-in-the-image).
 
-## Scanned books
+## Books whose symbols are only in the image
 
-Most of the target corpus is scanned, and scans do not work yet. The reason is worth
+Most of the target corpus is scanned. The reason a scan cannot simply be read is worth
 recording, because it rules out the obvious fixes.
 
 A scanned PDF carries an OCR text layer. Its **prose** is usually good. Its **moves**
@@ -82,8 +86,13 @@ recognise them against the tiny alphabet chess notation actually uses — `a`–
 final filter. A constrained recogniser over ~25 symbols is a far easier problem than
 general OCR, and the piece glyphs are visually distinctive.
 
-The locating half of that is built (`scan.py`). The recognising half is not, and the
-measurements below have changed what it should be.
+Both halves are built: `scan.py` locates the lines, `glyphs.py` reads the piece symbols
+in them. What it does *not* do is re-read the squares — the measurements below are why.
+
+A book set in a figurine **font** turns out to be the same problem and takes the same
+fix. Its layer holds `tlJf3` where `♘f3` is printed, which is unreadable for exactly the
+reason a scan's `4)xf7` is; the symbols are in the image and nowhere else. Such a book
+used to be reported unparseable and now goes through the same recovery pass.
 
 ### Finding the printed lines
 
@@ -169,16 +178,24 @@ components were masked on 32 lines, several times the number of glyphs printed o
 them. Isolating a glyph needs the classifier, or a segmentation that survives touching
 type — not a bounding box.
 
-### What the existing glyph classifier can do
+### The glyph classifier
 
-There is a trained piece classifier outside this repository, at
-`entrainement_ocr_echecs/6class/chess_glyphs_classifier.zip`. Measured findings, so the
+The trained piece classifier lives outside this repository, at
+`entrainement_ocr_echecs/6class/chess_glyphs_classifier.zip`. `glyphs.GlyphClassifier`
+loads it from the zip, the unpacked directory or the pickle. Measured findings, so the
 work is not redone:
 
 - It is a `RandomForestClassifier` over **1767 features**: `skimage.hog` on the glyph
   resized to 32x32, `orientations=9`, `pixels_per_cell=(4,4)`, `cells_per_block=(2,2)`
-  — 1764 values — followed by 3 more that appear unused. Nothing records this; it was
-  recovered by matching feature counts and checking the confusion matrix.
+  — 1764 values — followed by the crop's **aspect ratio, mean and standard deviation**.
+  Nothing records this; it was recovered by matching feature counts, then confirmed by
+  scoring the training glyphs back through the model. An earlier reading of this file
+  called those last three unused, which is wrong and would have cost real accuracy:
+  the aspect ratio alone carries 1.9% of the model's importance, its split thresholds
+  land exactly between the classes' ratios (0.75 for `R`, 0.80 `B`, 0.86 `K`/`Q`, 0.91
+  `N`), and feeding zeros instead drops the median confidence on the training glyphs
+  from 0.999 to 0.965 — which matters, because confidence is the only thing separating
+  a piece from a letter here.
 - Its five classes are ordered `K, Q, R, B, N` — chess order, **not** alphabetical.
   Assuming alphabetical yields a clean permutation matrix and 0.1% accuracy, which
   looks like a broken model and is not one.
@@ -204,6 +221,73 @@ concludes the model is more sophisticated than it is.
 The classifier covers piece symbols only, which the measurements above suggest is
 most of what is missing: the squares are 92% right in the layer already, and the ones
 that are wrong are the ones standing next to a glyph.
+
+### Reading the symbols off the page: what it is worth
+
+`glyphs.py` cuts the ink of a rendered line into connected components, offers the ones
+shaped like a piece to the classifier, and keeps what comes back confident enough.
+Scored against the 54 symbols printed on two hand-read pages of the French scan:
+
+| Confidence | Symbols recovered | Symbols invented |
+| --- | --- | --- |
+| 0.35 | 54 / 54 (100%) | 8 |
+| 0.40 | 53 / 54 (98%) | 1 |
+| **0.45** | **53 / 54 (98%)** | **0** |
+| 0.50 | 48 / 54 (89%) | 0 |
+| 0.60 | 41 / 54 (76%) | 0 |
+
+0.45 is the knee, and is the default. The one symbol missed is a bishop scoring 0.38 —
+bishops score lowest on this book, which is worth remembering when tuning another.
+`scripts/eval_glyphs.py` reproduces the table (`--sweep`) against
+`scripts/sample_truth.json`, the hand-read transcript of those two pages.
+
+Two of the three gates are geometric, and they are doing most of the work. A candidate
+must be **1.45 to 2.6 times the page's median component width** — the median component
+is a letter, and a piece glyph is about twice one — and **no wider than 1.1 times its own
+height**. That second one is the important one: bold notation touches at 360 dpi, so
+`xe4` arrives as a single blob wide enough to pass for a symbol, and nothing else
+distinguishes it. Without the aspect gate the same settings invent 8 pieces instead of
+none. The reference width is taken over the whole page, not the line: `4.♘g5!!` is a
+real line, and four characters cannot supply a median.
+
+### Writing the symbols back: only as good as the layer's boxes
+
+A recognised symbol has to replace the characters the scanner read under it, and that
+depends on boxes this pipeline did not produce. Tesseract does not box characters
+individually — it boxes a word and divides that box evenly among the characters it read
+— so a symbol twice as wide as a letter overlaps its neighbour's box by half.
+
+`glyphs.placement_score` measures the damage on any book, with no ground truth: what
+share of the symbols written in ended up at the head of a move (`♘xe4`) rather than
+beside one (`♘ZJg3`). It separates the two sample books cleanly:
+
+| Book | Layer | Symbols | At the head of a move |
+| --- | --- | --- | --- |
+| French scan (`CommentDevenirSuperAttaquant`) | `GlyphLessFont`, tight boxes | 53 | 41 (77%) |
+| `BoussoleSurEchiquier` | loose boxes, `tZJ` for `♘` | 105 | 48 (46%) |
+
+The first reads `1.Dxe4! Acxe4 2.Hxe4! Axes` back as `1.♘xe4! ♘cxe4 2.♖xe4! ♘xes` —
+every symbol at the head of its move, and the two remaining errors (`xes`, `xed`) the
+scanner's own, in the squares. The second lands symbols one character off (`♘ZJg3`),
+which no recogniser can fix: the boxes are wrong before the classifier is asked
+anything. The score is printed in `run().report()` and flagged below 75%.
+
+Two decisions inside that pass, both measured:
+
+- **A character has to be 80% covered to be replaced.** At 50% the `x` of `♘xe4` is
+  swallowed with the symbol and the move becomes `♘e4` — still legal, no longer the one
+  printed, which is precisely the failure this pipeline refuses everywhere else. At 80%
+  the same ambiguity costs a character instead (`♘g5` can come out `♘5`), the move is
+  unreadable and the reader is asked.
+- **Modelling the even division does not work.** Since the symbol's real width is
+  measured, the word's remaining characters can be re-laid-out to predict which ones the
+  symbol covers. Tried, and worse on both books: 77% → 68% and 46% → 12%. Tesseract's
+  layout is evidently not the even division it appears to be, and the plain overlap rule
+  beats a wrong model of it.
+
+A book at 46% is not worth parsing from its layer. Reading those pages in full — squares
+included — is the next thing to try, and the [re-OCR measurements](#re-reading-the-squares-what-the-constrained-tesseract-is-worth)
+above say a whitelist Tesseract will not be how it is done.
 
 ### Settings for the constrained Tesseract
 
@@ -240,6 +324,11 @@ unnumbered sequences.
 comment attachment, castling written with zeros, repairs, and the ambiguity cases
 (`Nd2` where both `Nbd2` and `Nfd2` are legal). It builds tokens directly rather than
 going through a PDF, since that part of the job does not need a document.
+
+`tests/test_glyphs.py` covers the half of the recovery pass that does not need the
+model: which crops are offered to it, with a stub in its place, and how a recognised
+symbol is written back into a page. Whether the model recognises a knight is measured by
+`scripts/eval_glyphs.py`, not asserted — the numbers are in the tables above.
 
 `tests/test_scan.py` covers line segmentation the same way, from boxes rather than
 from a scan: the narrow gutter, fragments of one line, overlapping line boxes, diagram

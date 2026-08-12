@@ -32,14 +32,19 @@ than scanned — in either **figurine Unicode** or **plain letters** (`en`, `fr`
 - `.rce` packaging, and import into the app
 - clickable zones that stay aligned at any zoom, and a static board on tap
 
-**Scanned books do not work yet, and they are the bulk of the target corpus.** A scan's
-text layer is OCR output; its prose is fine but its moves are not, because the piece
-glyphs have no OCR category and the surrounding characters degrade with them. Finding
-the printed lines and cropping them for a recogniser is built and tested; recognising
-what is in the crop is not, and measuring the crops has narrowed what that recogniser
-has to do. The reasoning and the numbers are in
-[`pipeline/README.md`](pipeline/README.md#scanned-books). This is the main open piece
-of work.
+**Scanned books are half-way in, and they are the bulk of the target corpus.** A scan's
+text layer is OCR output: its prose is fine, its squares are 92% right, and its piece
+symbols are worthless — a knight has no OCR category, so it lands on whatever character
+looked closest. Those symbols are now read off the page images instead, by a trained
+classifier, and written back into the pages as figurines: **53 of the 54 printed on two
+hand-read pages, none invented**. A book set in a figurine *font* takes the same route
+and used to be unparseable too.
+
+What is not settled is where a recovered symbol belongs in the text, which depends on
+boxes the scanner placed, not the classifier: 77% of them land at the head of their move
+on a well-boxed book and 46% on a loosely boxed one. The pipeline measures and reports
+that share rather than assuming it. The reasoning and the numbers are in
+[`pipeline/README.md`](pipeline/README.md#books-whose-symbols-are-only-in-the-image).
 
 Also not built: the correction UI and `patches.json` writing (the format is specified
 and the reader is designed around it, but nothing writes patches yet), and EPUB, which
@@ -50,7 +55,8 @@ model is incompatible with this one.
 
 1. Open [`notebooks/rce_pipeline.ipynb`](notebooks/rce_pipeline.ipynb) in Colab, upload
    your PDF, and run it. Start with a chapter (`FIRST_PAGE` / `LAST_PAGE`) whose
-   content you know.
+   content you know. If step 4 says the book's piece symbols are only in the image,
+   step 4b wants the glyph classifier uploaded too.
 2. Check step 7 — it draws the extracted boxes on the rendered page. If the frames sit
    on the moves, the geometry is right.
 3. Download the `.rce` and open it in the app.

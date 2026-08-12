@@ -1,0 +1,210 @@
+"""Tests for the piece-glyph recovery pass.
+
+Two halves, tested differently. Writing a recognised symbol back into a page is
+geometry over boxes, so those tests build pages by hand the way
+`test_scan.py` does, and no classifier is involved. Finding the symbols needs
+an image and the trained model, neither of which belongs in a repository; what
+is tested there is the part that does not depend on the model — which crops are
+offered to it at all — with a stub standing in for it.
+
+What no test here covers is whether the model recognises a knight. That is
+measured, not asserted: `scripts/eval_glyphs.py` scores it against a hand-read
+page, and the numbers live in the README.
+"""
+
+import pytest
+
+from rce_pipeline.extract import GLYPH_FONT, BBox, Char, Page
+from rce_pipeline.glyphs import (
+    GlyphClassifier,
+    PieceGlyph,
+    find_glyphs,
+    placement_score,
+    repair_page,
+)
+
+CHAR_WIDTH = 5.0
+LINE_HEIGHT = 14.0
+
+
+def page(text: str, *, x: float = 20.0, y: float = 100.0) -> Page:
+    """A one-line page whose characters are laid out left to right.
+
+    Every character gets the same box, which is what an OCR layer does: it
+    boxes a word and divides that box evenly among the characters it read.
+    """
+    chars = [
+        Char(char, BBox(x + offset * CHAR_WIDTH, y, CHAR_WIDTH, LINE_HEIGHT), "GlyphLessFont", 10.0)
+        for offset, char in enumerate(text)
+    ]
+    return Page(number=1, width=472.0, height=624.0, text=text, chars=chars)
+
+
+def glyph(piece: str, x: float, w: float, *, y: float = 100.0, confidence: float = 0.8) -> PieceGlyph:
+    return PieceGlyph(
+        piece=piece,
+        confidence=confidence,
+        page=1,
+        bbox=BBox(x, y, w, LINE_HEIGHT),
+        width_ratio=1.9,
+    )
+
+
+class TestRepair:
+    def test_replaces_what_the_scanner_read_under_the_symbol(self):
+        # "1.Dxe4" — the scanner read D where a knight is printed, and the
+        # knight is twice as wide as a letter, so it covers two character boxes.
+        repaired = repair_page(page("1.Dxe4"), [glyph("N", 30.0, 2 * CHAR_WIDTH)])
+
+        assert repaired.text == "1.♘e4"
+
+    def test_keeps_a_character_the_symbol_only_half_covers(self):
+        # The same knight, one character to the left: it covers "D" entirely and
+        # "x" by half. Half is not enough — losing the "x" turns a capture into
+        # a quiet move that is just as legal and is not the one in the book.
+        repaired = repair_page(page("1.Dxe4"), [glyph("N", 30.0, 1.5 * CHAR_WIDTH)])
+
+        assert repaired.text == "1.♘xe4"
+
+    def test_symbol_carries_its_own_box_and_font(self):
+        repaired = repair_page(page("1.Dxe4"), [glyph("Q", 30.0, 2 * CHAR_WIDTH)])
+        written = next(char for char in repaired.chars if char.char == "♕")
+
+        assert written.font == GLYPH_FONT
+        assert written.bbox == BBox(30.0, 100.0, 10.0, LINE_HEIGHT)
+
+    def test_inserts_a_symbol_the_scanner_dropped(self):
+        # "4... e8" for "4...♖e8" happens: the scanner read nothing where the
+        # symbol is printed and closed the gap. There is nothing to replace, so
+        # the symbol goes in before the first character printed after it.
+        source = page("4...")
+        second = page("e8", x=60.0)
+        source.chars.extend(second.chars)
+        source.text += second.text
+
+        repaired = repair_page(source, [glyph("R", 45.0, 2 * CHAR_WIDTH)])
+
+        assert repaired.text == "4...♖e8"
+
+    def test_leaves_other_pages_alone(self):
+        source = page("1.Dxe4")
+        elsewhere = PieceGlyph("N", 0.9, 7, BBox(30.0, 100.0, 10.0, LINE_HEIGHT), 1.9)
+
+        assert repair_page(source, [elsewhere]).text == "1.Dxe4"
+
+    def test_applies_several_symbols_to_one_line(self):
+        repaired = repair_page(
+            page("1.Dxe4 Hxe4"),
+            [glyph("N", 30.0, 2 * CHAR_WIDTH), glyph("R", 55.0, 2 * CHAR_WIDTH)],
+        )
+
+        assert repaired.text == "1.♘e4 ♖e4"
+
+
+class TestPlacementScore:
+    def test_counts_symbols_that_landed_inside_a_move(self):
+        assert placement_score([page("1.♘xe4 ♖e8")]) == (2, 2)
+
+    def test_reports_symbols_spliced_into_the_wrong_place(self):
+        # What a loosely boxed layer produces: the symbol is right, the
+        # characters it replaced were not the ones under it.
+        assert placement_score([page("11...♘ZJg3 ♕'gS")]) == (0, 2)
+
+
+class FakeModel:
+    """Stands in for the trained forest: says knight, at a fixed confidence."""
+
+    n_features_in_ = 1767
+
+    def __init__(self, confidence: float = 0.9):
+        self.confidence = confidence
+        self.seen: list[tuple[int, int]] = []
+
+    def predict_proba(self, features):
+        import numpy as np
+
+        rest = (1.0 - self.confidence) / 4
+        return np.array([[rest, rest, rest, rest, self.confidence]] * len(features))
+
+
+class TestCandidates:
+    """Which ink the classifier is shown, which is where the rejecting happens."""
+
+    def line_image(self, blobs, *, width=200, height=50):
+        """A crop with black rectangles on white, as (x, y, w, h) in pixels."""
+        np = pytest.importorskip("numpy")
+        pytest.importorskip("skimage")
+        Image = pytest.importorskip("PIL.Image")
+        import io
+
+        from rce_pipeline.scan import Line, LineImage
+
+        array = np.full((height, width), 255, dtype="uint8")
+        for x, y, w, h in blobs:
+            array[y : y + h, x : x + w] = 0
+        buffer = io.BytesIO()
+        Image.fromarray(array).save(buffer, format="PNG")
+        line = Line(
+            page=1,
+            bbox=BBox(20.0, 100.0, width / 5, height / 5),
+            text="1.Dxe4",
+            spans=((0, 6),),
+            column=0,
+            coverage=0.95,
+        )
+        return LineImage(
+            line=line,
+            png=buffer.getvalue(),
+            width=width,
+            height=height,
+            scale=5.0,
+            clip=BBox(20.0, 100.0, width / 5, height / 5),
+        )
+
+    def test_offers_the_wide_square_blob_and_not_the_letters(self):
+        # Four letters 10 wide and one symbol 20 wide and 20 tall: the letters
+        # are the majority, so they set the width everything is measured
+        # against, and only the symbol is far enough above it.
+        letters = [(x, 10, 10, 20) for x in (0, 20, 40, 60)]
+        model = FakeModel()
+
+        glyphs = find_glyphs([self.line_image(letters + [(100, 8, 20, 20)])], GlyphClassifier(model))
+
+        assert [(g.piece, round(g.confidence, 2)) for g in glyphs] == [("N", 0.9)]
+
+    def test_rejects_a_run_of_touching_letters(self):
+        # `xe4` set in bold touches at 360 dpi and reaches the recogniser as one
+        # blob. It is wide enough to look like a symbol and nothing like square.
+        letters = [(x, 10, 10, 20) for x in (0, 20, 40, 60)]
+        model = FakeModel()
+
+        glyphs = find_glyphs([self.line_image(letters + [(100, 10, 32, 20)])], GlyphClassifier(model))
+
+        assert glyphs == []
+
+    def test_rejects_a_symbol_the_model_is_unsure_about(self):
+        letters = [(x, 10, 10, 20) for x in (0, 20, 40, 60)]
+        model = FakeModel(confidence=0.3)
+
+        glyphs = find_glyphs([self.line_image(letters + [(100, 8, 20, 20)])], GlyphClassifier(model))
+
+        assert glyphs == []
+
+    def test_maps_the_symbol_back_to_page_coordinates(self):
+        letters = [(x, 10, 10, 20) for x in (0, 20, 40, 60)]
+        image = self.line_image(letters + [(100, 8, 20, 20)])
+
+        found = find_glyphs([image], GlyphClassifier(FakeModel()))[0]
+
+        # 5 pixels per point, crop origin at x=20, and the crop's top edge is
+        # the high-y edge of the clip: y = 100 + 10 - (8 + 20) / 5.
+        assert found.bbox == BBox(40.0, 104.4, 4.0, 4.0)
+
+
+class TestModelGuard:
+    def test_refuses_a_model_expecting_other_features(self):
+        class Other:
+            n_features_in_ = 900
+
+        with pytest.raises(ValueError, match="900"):
+            GlyphClassifier(Other())

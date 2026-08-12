@@ -31,6 +31,12 @@ FIGURINE_FONT_HINTS = (
     "informator",
 )
 
+#: Font name carried by characters that :mod:`rce_pipeline.glyphs` recovered
+#: from the page image rather than read from the text layer. It is not a real
+#: font; it lives here, beside the other font constants, so that the notation
+#: detector can recognise a repaired page without importing the recogniser.
+GLYPH_FONT = "rce-glyph"
+
 
 @dataclass(frozen=True)
 class BBox:

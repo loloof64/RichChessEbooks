@@ -1,0 +1,203 @@
+{
+ "book": {
+  "file": "CommentDevenirSuperAttaquant.pdf",
+  "sha256": "dfdd63ac48173f59fa9e00251c7d6e496cb9f01ce71d4d58cdbe4a3400d95a12",
+  "note": "French, scanned, figurine; pieces read off the rendered line crops by eye"
+ },
+ "5": [
+  {
+   "pieces": "",
+   "text": "14. Préparez-vous au sacrifice"
+  },
+  {
+   "pieces": "NNRNRQ",
+   "text": "1.Dxe4! Acxe4 2.Hxe4! Axes 3.Bxe4 Wxed"
+  },
+  {
+   "pieces": "N",
+   "text": "4.Ag5!!"
+  },
+  {
+   "pieces": "",
+   "text": "Voila qui pourrait fournir objet d’une"
+  },
+  {
+   "pieces": "QN",
+   "text": "4...Yxh4 perd sur 5.Af7#, analyse blan-"
+  },
+  {
+   "pieces": "",
+   "text": "che peut donc continuer. La meilleure option"
+  },
+  {
+   "pieces": "R",
+   "text": "noire est maintenant de jouer 4...e8, mais"
+  },
+  {
+   "pieces": "",
+   "text": "les Blancs peuvent échanger leur Fou et leur"
+  },
+  {
+   "pieces": "QQQN",
+   "text": "4... g6 5.Wxh7+!! Wxh7 6.2£7# (1-0)"
+  },
+  {
+   "pieces": "N",
+   "text": "Vinstant, toutefois, 26.Axf6 serait contré par"
+  },
+  {
+   "pieces": "Q",
+   "text": "26...Wxf6, c’est pourquoi Tal retire sa Dame"
+  },
+  {
+   "pieces": "",
+   "text": "pour s‘assurer que c'est bien la Tour noire qui"
+  },
+  {
+   "pieces": "Q",
+   "text": "26.Weg3! a4"
+  },
+  {
+   "pieces": "",
+   "text": "Voila le probléme pour les Blancs. Le Fou b3"
+  }
+ ],
+ "6": [
+  {
+   "pieces": "RRQ",
+   "text": "27.Exf6! Exf6 28.Wxe5 axb3"
+  },
+  {
+   "pieces": "",
+   "text": "Les Noirs sont obligés d’accepter la piéce"
+  },
+  {
+   "pieces": "NQ",
+   "text": "offerte, car 28...b6 perd sur 29.Axf6 Wxf6"
+  },
+  {
+   "pieces": "QQQ",
+   "text": "30.Wc7+ WE7 31.Wxc8 et 28...2xh5 met le Fou"
+  },
+  {
+   "pieces": "",
+   "text": "hors-jeu, ce qui permet aux Blancs de gagner"
+  },
+  {
+   "pieces": "BRB",
+   "text": "confortablement grace 4 29.2c4 Hc6 30.2b5"
+  },
+  {
+   "pieces": "RR",
+   "text": "Exc2 31.2f1."
+  },
+  {
+   "pieces": "",
+   "text": "Méme maintenant, Tal garde son calme,"
+  },
+  {
+   "pieces": "",
+   "text": "29.axb3! b6é"
+  },
+  {
+   "pieces": "RR",
+   "text": "29...gxh5 est meilleur car 30.21? Ha5 don-"
+  },
+  {
+   "pieces": "",
+   "text": "nerait aux Noirs une chance d’égaliser. Les"
+  },
+  {
+   "pieces": "NQ",
+   "text": "Blancs feraient mieux de jouer 30.Axf6 Wxf6"
+  },
+  {
+   "pieces": "Q",
+   "text": "31.Wc7+, qui récupére tout le matériel sacrifié"
+  },
+  {
+   "pieces": "",
+   "text": "et leur donne une meilleure finale, grace a la"
+  },
+  {
+   "pieces": "RR",
+   "text": "30.Ef1 a 30...8a5, mais le coup aussi tranquille"
+  },
+  {
+   "pieces": "",
+   "text": "que stupéfiant de Tal le laisse sans défense"
+  },
+  {
+   "pieces": "",
+   "text": "30.b4!! 1-0"
+  },
+  {
+   "pieces": "K",
+   "text": "Se déclouer par 30...&f7 perd a cause de"
+  },
+  {
+   "pieces": "NQQ",
+   "text": "31.Axf6 Wxf6 32.Wc7+, qui gagne le Fou c8."
+  },
+  {
+   "pieces": "",
+   "text": "Comment naissent les combinaisons"
+  },
+  {
+   "pieces": "B",
+   "text": "23.b3 £.xb5 (forcé) 24.axb5, et je menace de le"
+  },
+  {
+   "pieces": "",
+   "text": "gagner immeédiatement en jouant 25.c3. Le pro-"
+  },
+  {
+   "pieces": "N",
+   "text": "bleme, c'est que s’il joue tout de suite 24...2\\a2,"
+  },
+  {
+   "pieces": "N",
+   "text": "il menace 25...“\\c3, qui prend en fourchette la"
+  },
+  {
+   "pieces": "R",
+   "text": "Touretla Dame. Défendre par 25.2d3 se heurtea"
+  },
+  {
+   "pieces": "N",
+   "text": "25...A\\b4 avec une répétition probable. Est-ce"
+  },
+  {
+   "pieces": "",
+   "text": "que je peux me permettre de laisser les Noirs"
+  },
+  {
+   "pieces": "N",
+   "text": "jouer 25...2\\c3? Si c’est le cas, que puis-je jouer"
+  },
+  {
+   "pieces": "",
+   "text": "d’utile en attendant? Par exemple, ou jouer"
+  },
+  {
+   "pieces": "B",
+   "text": "me plait bien pour la Dame, car apres 25.2xd7"
+  },
+  {
+   "pieces": "NQ",
+   "text": "Ac3 26.Weg4, elle protege mon Fou, avec l'idée"
+  },
+  {
+   "pieces": "NRR",
+   "text": "de jouer “f5 ou Hf2 suivi de Bxf7 qui flotte"
+  },
+  {
+   "pieces": "N",
+   "text": "dans Tair. D’un autre cété, 26...Axb1 (D) atta-"
+  },
+  {
+   "pieces": "",
+   "text": "que maintenant l’autre Tour.”"
+  }
+ ]
+}

@@ -23,7 +23,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from .extract import FIGURINE_FONT_HINTS, Page, font_inventory
+from .extract import FIGURINE_FONT_HINTS, GLYPH_FONT, Page, font_inventory
 
 #: Fonts that mark an invisible OCR layer laid over a scanned image rather than
 #: a text layer produced by the publisher. Tesseract writes `GlyphLessFont`;
@@ -82,6 +82,11 @@ class NotationReport:
     #: style is reported alongside is then meaningless: the detector is reading
     #: the scanner's guesses, not the book.
     is_ocr_layer: bool = False
+    #: Piece symbols :mod:`rce_pipeline.glyphs` read off the page image and
+    #: wrote into the pages. Non-zero means this book's symbols were recovered
+    #: rather than read, which is what makes an OCR layer or a figurine font
+    #: parseable at all.
+    glyphs_recovered: int = 0
 
     @property
     def piece_letters(self) -> str:
@@ -107,11 +112,35 @@ class NotationReport:
         characters to read. Neither is an OCR layer, for the same reason plus
         worse — see :attr:`is_ocr_layer`.
         """
-        if self.is_ocr_layer:
+        if self.is_ocr_layer and not self.glyphs_recovered:
             return False
         if self.style == "figurine_unicode":
             return True
         return self.style == "letters" and self.language is not None
+
+    @property
+    def needs_glyph_recovery(self) -> bool:
+        """True when the piece symbols exist only in the page image.
+
+        The two obvious cases are a scan, whose OCR guessed at the symbols, and
+        a book whose font name gives a figurine face away. The third is the one
+        that matters in practice: a book that is full of moves no piece is
+        named in — 75 pawn moves and castlings on two pages, and not one
+        `Nf3` in any language's alphabet. That only happens when the symbols
+        are drawn rather than written, and it catches the figurine books whose
+        font is reported as `Helvetica`, or not reported at all.
+
+        All three are repaired by :func:`rce_pipeline.glyphs.recover_pieces`.
+        """
+        if self.glyphs_recovered:
+            return False
+        if self.is_ocr_layer or self.style == "figurine_font":
+            return True
+        return (
+            self.style == "letters"
+            and self.language is None
+            and self.neutral_move_count >= 20
+        )
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -120,9 +149,27 @@ class NotationReport:
             "confidence": round(self.confidence, 3),
             "font_names": self.font_names,
             "is_ocr_layer": self.is_ocr_layer,
+            "glyphs_recovered": self.glyphs_recovered,
         }
 
     def summary(self) -> str:
+        if self.glyphs_recovered:
+            source = "a scan" if self.is_ocr_layer else "a figurine font"
+            return (
+                f"REPAIRED BOOK — its piece symbols came from {source}, so the text\n"
+                f"layer never held them; {self.glyphs_recovered} were read off the page\n"
+                "images by the glyph classifier and written in as figurines.\n"
+                "\n"
+                "What the layer still supplies is everything else: move numbers, the\n"
+                "squares, and the prose. On a scan those squares carry the scanner's own\n"
+                "error rate, so expect moves the legality pass cannot settle — they are\n"
+                "reported broken rather than guessed at.\n"
+                "\n"
+                f"Notation: {self.style} (confidence {self.confidence:.0%})\n"
+                f"Unicode piece characters found: {self.figurine_count}\n"
+                f"Language-neutral moves found:   {self.neutral_move_count}"
+            )
+
         if self.is_ocr_layer:
             return (
                 "SCANNED BOOK — the text layer is OCR output, not the publisher's.\n"
@@ -131,9 +178,12 @@ class NotationReport:
                 "\n"
                 "Prose in such a layer is usually good; moves are not. Piece symbols\n"
                 "have no OCR category and land on arbitrary characters, and the squares\n"
-                "around them degrade with the bold type they are set in. This pipeline\n"
-                "cannot read moves from it, and reports that rather than producing a\n"
-                "plausible-looking game that is not the one in the book.\n"
+                "around them degrade with the bold type they are set in. Read as it\n"
+                "stands, this layer yields a plausible-looking game that is not the one\n"
+                "in the book, so it is refused instead.\n"
+                "\n"
+                "The symbols can be recovered from the page images: pass a trained glyph\n"
+                "classifier as run(glyph_model=...) and this book becomes readable.\n"
                 "\n"
                 "What it detected underneath is listed only for information:\n"
                 f"  style {self.style}, language {self.language}, "
@@ -178,7 +228,11 @@ def detect_notation(pages: list[Page]) -> NotationReport:
         if any(hint in name.lower() for hint in FIGURINE_FONT_HINTS)
     ]
 
-    if ocr_fonts:
+    recovered = sum(
+        1 for page in pages for char in page.chars if char.font == GLYPH_FONT
+    )
+
+    if ocr_fonts and not recovered:
         # Stop here. Running the language scorer on a scanner's guesses gives a
         # confident-looking answer drawn from noise — this book scored
         # "letters / de" before this check existed.
@@ -193,7 +247,9 @@ def detect_notation(pages: list[Page]) -> NotationReport:
         )
 
     # Enough piece characters, and they outnumber nothing else plausible:
-    # Unicode figurine is unambiguous once it appears at all in quantity.
+    # Unicode figurine is unambiguous once it appears at all in quantity. A
+    # repaired book arrives here by the same route as a real figurine one — the
+    # symbols are in the text now, whoever put them there.
     if figurine_count >= 20:
         return NotationReport(
             style="figurine_unicode",
@@ -201,7 +257,9 @@ def detect_notation(pages: list[Page]) -> NotationReport:
             confidence=_saturating(figurine_count, full=200),
             figurine_count=figurine_count,
             neutral_move_count=neutral_moves,
-            font_names=suspect_fonts,
+            font_names=ocr_fonts or suspect_fonts,
+            is_ocr_layer=bool(ocr_fonts),
+            glyphs_recovered=recovered,
         )
 
     scores = _score_languages(text)

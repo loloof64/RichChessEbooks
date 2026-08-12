@@ -16,7 +16,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+# Only step 1c needs these, and only for a scan or a figurine font. They are
+# kept out of the base install because a book with a usable text layer — which
+# is every digitally produced one — never loads them.
+glyphs = [
+    "scikit-learn>=1.4",
+    "scikit-image>=0.22",
+    "numpy>=1.24",
+    "pillow>=10.0",
+]
+dev = ["pytest>=8.0", "rce-pipeline[glyphs]"]
 
 [tool.setuptools.packages.find]
 include = ["rce_pipeline*"]

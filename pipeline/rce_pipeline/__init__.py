@@ -10,9 +10,11 @@ The five steps described in the project's CLAUDE.md, one module each:
 
 :func:`rce_pipeline.pipeline.run` chains them and writes one artefact per step.
 
-:mod:`rce_pipeline.scan` sits beside step 1 and is used only on scanned books,
-where the text layer cannot be read and the page has to be looked at instead.
-Nothing downstream consumes it yet.
+:mod:`rce_pipeline.scan` and :mod:`rce_pipeline.glyphs` sit beside step 1 and
+are used only on books whose piece symbols exist nowhere but the page image — a
+scan, or a book set in a figurine font. The first rebuilds the printed lines and
+renders them, the second recognises the symbols in them and writes them back
+into the pages as figurines, after which the rest of the pipeline is unchanged.
 """
 
 from .pipeline import PipelineResult, run
