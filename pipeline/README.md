@@ -9,9 +9,10 @@ but cannot be parsed — their text layer holds latin letters bearing no relatio
 pieces drawn.
 
 It needs a real text layer. On a **scanned** book the embedded layer is OCR output, and
-for chess notation that output is unusable: piece symbols land on arbitrary characters
-(`♘`→`4)`, `♕`→`W`, `♗`→`2`) and the squares themselves get corrupted (`g6`→`26`,
-`e6`→`eb`). Detection will report this rather than pretend; see the scan notes below.
+for chess notation that output is unusable: every piece symbol lands on an arbitrary
+character (`♘`→`4)`, `♕`→`W`, `♗`→`2`), and the squares beside them get dragged down
+too (`g6`→`26`, `e6`→`eb`). Detection will report this rather than pretend; see the
+scan notes below.
 
 ## Running it
 
@@ -38,6 +39,7 @@ dominates the runtime and is the one you least often need to repeat.
 | Module | Does | Artefact |
 | --- | --- | --- |
 | `extract.py` | Text and per-**character** geometry, via PyMuPDF | `01_pages.json` |
+| `scan.py` | Scans only: printed lines rebuilt from the OCR boxes, and their crops | — |
 | `notation.py` | Figurine Unicode, figurine font, or letters — and which language | `02_notation.json` |
 | `tokenize.py` | Typed tokens (move, number, bracket, prose), each keeping its box | `03_tokens.json` |
 | `parse.py` | Move tree, legality against `python-chess`, FEN reconstruction | `04_moves.json` |
@@ -45,6 +47,10 @@ dominates the runtime and is the one you least often need to repeat.
 
 Character granularity in step 1 is what lets a box cover the move alone: books glue
 moves to their punctuation (`14.Nf3!,` `e4)`), and a word-level box would swallow it.
+
+`scan.py` sits beside step 1 rather than in the chain: it is only useful on a scan,
+and nothing downstream consumes it yet. It is described under [Scanned
+books](#scanned-books).
 
 ## Scanned books
 
@@ -76,7 +82,92 @@ recognise them against the tiny alphabet chess notation actually uses — `a`–
 final filter. A constrained recogniser over ~25 symbols is a far easier problem than
 general OCR, and the piece glyphs are visually distinctive.
 
-This is not built. It is the main open piece of work.
+The locating half of that is built (`scan.py`). The recognising half is not, and the
+measurements below have changed what it should be.
+
+### Finding the printed lines
+
+`scan.py` regroups the OCR layer's boxes into the lines the book printed, and renders
+each one. A line is the unit because a recogniser needs the horizontal context — word
+crops read far worse — and because it is what the boxes support: they are placed
+right even where the characters under them are wrong.
+
+```python
+lines = scan.segment_lines(page)                 # every printed line
+with scan.PageRenderer(pdf_path) as renderer:    # 360 dpi, grayscale
+    for line in scan.notation_lines(lines):      # the ones carrying a move number
+        renderer.crop(line)
+```
+
+Three things were wrong before they were measured, and each is a rule in the module:
+
+- **Columns come first.** The gutter of the book this was written against is 7 points
+  wide, half a line height, so any merge rule based on distance joins a line on the
+  left to whatever sits beside it on the right. `split_columns` instead takes the
+  vertical cut that the fewest boxes cross, which finds the gutter on all ten
+  two-column pages of the sample and reports none on the single-column ones.
+- **Consecutive line boxes overlap**, by two or three points, because OCR boxes are
+  taller than their type. The overlap has to go to the line *above*: it is where
+  descenders live, and a `g` cut down to its bowl reads as `a` — which turns `g6` into
+  a square that was never printed. Splitting the overlap evenly, which looks fairer,
+  cost 6 points of square recall.
+- **Diagrams reach MuPDF as text.** A rank of a board arrives as a few narrow boxes
+  strung across the width of the diagram, where a line of prose covers ~95% of its own
+  width. Coverage separates the two. What survives the filter is never selected for
+  re-reading anyway: it carries no move number.
+
+On the 12-page sample this yields 622 lines, of which 249 carry notation. The line
+boxes drawn back onto the page sit on the printed lines.
+
+### Re-reading the squares: what the constrained Tesseract is worth
+
+Now that the crops come from real segmentation, the recipe could be measured instead
+of admired. Two pages, the 32 lines carrying moves, the 63 squares printed on them
+read off the page by eye, and one number: how many of those squares a source
+recovers, in order.
+
+| Source | Squares recovered | Squares invented |
+| --- | --- | --- |
+| The scan's own OCR layer | 58 / 63 (92%) | 0 |
+| Whitelist re-OCR of the crop, 360 dpi | 56 / 63 (89%) | 21 |
+| Whitelist re-OCR, upscaled 2x | 58 / 63 (92%) | 21 |
+| Whitelist re-OCR, upscaled 4x | 53 / 63 (84%) | 20 |
+
+So the constrained re-OCR is not the fix it looked like. At its best it *ties* the
+layer it was meant to replace, and pays for the tie with 21 squares that were never on
+the page — because the whitelist has no way to say "this is a knight": every piece
+glyph is forced into some letter and digit, and `♗c4` comes back carrying an extra
+`a2`. It does rescue 2 of the 5 squares the embedded layer misses, which is worth
+something, but not as a replacement — as a second opinion on a token already known to
+be doubtful.
+
+The earlier hand-made-crop result that made this look promising still reproduces,
+and is still a single line: the one line where the embedded layer failed badly.
+
+### Where the errors actually are
+
+The useful part of that measurement is not the score, it is where the five failures
+of the embedded layer sit. Every one of them is a square inside a move that begins
+with a piece glyph — `♘xe4` arriving as `Axes`, `♕xe4` as `Wxed`, `♖f1` as `21` —
+and not one is in a pawn move, a castling, or a square named in prose. The scanner's
+own segmentation is thrown by the glyph and takes the character next to it down with
+it.
+
+That reframes the job. The squares are 92% right already and their errors are
+localised: what has to be recognised is the piece glyphs, plus the two or three
+characters beside each one. The whole-line re-OCR is attacking the 92% that was not
+broken.
+
+### Masking the glyphs before re-OCR: measured, does not work
+
+The obvious repair — blank the piece glyphs so the whitelist stops inventing squares
+out of them — was tried and made things worse: 84% → 73–76% recall, with the phantom
+squares unchanged. Piece glyphs really are much wider than letters, but the width is
+not measurable on this book at 360 dpi, because its bold type touches: whole runs like
+`xe4` come out as one connected component, so a width threshold blanks real text. 115
+components were masked on 32 lines, several times the number of glyphs printed on
+them. Isolating a glyph needs the classifier, or a segmentation that survives touching
+type — not a bounding box.
 
 ### What the existing glyph classifier can do
 
@@ -110,37 +201,21 @@ work is not redone:
 the accuracy above, that is not currently hurting; it is worth knowing before anyone
 concludes the model is more sophisticated than it is.
 
-The classifier covers piece symbols only. The ordinary characters of a move are misread
-too — `g6` comes out as `26` — so recognising the squares remains open.
+The classifier covers piece symbols only, which the measurements above suggest is
+most of what is missing: the squares are 92% right in the layer already, and the ones
+that are wrong are the ones standing next to a glyph.
 
-### Re-reading the squares: constrained Tesseract
+### Settings for the constrained Tesseract
 
-Tested, promising, not yet proven.
+Should the whitelist pass come back as a second opinion on doubtful tokens, these are
+the settings it was measured with, and they are not incidental:
 
-Cutting a move line out of the page at 360 dpi and handing it back to Tesseract with
-the alphabet restricted to `abcdefgh12345678xX+#=O-` recovers the squares the embedded
-layer got wrong. On the line printed as `24...g6 25.♕e6 ♔g7 26.♕xf7+ ♔h6 27.♗e6`:
-
-| source | result |
-| --- | --- |
-| printed on the page | `24...g6 25.♕e6 ♔g7 26.♕xf7+ ♔h6 27.♗e6` |
-| the scan's own OCR layer | `24...26 25.Web Sg7 26.Wxf7+ Gh6 27.206` |
-| whitelist re-OCR | `24-g6-25e6g726xf7+h627e6` |
-
-Every square correct, including the `g6` and the two `e6` the embedded layer lost. The
-figurines drop out, which is expected — they are the classifier's job.
-
-What matters is *how* the image is prepared, and the settings are not incidental:
-
+- Alphabet restricted to `abcdefgh12345678xX+#=O-`, `--psm 7 --oem 1`, grayscale.
 - **A whole line, not a word.** Word-by-word crops with tight padding returned garbage
   (`25.ee`, `e7`); Tesseract needs the horizontal context.
-- **`--psm 7 --oem 1`**, grayscale, upscaled 4x, with a few points of padding.
 - **Not per character.** `--psm 10` on segmented components was far worse than either.
-
-A batch over 33 lines and 8 pages scored *below* the embedded layer, but that run is not
-evidence against the method: most lines came back empty because the line-finding
-heuristic produced unusable crops. It measured the harness. A real evaluation needs
-proper line segmentation, which is pipeline work that has to happen anyway.
+- **Upscaling is not free.** 2x helps, 4x hurts (92% → 84%), and `--psm 13` and `6`
+  read the same as `7`.
 
 ## Two decisions worth knowing about
 
@@ -165,6 +240,10 @@ unnumbered sequences.
 comment attachment, castling written with zeros, repairs, and the ambiguity cases
 (`Nd2` where both `Nbd2` and `Nfd2` are legal). It builds tokens directly rather than
 going through a PDF, since that part of the job does not need a document.
+
+`tests/test_scan.py` covers line segmentation the same way, from boxes rather than
+from a scan: the narrow gutter, fragments of one line, overlapping line boxes, diagram
+debris, and which lines get selected for re-reading.
 
 Extraction geometry is not unit-tested: no assertion is as convincing as the notebook's
 step 7, which draws the boxes on the rendered page.

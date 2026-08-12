@@ -34,8 +34,10 @@ than scanned — in either **figurine Unicode** or **plain letters** (`en`, `fr`
 
 **Scanned books do not work yet, and they are the bulk of the target corpus.** A scan's
 text layer is OCR output; its prose is fine but its moves are not, because the piece
-glyphs have no OCR category and the surrounding characters degrade with them. The
-reasoning, the evidence, and the approach that can work are written up in
+glyphs have no OCR category and the surrounding characters degrade with them. Finding
+the printed lines and cropping them for a recogniser is built and tested; recognising
+what is in the crop is not, and measuring the crops has narrowed what that recogniser
+has to do. The reasoning and the numbers are in
 [`pipeline/README.md`](pipeline/README.md#scanned-books). This is the main open piece
 of work.
 
