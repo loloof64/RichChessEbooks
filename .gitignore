@@ -53,3 +53,6 @@ venv/
 # Per-step artefacts written by the pipeline, and its output archives
 work/
 *.rce
+
+# Misc
+user_tasks.md
