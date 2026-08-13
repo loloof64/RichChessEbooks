@@ -120,6 +120,40 @@ class TestRepair:
         assert repaired.text == "1.♘e4 ♖e4"
 
 
+class TestBrokenFontLeftovers:
+    """One printed figurine arriving as several characters.
+
+    A figurine font whose subset is embedded under a generated name maps its
+    knight to `liJ` and its bishop to `i..`, and only the first of those sits
+    inside the glyph's own box. Replacing that alone left `NiJxc3+` where
+    `Nxc3+` was printed, which matches no move pattern — so the move produced
+    no token at all and vanished rather than being reported broken.
+    """
+
+    def test_the_rest_of_a_multi_character_mapping_is_taken(self):
+        repaired = repair_page(page("19 liJd4"), [glyph("N", 20.0 + 3 * CHAR_WIDTH, CHAR_WIDTH)])
+
+        assert repaired.text == "19 \u2658d4"
+
+    def test_a_disambiguating_letter_is_never_eaten(self):
+        # `b` can belong to a move, so it survives where `iJ` does not. This is
+        # the whole reason the rule is a whitelist of move characters.
+        repaired = repair_page(page("liJbd2"), [glyph("N", 20.0, CHAR_WIDTH)])
+
+        assert repaired.text == "\u2658bd2"
+
+    def test_a_single_character_mapping_is_untouched(self):
+        repaired = repair_page(page("25 nd7"), [glyph("Q", 20.0 + 3 * CHAR_WIDTH, CHAR_WIDTH)])
+
+        assert repaired.text == "25 \u2655d7"
+
+    def test_leftovers_stop_at_a_space(self):
+        # Crossing one would join the figurine to the next word.
+        repaired = repair_page(page("l a6"), [glyph("R", 20.0, CHAR_WIDTH)])
+
+        assert repaired.text == "\u2656 a6"
+
+
 class TestPlacementScore:
     def test_counts_symbols_that_landed_inside_a_move(self):
         assert placement_score([page("1.♘xe4 ♖e8")]) == (2, 2)

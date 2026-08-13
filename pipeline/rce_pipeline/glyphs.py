@@ -417,7 +417,7 @@ def _covered_range(page: Page, box: BBox) -> tuple[int, int]:
     if covered:
         # A range, not a set: the characters under one glyph are consecutive in
         # the stream, and splicing needs both ends anyway.
-        return covered[0], covered[-1] + 1
+        return covered[0], _swallow_leftovers(page, covered[-1] + 1)
 
     on_row = [
         index
@@ -433,6 +433,46 @@ def _covered_range(page: Page, box: BBox) -> tuple[int, int]:
     if on_row:
         return on_row[-1] + 1, on_row[-1] + 1
     return len(page.chars), len(page.chars)
+
+
+#: Characters that can follow a piece symbol inside a move: the files and ranks,
+#: the capture and check marks, promotion, and the castling forms. A `b` or a
+#: `d` here is a disambiguating letter, which is why this is a whitelist of what
+#: to keep rather than a blacklist of what to drop.
+_MOVE_BODY = frozenset("abcdefgh12345678xX+#=-Oo0")
+
+#: How many leftover characters may be swallowed after one figurine. Three
+#: covers the longest mapping seen (`'itt` for a king); beyond that the symbol
+#: was probably placed in prose, where eating words would be worse than leaving
+#: the move unreadable.
+_MAX_LEFTOVERS = 3
+
+
+def _swallow_leftovers(page: Page, end: int) -> int:
+    """Extend a glyph's range over the leftovers of a broken font mapping.
+
+    One printed figurine can arrive in the text layer as several characters —
+    `liJ` for a knight, `i..` for a bishop, `'itt` for a king — and only the
+    first of them is usually inside the glyph's own box, so replacing that box
+    alone leaves `NiJxc3+` where `Nxc3+` was printed. That matches no move
+    pattern at all, which is worse than a wrong move: it yields no token, so
+    the move vanishes instead of being reported broken.
+
+    Geometry cannot separate those leftovers from the square that follows,
+    since they are all the same size and on the same row. What separates them
+    is that a leftover cannot belong to a move. Only characters outside
+    :data:`_MOVE_BODY` are taken, so a square, a rank or a disambiguating
+    letter is never eaten — `♘bd2` keeps its `b`.
+    """
+    limit = min(end + _MAX_LEFTOVERS, len(page.chars))
+    while end < limit:
+        char = page.chars[end].char
+        # A space ends the run: leftovers are always flush against the symbol,
+        # and crossing a space would join the figurine to the next word.
+        if char.isspace() or char in _MOVE_BODY:
+            break
+        end += 1
+    return end
 
 
 def _rows_overlap(char_box: BBox, glyph_box: BBox) -> bool:
