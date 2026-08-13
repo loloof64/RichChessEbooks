@@ -64,6 +64,11 @@ _MAX_COMMENT_LENGTH = 600
 
 _TRAILING_ANNOTATION = re.compile(r"[!?]+$")
 
+#: The check and mate marks. Stripped from both sides before a printed move is
+#: compared to a legal one: the position decides them, not the reader, so a
+#: book that prints `Nxc3` for `Nxc3+` has made no error to repair.
+_CHECK_MARK = re.compile(r"[+#]+$")
+
 #: A SAN piece move, with the disambiguation it may or may not carry. Only
 #: piece moves reach the ambiguity path: a pawn move names its origin file
 #: whenever it captures, and cannot be ambiguous otherwise.
@@ -417,9 +422,15 @@ def _resolve(board: chess.Board, raw: str, consumed: str = "") -> _Resolution:
 
     best_cost = _MAX_REPAIR_COST + 1.0
     best: list[tuple[chess.Move, str]] = []
+    # The check mark is not part of what the reader wrote down: `python-chess`
+    # derives it from the position, and a book may print `Nxc3` where the SAN
+    # is `Nxc3+`. Comparing them literally charges a full insertion for it, so
+    # every checking move lands at 1.5 and no repair is ever affordable —
+    # which is why four books in a row reported not one `uncertain` move.
+    bare = _CHECK_MARK.sub("", plain)
     for legal in board.legal_moves:
         legal_san = board.san(legal)
-        cost = _confusable_distance(plain, legal_san)
+        cost = _confusable_distance(bare, _CHECK_MARK.sub("", legal_san))
         if cost < best_cost:
             best_cost, best = cost, [(legal, legal_san)]
         elif cost == best_cost:

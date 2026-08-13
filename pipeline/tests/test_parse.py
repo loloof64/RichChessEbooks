@@ -286,6 +286,43 @@ class TestLegality:
         assert result.moves[0].status == "ok"
 
 
+class TestCheckMarkIsNotAnError:
+    """The check mark belongs to the position, not to what the reader wrote.
+
+    `python-chess` derives `+` and `#` from the board, so a book printing
+    `Nxc3` where the SAN is `Nxc3+` has made no error. Charging a full
+    insertion for it put every checking move at 1.5 against a budget of 0.5,
+    so no repair on one was ever affordable — four books in a row reported not
+    one `uncertain` move, across 945 of them.
+    """
+
+    def test_a_look_alike_is_repaired_on_a_checking_move(self):
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2."), ("move", "Qh5"), ("move", "Nc6"),
+            # `S` read for `5`, on a move that happens to give check.
+            ("move_number", "3."), ("move", "QxeS"),
+        ))
+
+        last = result.moves[-1]
+        assert last.san == "Qxe5+"
+        assert last.status == "uncertain"
+        assert "0.5" in last.repair["reason"]
+
+    def test_a_missing_check_mark_alone_is_not_a_repair(self):
+        # Nothing was misread here, so the move stays `ok` rather than being
+        # demoted for a mark the book chose not to print.
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2."), ("move", "Qh5"), ("move", "Nc6"),
+            ("move_number", "3."), ("move", "Qxe5"),
+        ))
+
+        last = result.moves[-1]
+        assert last.san == "Qxe5+"
+        assert last.status == "ok"
+
+
 class TestStrayTokens:
     def test_move_shaped_prose_is_skipped_when_no_number_announces_it(self):
         result = parse_tokens(
