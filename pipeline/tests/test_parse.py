@@ -126,6 +126,85 @@ class TestVariations:
         assert result.moves[0].variation_index == 0
 
 
+class TestVariationsWrittenInProse:
+    """Analysis interleaved with the game score, with nothing to mark it.
+
+    Chess books do this constantly — "Another promising continuation is
+    13...Nb6 14 g5", "Threatening 17...Nxc2" — with no bracket, no bold and no
+    indent. Read as the continuation, such a line is played on a position the
+    book never reached and everything after it breaks. Laurent pointed out that
+    no typographic signal is available for it, which rules out the font and the
+    indent; the printed number is what remains.
+    """
+
+    def test_a_number_that_does_not_continue_the_line_opens_a_variation(self):
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                ("move_number", "3."), ("move", "Bb5"),
+                # Prose analysis: Black's 2nd, while the line awaits Black's 3rd.
+                ("move_number", "2..."), ("move", "d6"),
+                ("move_number", "3."), ("move", "d4"), ("move", "exd4"),
+                ("move_number", "4."), ("move", "Nxd4"),
+                # The game picks up again at the half-move it was waiting for.
+                ("move_number", "3..."), ("move", "a6"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        # d6 replaces Nc6, so both hang off Nf3 rather than one off the other.
+        assert by_san["d6"].parent_id == by_san["Nf3"].id
+        assert by_san["Nc6"].parent_id == by_san["Nf3"].id
+        assert by_san["Nc6"].variation_index == 0
+        assert by_san["d6"].variation_index == 1
+        # And the main line resumed rather than growing out of the analysis.
+        assert by_san["a6"].parent_id == by_san["Bb5"].id
+        # Nothing was played on a position the book never reached.
+        assert all(m.status == "ok" for m in result.moves)
+
+    def test_two_alternatives_to_one_move_are_siblings(self):
+        # "Other ideas are 15 Rhg1 and 15 Qh3" — the second is not inside the
+        # first, so a prose variation replaces the one in progress.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("move_number", "2."), ("move", "Bc4"),
+                ("move_number", "2."), ("move", "d4"),
+                ("move_number", "2..."), ("move", "Nc6"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        for san in ("Nf3", "Bc4", "d4"):
+            assert by_san[san].parent_id == by_san["e5"].id, san
+        # `2...Nc6` is genuinely ambiguous here: the last alternative and the
+        # game await the very same half-move, so the number cannot tell them
+        # apart and nothing else on the page can either. It continues the
+        # variation, which is the safe reading — "15 Qh3 0-0" in a real book is
+        # Black castling inside the analysis, not the game resuming. The game
+        # picks up again as soon as the two diverge, which is the usual case
+        # since analysis runs on past the move it started from.
+        assert by_san["Nc6"].parent_id == by_san["d4"].id
+
+    def test_brackets_still_win(self):
+        # The numbering is a guess; a bracket is not, so it is left alone.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("var_open", "("),
+                ("move_number", "1..."), ("move", "c5"),
+                ("var_close", ")"),
+                ("move_number", "2."), ("move", "Nf3"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert by_san["c5"].parent_id == by_san["e4"].id
+        assert by_san["Nf3"].parent_id == by_san["e5"].id
+
+
 class TestComments:
     def test_attaches_prose_to_the_move_it_follows(self):
         result = parse_tokens(

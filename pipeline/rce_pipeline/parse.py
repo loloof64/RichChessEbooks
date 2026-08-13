@@ -208,6 +208,19 @@ class _Level:
     board_before_last: chess.Board | None = None
     parent_of_last: str | None = None
     moves_allowed: int = 0
+    #: True when a `(` opened this level. Brackets are explicit and are trusted
+    #: over the numbering heuristic below, which only guesses.
+    from_bracket: bool = False
+
+
+def _ply_of(number: int, is_black: bool) -> int:
+    """The half-move a printed `12.` or `12...` announces. White's first is 0."""
+    return 2 * (number - 1) + (1 if is_black else 0)
+
+
+def _ply_awaited(board: chess.Board) -> int:
+    """The half-move this position is waiting for."""
+    return 2 * (board.fullmove_number - 1) + (0 if board.turn == chess.WHITE else 1)
 
 
 def parse_tokens(
@@ -237,6 +250,11 @@ def parse_tokens(
     pending_title: str | None = None
     game: Game | None = None
     stack: list[_Level] = []
+    #: Position and parent before each half-move of the game's main line,
+    #: keyed by ply. A printed number that does not continue the line is
+    #: branched from here, which gives the variation its true starting
+    #: position rather than an approximation of one.
+    main_history: dict[int, tuple[chess.Board, str | None]] = {}
 
     def start_game(page: int) -> None:
         nonlocal game, game_counter, stack, pending_title
@@ -251,6 +269,41 @@ def parse_tokens(
         result.games.append(game)
         stack = [_Level(board=chess.Board(initial_fen), parent_id=None)]
         pending_title = None
+        main_history.clear()
+
+    def _place_by_number(declared: int) -> None:
+        """Send what follows to the line the printed number actually belongs to.
+
+        Books interleave analysis with the game score in plain prose, with no
+        bracket, no bold and no indent to mark it — "Another promising
+        continuation is 13...♘b6 14 g5", "Threatening 17...♘xc2". Read as the
+        continuation, such a line is played on a position the book never
+        reached and every move after it breaks.
+
+        The number itself says so. `13...` announces Black's thirteenth, and a
+        position knows which half-move it awaits; when the two disagree, this
+        is not the continuation. That holds whichever way the number points —
+        the examples above run backwards and forwards — which is why the
+        direction of travel is the wrong thing to test.
+
+        Brackets are explicit and are left alone: this only guesses, and only
+        where the book gave nothing better.
+        """
+        if any(level.from_bracket for level in stack):
+            return
+        if declared == _ply_awaited(stack[-1].board):
+            return
+        if len(stack) > 1 and declared == _ply_awaited(stack[0].board):
+            # The main line resumes. A prose variation has no closing bracket,
+            # so its end is only ever visible as the game picking up again.
+            del stack[1:]
+            return
+        if declared in main_history:
+            board, parent = main_history[declared]
+            # Replaces any prose variation in progress rather than nesting:
+            # "15 Rhg1!? and 15 Qh3" are two alternatives to the same move, not
+            # one inside the other.
+            stack[1:] = [_Level(board=board.copy(), parent_id=parent)]
 
     for token in tokens:
         if token.kind == "text":
@@ -270,6 +323,7 @@ def parse_tokens(
             if game is None or (number == 1 and not is_black_only and result.moves and not stack[1:]):
                 start_game(token.page)
             if stack:
+                _place_by_number(_ply_of(number, is_black_only))
                 stack[-1].moves_allowed = 1 if is_black_only else 2
             continue
 
@@ -286,6 +340,7 @@ def parse_tokens(
                     board=level.board_before_last.copy(),
                     parent_id=level.parent_of_last,
                     moves_allowed=2,
+                    from_bracket=True,
                 )
             )
             continue
@@ -317,6 +372,10 @@ def parse_tokens(
             continue
 
         board_before = level.board.copy()
+        if len(stack) == 1:
+            main_history.setdefault(
+                _ply_awaited(board_before), (board_before.copy(), level.parent_id)
+            )
         resolution = _resolve(board_before, token.text, token.consumed)
         move = resolution.move
 
