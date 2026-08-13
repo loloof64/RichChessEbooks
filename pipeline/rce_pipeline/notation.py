@@ -227,6 +227,19 @@ class NotationReport:
                     "the fonts listed above are figurine faces, so the layer holds\n"
                     "latin letters bearing no relation to the pieces they draw."
                 )
+            elif max(self.language_scores.values(), default=0):
+                # Letters did occur, just not enough distinct ones to be an
+                # alphabet. Saying "no piece is named" here would contradict the
+                # scores printed two lines above.
+                best = max(self.language_scores.values())
+                cause = (
+                    f"no alphabet is attested: the best language scores {best}, but on\n"
+                    f"fewer than {_MIN_ATTESTED_PIECE_LETTERS} of its five piece letters, "
+                    f"against {self.neutral_move_count} moves naming\n"
+                    "no piece at all. A book of nothing but pawn moves does not exist, and\n"
+                    "a language whose rook and queen never move is not that language: the\n"
+                    "symbols here are drawn, not written."
+                )
             else:
                 cause = (
                     f"no piece is named in any of the six alphabets, yet "
