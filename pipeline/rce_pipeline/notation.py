@@ -204,10 +204,34 @@ class NotationReport:
         if self.language_scores:
             ranked = sorted(self.language_scores.items(), key=lambda kv: -kv[1])
             lines.append("Language scores: " + ", ".join(f"{k}={v}" for k, v in ranked))
-        if not self.is_supported:
+        if self.needs_glyph_recovery:
+            if self.style == "figurine_font":
+                cause = (
+                    "the fonts listed above are figurine faces, so the layer holds\n"
+                    "latin letters bearing no relation to the pieces they draw."
+                )
+            else:
+                cause = (
+                    f"no piece is named in any of the six alphabets, yet "
+                    f"{self.neutral_move_count} moves that\n"
+                    "name none — pawn moves, castlings — were found. A book of nothing but\n"
+                    "pawn moves does not exist: the symbols here are drawn, not written,\n"
+                    "which is why the style above reads `letters` at 0%."
+                )
             lines.append(
-                "\n/!\\ v1 of this pipeline only parses figurine Unicode notation. "
-                "Detection above is reported for information."
+                "\nDRAWN SYMBOLS — needs_glyph_recovery = True.\n"
+                f"{cause}\n"
+                "\n"
+                "Pass the trained classifier as run(glyph_model=...): it reads the symbols\n"
+                "off the page images and writes them back in as figurines. Without it this\n"
+                "book has no pieces to parse, and every move comes out broken."
+            )
+        elif not self.is_supported:
+            lines.append(
+                "\n/!\\ Not parseable as it stands: the notation is letters, but no\n"
+                "language reached the detection threshold, so the pipeline cannot tell\n"
+                "which piece each initial names. Set run(force_language=...) if you know\n"
+                "the book — see the table in step 5."
             )
         return "\n".join(lines)
 
