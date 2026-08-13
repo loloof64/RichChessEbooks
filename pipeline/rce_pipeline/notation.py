@@ -42,6 +42,23 @@ FIGURINE_TO_LETTER = {
 #: The letters SAN itself uses, in the order King, Queen, Rook, Bishop, Knight.
 SAN_PIECE_LETTERS = "KQRBN"
 
+#: How many of a language's five piece letters must actually occur before that
+#: language is believed.
+#:
+#: A summed score is not enough on its own. A figurine-font book whose fonts are
+#: embedded under generated names (`Fd97320`) has no font hint to catch it, and
+#: its meaningless latin letters still score: one book scored `fr` at 28 with
+#: `es` and `it` tied at exactly 28, from a single attested letter, against 436
+#: moves naming no piece at all. The tie is the giveaway — those three alphabets
+#: overlap on the letters that hit, and `en` and `de` scored zero, which means
+#: the rook, queen and king letters never occurred once in ten pages. No book
+#: in any language moves its rook and queen zero times, so a language resting
+#: on one or two letters is noise and the pieces are drawn rather than written.
+#:
+#: Three of five is deliberately lenient: a short sample may genuinely never
+#: castle a king or move a bishop.
+_MIN_ATTESTED_PIECE_LETTERS = 3
+
 #: Piece initials per language, in that same order.
 #:
 #: The overlaps are what make this dangerous rather than tedious: `R` is the
@@ -286,7 +303,7 @@ def detect_notation(pages: list[Page]) -> NotationReport:
             glyphs_recovered=recovered,
         )
 
-    scores = _score_languages(text)
+    scores, letter_hits = _score_languages(text)
 
     if suspect_fonts and neutral_moves >= 20:
         # The text layer's letters are meaningless here, so no language is
@@ -314,6 +331,24 @@ def detect_notation(pages: list[Page]) -> NotationReport:
 
     ranked = sorted(scores.items(), key=lambda kv: -kv[1])
     best_language, best_score = ranked[0]
+
+    attested = sum(
+        1 for letter in PIECE_LETTERS_BY_LANGUAGE[best_language] if letter_hits[letter]
+    )
+    if attested < _MIN_ATTESTED_PIECE_LETTERS:
+        # The winner rests on too few of its letters to be a language. Reporting
+        # none leaves `needs_glyph_recovery` free to conclude that the symbols
+        # are drawn, which is what a book like this actually needs.
+        return NotationReport(
+            style="letters",
+            language=None,
+            confidence=0.0,
+            figurine_count=figurine_count,
+            neutral_move_count=neutral_moves,
+            font_names=suspect_fonts,
+            language_scores=scores,
+        )
+
     runner_up = ranked[1][1] if len(ranked) > 1 else 0
     # Confidence blends "is there enough evidence" with "is the winner clear".
     margin = (best_score - runner_up) / best_score if best_score else 0.0
@@ -328,11 +363,14 @@ def detect_notation(pages: list[Page]) -> NotationReport:
     )
 
 
-def _score_languages(text: str) -> dict[str, int]:
+def _score_languages(text: str) -> tuple[dict[str, int], Counter[str]]:
     """Count piece-move tokens for each candidate alphabet.
 
     Languages share most of their letters (T and D are rooks and queens in
-    several), so the raw counts are compared, not treated as exclusive.
+    several), so the raw counts are compared, not treated as exclusive. The
+    per-letter tally is returned alongside because the totals alone cannot tell
+    an alphabet that occurred from one that merely shares a letter with noise —
+    see :data:`_MIN_ATTESTED_PIECE_LETTERS`.
     """
     letter_hits: Counter[str] = Counter()
     all_letters = "".join(sorted(set("".join(PIECE_LETTERS_BY_LANGUAGE.values()))))
@@ -340,10 +378,11 @@ def _score_languages(text: str) -> dict[str, int]:
     for match in pattern.finditer(text):
         letter_hits[match.group(1)] += 1
 
-    return {
+    scores = {
         language: sum(letter_hits[letter] for letter in letters)
         for language, letters in PIECE_LETTERS_BY_LANGUAGE.items()
     }
+    return scores, letter_hits
 
 
 def _saturating(count: int, *, full: int) -> float:

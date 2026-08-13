@@ -116,6 +116,22 @@ class TestDetection:
         assert report.piece_letters == "RDTFC"
         assert report.is_supported
 
+    def test_a_language_resting_on_one_letter_is_refused(self):
+        # A figurine-font book whose fonts are embedded under generated names
+        # (`Fd97320`) offers no font hint, and its meaningless latin letters
+        # still score: this scored `fr` at 28 with `es` and `it` tied at 28,
+        # off one attested letter, against 436 moves naming no piece. `en` and
+        # `de` scoring zero is the proof — no book moves its rook and queen
+        # zero times in ten pages.
+        moves = " ".join(f"{n}.e4 d5 Cf3" for n in range(1, 15))
+
+        report = detect_notation([page_of(moves)])
+
+        assert report.language is None
+        assert report.confidence == 0.0
+        # Which is what lets the drawn-symbol conclusion through.
+        assert report.needs_glyph_recovery
+
     def test_letters_with_no_language_is_not_parseable(self):
         report = NotationReport(style="letters", language=None, confidence=0.0)
 
