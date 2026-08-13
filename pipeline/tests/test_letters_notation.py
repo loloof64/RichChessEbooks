@@ -116,13 +116,13 @@ class TestDetection:
         assert report.piece_letters == "RDTFC"
         assert report.is_supported
 
-    def test_a_language_resting_on_one_letter_is_refused(self):
+    def test_alphabets_tying_exactly_name_no_language(self):
         # A figurine-font book whose fonts are embedded under generated names
         # (`Fd97320`) offers no font hint, and its meaningless latin letters
-        # still score: this scored `fr` at 28 with `es` and `it` tied at 28,
-        # off one attested letter, against 436 moves naming no piece. `en` and
-        # `de` scoring zero is the proof — no book moves its rook and queen
-        # zero times in ten pages.
+        # still score: this scored `fr` at 28 with `es` tied at exactly 28,
+        # against 436 moves naming no piece. Those two alphabets differ only in
+        # the bishop, F against A, so a dead heat proves neither letter was ever
+        # seen and the hits sat on what they share.
         moves = " ".join(f"{n}.e4 d5 Cf3" for n in range(1, 15))
 
         report = detect_notation([page_of(moves)])
@@ -131,6 +131,20 @@ class TestDetection:
         assert report.confidence == 0.0
         # Which is what lets the drawn-symbol conclusion through.
         assert report.needs_glyph_recovery
+
+    def test_a_clear_winner_stands_on_two_letters(self):
+        # The rule above must not punish a genuine book for being short. A
+        # two-page English tactics collection scored en=25 against fr=17 on
+        # knights and bishops alone: nothing contradicts English, so English it
+        # is. Requiring a minimum number of distinct letters instead refused
+        # this book, which is how that earlier rule was found to be wrong.
+        moves = " ".join(f"{n}.Nf3 Bb5 Nxe5" for n in range(1, 10))
+
+        report = detect_notation([page_of(moves)])
+
+        assert report.language == "en"
+        assert report.is_supported
+        assert not report.needs_glyph_recovery
 
     def test_letters_with_no_language_is_not_parseable(self):
         report = NotationReport(style="letters", language=None, confidence=0.0)

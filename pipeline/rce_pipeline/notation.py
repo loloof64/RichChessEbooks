@@ -42,23 +42,6 @@ FIGURINE_TO_LETTER = {
 #: The letters SAN itself uses, in the order King, Queen, Rook, Bishop, Knight.
 SAN_PIECE_LETTERS = "KQRBN"
 
-#: How many of a language's five piece letters must actually occur before that
-#: language is believed.
-#:
-#: A summed score is not enough on its own. A figurine-font book whose fonts are
-#: embedded under generated names (`Fd97320`) has no font hint to catch it, and
-#: its meaningless latin letters still score: one book scored `fr` at 28 with
-#: `es` and `it` tied at exactly 28, from a single attested letter, against 436
-#: moves naming no piece at all. The tie is the giveaway — those three alphabets
-#: overlap on the letters that hit, and `en` and `de` scored zero, which means
-#: the rook, queen and king letters never occurred once in ten pages. No book
-#: in any language moves its rook and queen zero times, so a language resting
-#: on one or two letters is noise and the pieces are drawn rather than written.
-#:
-#: Three of five is deliberately lenient: a short sample may genuinely never
-#: castle a king or move a bishop.
-_MIN_ATTESTED_PIECE_LETTERS = 3
-
 #: Piece initials per language, in that same order.
 #:
 #: The overlaps are what make this dangerous rather than tedious: `R` is the
@@ -95,6 +78,11 @@ class NotationReport:
     neutral_move_count: int = 0
     font_names: list[str] = field(default_factory=list)
     language_scores: dict[str, int] = field(default_factory=dict)
+    #: Per-letter tally behind :attr:`language_scores`. The totals cannot say
+    #: whether an alphabet occurred or merely shares a letter with noise, and
+    #: two books can tie on a total while resting on a different number of
+    #: letters — so it is worth printing rather than inferring from the totals.
+    letter_hits: dict[str, int] = field(default_factory=dict)
     #: True when the text layer is OCR output over a scanned image. Whatever
     #: style is reported alongside is then meaningless: the detector is reading
     #: the scanner's guesses, not the book.
@@ -221,6 +209,14 @@ class NotationReport:
         if self.language_scores:
             ranked = sorted(self.language_scores.items(), key=lambda kv: -kv[1])
             lines.append("Language scores: " + ", ".join(f"{k}={v}" for k, v in ranked))
+        if self.letter_hits:
+            # Which letters, not just how many hits: a total of 28 spread over
+            # four letters is a language, and the same 28 on one letter is not.
+            seen = sorted(self.letter_hits.items(), key=lambda kv: -kv[1])
+            lines.append(
+                "Piece letters seen: "
+                + ", ".join(f"{letter}={count}" for letter, count in seen if count)
+            )
         if self.needs_glyph_recovery:
             if self.style == "figurine_font":
                 cause = (
@@ -228,17 +224,23 @@ class NotationReport:
                     "latin letters bearing no relation to the pieces they draw."
                 )
             elif max(self.language_scores.values(), default=0):
-                # Letters did occur, just not enough distinct ones to be an
-                # alphabet. Saying "no piece is named" here would contradict the
-                # scores printed two lines above.
+                # Letters did occur, they just never singled out one alphabet.
+                # Saying "no piece is named" here would contradict the scores
+                # printed two lines above.
                 best = max(self.language_scores.values())
+                tied = [
+                    language
+                    for language, score in self.language_scores.items()
+                    if score == best
+                ]
                 cause = (
-                    f"no alphabet is attested: the best language scores {best}, but on\n"
-                    f"fewer than {_MIN_ATTESTED_PIECE_LETTERS} of its five piece letters, "
-                    f"against {self.neutral_move_count} moves naming\n"
-                    "no piece at all. A book of nothing but pawn moves does not exist, and\n"
-                    "a language whose rook and queen never move is not that language: the\n"
-                    "symbols here are drawn, not written."
+                    f"no alphabet is singled out: {' and '.join(tied)} tie at {best}, "
+                    "so nothing\n"
+                    "unique to any of them was ever seen — they scored only on the letters\n"
+                    f"they share — against {self.neutral_move_count} moves naming no piece "
+                    "at all. A book of\n"
+                    "nothing but pawn moves does not exist: the symbols here are drawn,\n"
+                    "not written."
                 )
             else:
                 cause = (
@@ -329,6 +331,7 @@ def detect_notation(pages: list[Page]) -> NotationReport:
             neutral_move_count=neutral_moves,
             font_names=suspect_fonts,
             language_scores=scores,
+            letter_hits=dict(letter_hits),
         )
 
     if not scores or max(scores.values()) == 0:
@@ -340,18 +343,34 @@ def detect_notation(pages: list[Page]) -> NotationReport:
             neutral_move_count=neutral_moves,
             font_names=suspect_fonts,
             language_scores=scores,
+            letter_hits=dict(letter_hits),
         )
 
     ranked = sorted(scores.items(), key=lambda kv: -kv[1])
     best_language, best_score = ranked[0]
 
-    attested = sum(
-        1 for letter in PIECE_LETTERS_BY_LANGUAGE[best_language] if letter_hits[letter]
+    # Only an alphabet that differs from the winner's can contradict it: `es`
+    # and `it` share theirs exactly, so their tie carries no information and
+    # the tokeniser reads the same letters either way.
+    best_alphabet = PIECE_LETTERS_BY_LANGUAGE[best_language]
+    runner_up = max(
+        (
+            score
+            for language, score in ranked[1:]
+            if PIECE_LETTERS_BY_LANGUAGE[language] != best_alphabet
+        ),
+        default=0,
     )
-    if attested < _MIN_ATTESTED_PIECE_LETTERS:
-        # The winner rests on too few of its letters to be a language. Reporting
-        # none leaves `needs_glyph_recovery` free to conclude that the symbols
-        # are drawn, which is what a book like this actually needs.
+
+    if runner_up >= best_score:
+        # Nothing unique to the winner was ever seen. `fr` and `es` differ only
+        # in the bishop (F against A), so a dead heat between them means both
+        # scored on R, D, T and C alone and the choice would be a coin toss —
+        # the case a figurine font produces, its arbitrary letters landing on
+        # what the alphabets share. Reporting no language leaves
+        # `needs_glyph_recovery` free to conclude the symbols are drawn, and on
+        # a genuine book it asks for `force_language` instead of guessing
+        # between two readings that disagree about which piece `R` is.
         return NotationReport(
             style="letters",
             language=None,
@@ -360,9 +379,9 @@ def detect_notation(pages: list[Page]) -> NotationReport:
             neutral_move_count=neutral_moves,
             font_names=suspect_fonts,
             language_scores=scores,
+            letter_hits=dict(letter_hits),
         )
 
-    runner_up = ranked[1][1] if len(ranked) > 1 else 0
     # Confidence blends "is there enough evidence" with "is the winner clear".
     margin = (best_score - runner_up) / best_score if best_score else 0.0
     return NotationReport(
@@ -373,6 +392,7 @@ def detect_notation(pages: list[Page]) -> NotationReport:
         neutral_move_count=neutral_moves,
         font_names=suspect_fonts,
         language_scores=scores,
+        letter_hits=dict(letter_hits),
     )
 
 
@@ -382,8 +402,7 @@ def _score_languages(text: str) -> tuple[dict[str, int], Counter[str]]:
     Languages share most of their letters (T and D are rooks and queens in
     several), so the raw counts are compared, not treated as exclusive. The
     per-letter tally is returned alongside because the totals alone cannot tell
-    an alphabet that occurred from one that merely shares a letter with noise —
-    see :data:`_MIN_ATTESTED_PIECE_LETTERS`.
+    an alphabet that occurred from one that merely shares a letter with noise.
     """
     letter_hits: Counter[str] = Counter()
     all_letters = "".join(sorted(set("".join(PIECE_LETTERS_BY_LANGUAGE.values()))))
