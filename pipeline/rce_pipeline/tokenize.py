@@ -34,7 +34,18 @@ _TOKEN_TEMPLATE = r"""
       (?P<var_open>\()
     | (?P<var_close>\))
     | (?P<result>1-0|0-1|1/2-1/2|1/2|\*)
-    | (?P<move_number>\d{{1,3}}\s*\.(?:\s*\.\s*\.)?)
+    | (?P<move_number>
+          \d{{1,3}}
+          (?:
+              # The usual form, and the `12...` that announces a black move.
+              \s*\.(?:\s*\.\s*\.)?
+              # Batsford, Gambit and Informator print `12 Nb1` with no dot at
+              # all. Accepting a bare number would make a move number of every
+              # figure in the prose, so it only counts when a move follows it
+              # directly — which is exactly where a number can do no harm.
+            | (?=\s+(?:O-O|0-0|[{pieces}][a-h1-8x]|[a-h][1-8x]))
+          )
+      )
     | (?P<move>
           (?<![A-Za-z0-9])
           (?:
