@@ -53,3 +53,49 @@ class TestMoveNumbers:
         assert [t.text for t in tokens if t.kind == "move_number"] == [
             "1.", "2.", "13...",
         ]
+
+    def test_a_number_the_font_broke_in_two_is_read_whole(self):
+        # A subset font emits `18` as `1 8`, with a real space between the
+        # digits. The leading `1` then carries no dot and announces nothing,
+        # so the number was read as 8 — ten moves early, which the variation
+        # detector reads as a branch rather than the continuation.
+        tokens = tokenize_pages([page_of("1 7 Bd2 Nb4 1 8 Na4")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["17", "18"]
+
+    def test_a_number_does_not_swallow_the_digit_below_it(self):
+        # Only a plain space joins two digits. A line ending on a number sits
+        # next to the first digit of the line under it, and joining across
+        # that break would invent a number neither line printed.
+        tokens = tokenize_pages([page_of("Bd2 Nb4 17\n8 Na4")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["8"]
+
+    def test_an_ellipsis_printed_as_bullets_still_announces_black(self):
+        # The Grivas book sets `...` as three 2.8pt bullets. Read as the
+        # single dot that survives, `15 .••` announces a white move, and the
+        # black move that follows is played for white.
+        tokens = tokenize_pages([page_of("15 .•• Nb4 16 h4")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["15...", "16"]
+
+
+class TestBrokenTypography:
+    def test_a_bulleted_ellipsis_keeps_the_line_on_the_right_side(self):
+        # `.••` is the damaging form: the leading dot is a real one, so the
+        # number was recognised — as white's third, which rewinds the line to
+        # before the move just played and opens a variation on it. Three bare
+        # bullets are merely unrecognised, which costs nothing here.
+        tokens = tokenize_pages(
+            [page_of("1 e4 e5 2 Nf3 Nc6 3 Bb5 3 .•• a6 4 Ba4")]
+        )
+
+        moves = parse_tokens(tokens).moves
+
+        # The status and the line matter as much as the reading here: a broken
+        # move keeps its san, so comparing san alone would pass either way.
+        assert [m.san for m in moves] == [
+            "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4",
+        ]
+        assert {m.status for m in moves} == {"ok"}
+        assert {m.variation_index for m in moves} == {0}

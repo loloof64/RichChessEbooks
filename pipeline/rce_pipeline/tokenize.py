@@ -26,6 +26,12 @@ _CHARACTER_FIXES = {
     "‑": "-",  # non-breaking hyphen
     "−": "-",  # minus sign
     "×": "x",  # multiplication sign, a common OCR reading of "x"
+    # The Grivas book prints the `...` that announces a black move as three
+    # bullets in a 2.8pt font. Left alone, `15 .••` tokenises as `15 .` — a
+    # white move — and every ply of the line after it lands on the wrong side.
+    # No other book in the corpus contains a single bullet, so this costs
+    # them nothing.
+    "•": ".",
     " ": " ",  # non-breaking space
     "’": "'",
 }
@@ -35,7 +41,12 @@ _TOKEN_TEMPLATE = r"""
     | (?P<var_close>\))
     | (?P<result>1-0|0-1|1/2-1/2|1/2|\*)
     | (?P<move_number>
-          \d{{1,3}}
+          # A space inside the number: subset fonts break `18` into `1 8`, and
+          # the leading digit then carries no dot, so `1 8 ...` was read as
+          # black's eighth instead of black's eighteenth. Only a plain space,
+          # never a newline, so a number ending one line cannot swallow the
+          # digit opening the next.
+          \d(?:[ ]?\d){{0,2}}
           (?:
               # The usual form, and the `12...` that announces a black move.
               \s*\.(?:\s*\.\s*\.)?
