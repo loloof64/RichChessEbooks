@@ -99,3 +99,20 @@ class TestBrokenTypography:
         ]
         assert {m.status for m in moves} == {"ok"}
         assert {m.variation_index for m in moves} == {0}
+
+    def test_a_move_does_not_start_inside_a_broken_symbol(self):
+        # `ll:\c3` is a knight this book's font broke apart. Read from `c3`
+        # on, it is a legal pawn move: scored ok at full confidence, and every
+        # move after it played on a position the book never reached. Refusing
+        # it lowers the ok count and raises what the count is worth.
+        tokens = tokenize_pages([page_of("3 ll:\\c3 i.g7 4 e4 'ii'e8")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["e4"]
+
+    def test_a_dot_still_opens_a_move(self):
+        # The refusal has to leave the two forms a dot legitimately precedes.
+        tokens = tokenize_pages([page_of("1.e4 e5 2. Nf3 Nc6 13...Nb4")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "e4", "e5", "Nf3", "Nc6", "Nb4",
+        ]

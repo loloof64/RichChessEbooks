@@ -58,7 +58,15 @@ _TOKEN_TEMPLATE = r"""
           )
       )
     | (?P<move>
-          (?<![A-Za-z0-9])
+          # A move must not begin inside the wreckage of a piece symbol. This
+          # book's fonts break one into `ll:\c3`, `i.g7`, `'ii'e8`; refusing
+          # only alphanumerics let those through as the pawn moves `c3`, `g7`
+          # and `e8` — legal, confidently wrong, scored `ok`, and putting a
+          # false position under every move after them. A dot still opens a
+          # move in `1.e4` and `13...Nb4`, so only a dot carrying a letter is
+          # refused, never one carrying a digit or another dot.
+          (?<![A-Za-z0-9:\\'])
+          (?<![A-Za-z]\.)
           (?:
               (?:O-O-O|O-O|0-0-0|0-0)
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][1-8](?:\s*=\s*[{pieces}])?
