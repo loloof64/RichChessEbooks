@@ -79,6 +79,22 @@ MIN_COVERAGE = 0.6
 #: on nearly every line of the genre.
 _MOVE_NUMBER = re.compile(r"(?<![A-Za-z\d])\d{1,3}\s*\.")
 
+#: The same number as printed by Batsford, Gambit and Informator, which set
+#: `12 Nb1` with no dot at all. `tokenize` learned this form; this did not, and
+#: the two disagreeing cost more than either alone: a book that dots its
+#: commentary (`8 ... Nc5`) but not its game score sent every comment through
+#: glyph recovery and no line of play, so its symbols were restored exactly
+#: where they did not matter. On Grivas that was 111 lines selected out of 572
+#: instead of 170.
+#:
+#: A bare number counts only when a move follows it directly, as in `tokenize`,
+#: but the piece letters cannot be used here — the symbols are still broken at
+#: this stage, which is the whole point of re-reading the line. A square or a
+#: castling is enough, and the error is deliberately taken on this side: a
+#: prose line wrongly selected costs one crop, while a line of play wrongly
+#: dropped loses every move on it.
+_DOTLESS_MOVE_NUMBER = re.compile(r"(?<![A-Za-z\d])\d{1,3}\s+(?:[Oo0]-[Oo0]|[a-h][1-8x])")
+
 
 @dataclass(frozen=True)
 class Line:
@@ -100,8 +116,11 @@ class Line:
 
     @property
     def has_notation(self) -> bool:
-        """True when a move number appears on the line."""
-        return _MOVE_NUMBER.search(self.text) is not None
+        """True when a move number appears on the line, dotted or not."""
+        return (
+            _MOVE_NUMBER.search(self.text) is not None
+            or _DOTLESS_MOVE_NUMBER.search(self.text) is not None
+        )
 
     def to_json(self) -> dict[str, object]:
         return {

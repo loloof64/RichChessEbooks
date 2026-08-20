@@ -185,6 +185,32 @@ class TestNotationLines:
 
         assert notation_lines(lines, context=0) == []
 
+    def test_selects_a_line_whose_numbers_carry_no_dot(self):
+        # Batsford, Gambit and Informator set `12 Nb1` with no dot. `tokenize`
+        # learned that in f61a7d4 and this did not, so a book dotting its
+        # commentary but not its game score sent every comment through glyph
+        # recovery and no line of play at all: on Grivas, 111 lines of 572
+        # selected where 170 carry notation.
+        lines = segment_lines(
+            page((r"1 d4 lt:Jf6 2 c4 g6 3 ll:\c3 i.g7 4 e4 d6", 34.0, 300.0))
+        )
+
+        assert len(notation_lines(lines, context=0)) == 1
+
+    def test_selects_a_line_opening_on_a_castling(self):
+        lines = segment_lines(page(("13 0-0-0 fxg5?!", 34.0, 300.0)))
+
+        assert len(notation_lines(lines, context=0)) == 1
+
+    def test_a_bare_number_needs_a_move_behind_it(self):
+        # A chess book's prose is full of figures. Only one with a move
+        # directly after it announces anything.
+        lines = segment_lines(
+            page(("won 3 games of the 5 played at Corfu 1990", 20.0, 300.0))
+        )
+
+        assert notation_lines(lines, context=0) == []
+
     def test_takes_the_line_below_along(self):
         # A sequence broken by the line break continues with a move that has
         # nothing to announce it.
