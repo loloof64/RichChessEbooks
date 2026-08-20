@@ -63,6 +63,18 @@ class TestMoveNumbers:
 
         assert [t.text for t in tokens if t.kind == "move_number"] == ["17", "18"]
 
+    def test_a_number_does_not_reach_into_the_word_before_it(self):
+        # Tolerating a space inside the number let it start on any digit at
+        # all, including one ending a word: `Nf6 6 Nc3`, with the knight's
+        # symbol unrecovered so that nothing covered `f6`, offered the rank
+        # digit and the move number as one — 66, a hundred plies forward, and
+        # the game lost from its fifth move. The wreck is a move of its own
+        # now, so the same reach is pinned here on the game header the book
+        # prints above every score: the year and the first move read as 31.
+        tokens = tokenize_pages([page_of("Kotronias-Grivas Athens 1993 1 e4 c5")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["1"]
+
     def test_a_number_does_not_swallow_the_digit_below_it(self):
         # Only a plain space joins two digits. A line ending on a number sits
         # next to the first digit of the line under it, and joining across

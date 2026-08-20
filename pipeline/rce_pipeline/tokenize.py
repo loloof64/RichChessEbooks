@@ -46,6 +46,13 @@ _TOKEN_TEMPLATE = r"""
           # black's eighth instead of black's eighteenth. Only a plain space,
           # never a newline, so a number ending one line cannot swallow the
           # digit opening the next.
+          #
+          # The lookbehind is what keeps the tolerance from reaching into the
+          # move before. `Nf6 6 Nc3`, with the knight's symbol unrecovered so
+          # that no token covers `f6`, offered the `6` of the square and the
+          # `6` of the number as one: move 66, which threw the line a hundred
+          # plies forward and lost the game from its fifth move.
+          (?<![A-Za-z\d])
           \d(?:[ ]?\d){{0,2}}
           (?:
               # The usual form, and the `12...` that announces a black move.
@@ -58,7 +65,6 @@ _TOKEN_TEMPLATE = r"""
           )
       )
     | (?P<move>
-          (?<![A-Za-z0-9])
           (?:
               (?:O-O-O|O-O|0-0-0|0-0)
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][1-8](?:\s*=\s*[{pieces}])?
@@ -95,7 +101,7 @@ def _build_token_re(piece_letters: str) -> re.Pattern[str]:
 #: and prints `jouer...e5`, where the dot does carry a letter and still opens
 #: nothing but an ordinary black move.
 _WRECK_RUN = re.compile(r"[A-Za-z.:\\'|/]{1,5}$")
-_WRECK_MARK = re.compile(r"[:\\']|(?<=[A-Za-z])\.(?!\.)")
+_WRECK_MARK = re.compile(r"[:\\']|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
 
 
 #: A move that already says which piece moved, castling included. Written
@@ -208,6 +214,13 @@ def _tokenize_page(
             # piece in front of it can only fail.
             if not _NAMES_A_PIECE.match(text_out):
                 lost_symbol = _wreck_before(text, start)
+            # A move may begin after the remains of a symbol, and nowhere else
+            # that a word is already running. The pattern used to refuse both
+            # with one lookbehind, which also refused `liJf6` — a knight whose
+            # wreck ends on a letter — and losing black's fifth move made
+            # white's sixth illegal and killed the game from there.
+            if not lost_symbol and start and text[start - 1].isalnum():
+                continue
             # The wreck is the piece as the book printed it, so the token
             # starts there: the reader's tap zone has to cover the symbol, not
             # just the square beside it. Taken off the token's start before
