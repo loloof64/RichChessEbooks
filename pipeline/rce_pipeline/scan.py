@@ -89,11 +89,22 @@ _MOVE_NUMBER = re.compile(r"(?<![A-Za-z\d])\d{1,3}\s*\.")
 #:
 #: A bare number counts only when a move follows it directly, as in `tokenize`,
 #: but the piece letters cannot be used here — the symbols are still broken at
-#: this stage, which is the whole point of re-reading the line. A square or a
-#: castling is enough, and the error is deliberately taken on this side: a
-#: prose line wrongly selected costs one crop, while a line of play wrongly
-#: dropped loses every move on it.
-_DOTLESS_MOVE_NUMBER = re.compile(r"(?<![A-Za-z\d])\d{1,3}\s+(?:[Oo0]-[Oo0]|[a-h][1-8x])")
+#: this stage, which is the whole point of re-reading the line. The square is
+#: the only part that survives, and the wreck of the symbol sits between the
+#: two: `24 'it'g2`, `14 lt::Jxg5`, `17 i.xc5?`, `25 i.f3`. Skipping over it is
+#: what separates a line of play from prose here — a square counter cannot,
+#: because the same wreck welds itself to the square and hides it.
+#:
+#: The error is deliberately taken on the permissive side: a prose line wrongly
+#: selected costs one crop, while a line of play wrongly dropped loses every
+#: move on it. Measured over forty pages, this admits 85 further lines of
+#: Grivas and not one of the other three books.
+#:
+#: One form escapes it and no rule keyed on the number can catch it: `ll ll:\f3`,
+#: where the number itself printed as letters.
+_DOTLESS_MOVE_NUMBER = re.compile(
+    r"(?<![A-Za-z\d])\d{1,3}\s+(?:[Oo0]-[Oo0]|\S{0,5}?x?[a-h][1-8](?![A-Za-z\d]))"
+)
 
 
 @dataclass(frozen=True)

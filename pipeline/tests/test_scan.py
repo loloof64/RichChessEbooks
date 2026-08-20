@@ -202,6 +202,22 @@ class TestNotationLines:
 
         assert len(notation_lines(lines, context=0)) == 1
 
+    def test_selects_a_line_whose_symbol_broke_between_number_and_square(self):
+        # `24 i.f3` is a bishop this book's font shattered. The square is the
+        # only part left, and the wreck sits between it and the number, so a
+        # rule reading straight from the number to a square walks past the
+        # line and the move never reaches glyph recovery at all.
+        lines = segment_lines(page(("The simple 24 i.f3 would also guarantee an", 20.0, 300.0)))
+
+        assert len(notation_lines(lines, context=0)) == 1
+
+    def test_ignores_prose_that_counts_things(self):
+        # "3 axes" reads as a move if the square is allowed to end on a
+        # letter. It is what the trailing guard is for.
+        lines = segment_lines(page(("Les 3 axes du jeu d'echecs", 20.0, 300.0)))
+
+        assert notation_lines(lines, context=0) == []
+
     def test_a_bare_number_needs_a_move_behind_it(self):
         # A chess book's prose is full of figures. Only one with a move
         # directly after it announces anything.
