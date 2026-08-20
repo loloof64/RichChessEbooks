@@ -16,10 +16,13 @@ from rce_pipeline.tokenize import Token
 BOX = BBox(72.0, 640.0, 18.0, 10.0)
 
 
-def tok(kind: str, text: str, page: int = 1, consumed: str = "") -> Token:
+def tok(
+    kind: str, text: str, page: int = 1, consumed: str = "", lost_symbol: str = ""
+) -> Token:
     return Token(
         kind=kind, text=text, raw=text, page=page,
         start=0, end=len(text), bbox=BOX, consumed=consumed,
+        lost_symbol=lost_symbol,
     )
 
 
@@ -553,3 +556,64 @@ def test_starting_position_is_the_default():
     result = parse_tokens(moves(("move_number", "1."), ("move", "e4")))
 
     assert result.games[0].initial_fen == chess.STARTING_FEN
+
+
+class TestLostSymbol:
+    """A move whose piece symbol the glyph pass never restored.
+
+    What is left on the page spells a pawn move, and playing it is worse than
+    losing the move: it is legal often enough to be taken at full confidence,
+    and every move after it is then played on a position the book never
+    reached. The board is asked instead.
+    """
+
+    def opening(self, square: str, wreck: str, plies: int = 5) -> list[Token]:
+        # 1 d4 Nf6 2 c4 g6 3 Nc3, the first five plies of page 3 of the Grivas
+        # book, whose sixth is printed `i.g7` and was read as a pawn move.
+        played = ["d4", "Nf6", "c4", "g6", "Nc3"][:plies]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        if len(played) % 2 == 0:
+            tokens.append(tok("move_number", str(len(played) // 2 + 1)))
+        tokens.append(tok("move", square, lost_symbol=wreck))
+        return tokens
+
+    def test_the_board_names_the_piece_when_only_one_can_reach(self):
+        # No knight, rook, queen or king has any move to g7 here. The bishop
+        # on f8 does, and it is what the book printed.
+        result = parse_tokens(self.opening("g7", "i."))
+        last = result.moves[-1]
+
+        assert last.san == "Bg7"
+        # Deduced, not read: it must not pass for a move the book spelled out.
+        assert last.status == "uncertain"
+        assert last.repair["reason"].startswith("read as Bg7")
+
+    def test_the_pawn_move_it_spells_is_never_the_answer(self):
+        # a7-a6 is perfectly legal here, and `ll:\a6` used to be scored as it,
+        # ok, at full confidence. The wreck says a piece was printed, so the
+        # pawn reading is not a candidate at all — only the knight reaches a6,
+        # the bishop on c8 being shut in by its own pawn.
+        result = parse_tokens(self.opening("a6", "ll:\\"))
+        last = result.moves[-1]
+
+        assert (last.san, last.status) == ("Na6", "uncertain")
+
+    def test_two_pieces_reaching_the_square_are_left_to_the_reader(self):
+        # After 1 d4 Nf6 2 c4, black can play both Rg8 and Ng8, and nothing on
+        # the page separates them. Guessing would hide the problem; the pair
+        # goes out as `candidates` for the reader to pick between.
+        result = parse_tokens(self.opening("g8", "l:t", plies=3))
+        last = result.moves[-1]
+
+        assert last.status == "broken"
+        assert sorted(result.ambiguities[-1]["candidates"]) == ["Ng8", "Rg8"]
+
+    def test_a_move_with_no_wreck_is_read_as_printed(self):
+        result = parse_tokens(self.opening("a6", ""))
+        last = result.moves[-1]
+
+        assert (last.san, last.status, last.confidence) == ("a6", "ok", 1.0)

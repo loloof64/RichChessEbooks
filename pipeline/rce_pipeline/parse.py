@@ -55,6 +55,19 @@ _MAX_REPAIR_COST = 0.5
 #: letter by accident.
 _CONSUMED_DISAMBIGUATION_CONFIDENCE = 0.6
 
+#: Confidence given to a move whose piece symbol was never restored and which
+#: only one piece could legally have made. Lower again than the two repairs
+#: above: they both read something the page still carries, while this reads
+#: nothing at all — the piece is named by the position, and the position is
+#: only as good as every move that built it.
+_LOST_SYMBOL_CONFIDENCE = 0.5
+
+#: The pieces a lost symbol could have been. The pawn is deliberately absent:
+#: the wreck on the page *is* a piece symbol, so reading the token as the pawn
+#: move it spells is the very mistake that scored `Na6` as `a6`, ok, at full
+#: confidence.
+_LOST_SYMBOL_PIECES = ("K", "Q", "R", "B", "N")
+
 #: The characters a SAN disambiguator can be: an origin file or an origin rank.
 _DISAMBIGUATION_CHARS = frozenset("abcdefgh12345678")
 
@@ -376,7 +389,9 @@ def parse_tokens(
             main_history.setdefault(
                 _ply_awaited(board_before), (board_before.copy(), level.parent_id)
             )
-        resolution = _resolve(board_before, token.text, token.consumed)
+        resolution = _resolve(
+            board_before, token.text, token.consumed, token.lost_symbol
+        )
         move = resolution.move
 
         move_counter += 1
@@ -460,16 +475,25 @@ class _Resolution:
     settled_by: str | None = None
 
 
-def _resolve(board: chess.Board, raw: str, consumed: str = "") -> _Resolution:
+def _resolve(
+    board: chess.Board, raw: str, consumed: str = "", lost_symbol: str = ""
+) -> _Resolution:
     """Read `raw` as a move in `board`, repairing it if needed.
 
     `consumed` is the characters the glyph pass destroyed inside this token,
     and is only ever consulted for an ambiguous move; see `_settle_ambiguity`.
+
+    `lost_symbol` is the wreck of a piece symbol printed before the token and
+    never restored. It changes what the token can mean rather than how well it
+    is trusted, so it is answered first; see `_settle_lost_symbol`.
     """
     candidate = _TRAILING_ANNOTATION.sub("", raw.strip())
     # Castling printed with zeros is a typographic variant, not a scanning
     # error, so it is normalised silently and stays `ok`.
     plain = candidate.replace("0-0-0", "O-O-O").replace("0-0", "O-O")
+
+    if lost_symbol:
+        return _settle_lost_symbol(board, plain, raw, lost_symbol)
 
     try:
         move = board.parse_san(plain)
@@ -515,6 +539,51 @@ def _resolve(board: chess.Board, raw: str, consumed: str = "") -> _Resolution:
         max(0.0, 1.0 - best_cost / 2.0),
         {"raw": raw, "reason": f"read as {legal_san} (edit cost {best_cost:g})"},
     )
+
+
+def _settle_lost_symbol(
+    board: chess.Board, plain: str, raw: str, wreck: str
+) -> _Resolution:
+    """Name the piece from the position, when the page no longer names it.
+
+    The book printed a piece and the glyph pass failed to restore it, so what
+    is left spells a pawn move. Playing that is worse than losing the move:
+    it is legal often enough to be accepted at full confidence, and every move
+    after it is then played on a position the book never reached.
+
+    The board can often answer. Of the five pieces, usually only one can reach
+    the square at all — the bishop on `1 d4 Nf6 2 c4 g6 3 Nc3 i.g7`, where no
+    knight, rook, queen or king has any move to g7. When two can, nothing on
+    the page settles it, so the readings are handed on as `candidates` for the
+    reader to pick between, which is what the ambiguity path exists for.
+    """
+    readings: list[tuple[chess.Move, str]] = []
+    for piece in _LOST_SYMBOL_PIECES:
+        try:
+            move = board.parse_san(piece + plain)
+        except (ValueError, AssertionError):
+            continue
+        readings.append((move, board.san(move)))
+
+    sans = [san for _, san in readings]
+    if len(readings) == 1:
+        move, san = readings[0]
+        return _Resolution(
+            move,
+            san,
+            "uncertain",
+            _LOST_SYMBOL_CONFIDENCE,
+            {"raw": raw, "reason": f"read as {san}: '{wreck}' is the only piece that fits"},
+            candidates=sans,
+            settled_by="legality",
+        )
+
+    reason = (
+        f"the piece printed as '{wreck}' was lost, and "
+        + (f"could be {', '.join(sans[:4])}" if sans else "no piece reaches this square")
+    )
+    return _Resolution(None, plain, "broken", 0.0, {"raw": raw, "reason": reason},
+                       candidates=sans)
 
 
 def _settle_ambiguity(

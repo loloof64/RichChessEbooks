@@ -58,15 +58,7 @@ _TOKEN_TEMPLATE = r"""
           )
       )
     | (?P<move>
-          # A move must not begin inside the wreckage of a piece symbol. This
-          # book's fonts break one into `ll:\c3`, `i.g7`, `'ii'e8`; refusing
-          # only alphanumerics let those through as the pawn moves `c3`, `g7`
-          # and `e8` — legal, confidently wrong, scored `ok`, and putting a
-          # false position under every move after them. A dot still opens a
-          # move in `1.e4` and `13...Nb4`, so only a dot carrying a letter is
-          # refused, never one carrying a digit or another dot.
-          (?<![A-Za-z0-9:\\'])
-          (?<![A-Za-z]\.)
+          (?<![A-Za-z0-9])
           (?:
               (?:O-O-O|O-O|0-0-0|0-0)
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][1-8](?:\s*=\s*[{pieces}])?
@@ -90,6 +82,36 @@ def _build_token_re(piece_letters: str) -> re.Pattern[str]:
         _TOKEN_TEMPLATE.format(pieces=re.escape(piece_letters)), re.VERBOSE
     )
 
+#: What a piece symbol leaves behind when the glyph pass fails to restore it:
+#: `i.g7`, `ll:\\c3`, `'ii'e8`, `.l:txg6`. A move read from the square onwards
+#: is then a legal pawn move, scored `ok` at full confidence, with a position
+#: the book never reached under everything after it.
+#:
+#: The run is bounded and must not cross a space. What makes it wreckage
+#: rather than ordinary punctuation is the mark inside it: `:`, `\\`, `'`, or a
+#: lone dot carrying a letter. A dot carrying a digit or another dot is how
+#: `1.e4` and `13...Nb4` are printed, and those open a move as they always
+#: did — including when a book's OCR runs the word before into the ellipsis
+#: and prints `jouer...e5`, where the dot does carry a letter and still opens
+#: nothing but an ordinary black move.
+_WRECK_RUN = re.compile(r"[A-Za-z.:\\'|/]{1,5}$")
+_WRECK_MARK = re.compile(r"[:\\']|(?<=[A-Za-z])\.(?!\.)")
+
+
+#: A move that already says which piece moved, castling included. Written
+#: against SAN letters because `text_out` is translated by then.
+_NAMES_A_PIECE = re.compile(r"[KQRBN]|O-O")
+
+
+def _wreck_before(text: str, start: int) -> str:
+    """The remains of a piece symbol printed just before `start`, if any."""
+    run = _WRECK_RUN.search(text, 0, start)
+    if run is None:
+        return ""
+    found = run.group()
+    return found if _WRECK_MARK.search(found) else ""
+
+
 #: Prose shorter than this, or made only of punctuation, is dropped rather than
 #: attached to a move as a comment.
 _MIN_COMMENT_LENGTH = 3
@@ -109,6 +131,10 @@ class Token:
     #: need it. Only collected for moves — it exists so that `parse` can tell a
     #: disambiguating letter that was eaten from one that was never printed.
     consumed: str = ""
+    #: The remains of a piece symbol printed immediately before this move and
+    #: never restored, as in `i.g7`. Its presence says the book named a piece
+    #: here, so `parse` must not read the token as the pawn move it spells.
+    lost_symbol: str = ""
 
     def to_json(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -120,6 +146,8 @@ class Token:
         }
         if self.consumed:
             payload["consumed"] = self.consumed
+        if self.lost_symbol:
+            payload["lost_symbol"] = self.lost_symbol
         return payload
 
 
@@ -163,21 +191,34 @@ def _tokenize_page(
     cursor = 0
 
     for match in token_re.finditer(text):
-        if match.start() > cursor:
-            prose = _make_text_token(page, text, cursor, match.start())
-            if prose is not None:
-                yield prose
-
         kind = match.lastgroup
         assert kind is not None
         start, end = match.span()
         # Move numbers and promotions may carry internal spaces ("14 ." or
         # "e8 = Q"); squeeze them so downstream code sees canonical text.
         text_out = match.group() if kind == "annotation" else re.sub(r"\s+", "", match.group())
-        consumed = ""
+        consumed = lost_symbol = ""
         if kind == "move":
             text_out = text_out.translate(to_san)
             consumed = "".join(c.consumed for c in page.chars[start:end])
+            # Only a move that names no piece can have lost one. A word run
+            # into the ellipsis before a move — `jouer...Bxf5`, which the OCR
+            # of one book prints without the space — otherwise flags a move
+            # that spells its bishop out, and asking the board for a second
+            # piece in front of it can only fail.
+            if not _NAMES_A_PIECE.match(text_out):
+                lost_symbol = _wreck_before(text, start)
+            # The wreck is the piece as the book printed it, so the token
+            # starts there: the reader's tap zone has to cover the symbol, not
+            # just the square beside it. Taken off the token's start before
+            # the prose above is closed, so the two do not both claim it.
+            start -= len(lost_symbol)
+
+        if start > cursor:
+            prose = _make_text_token(page, text, cursor, start)
+            if prose is not None:
+                yield prose
+
         yield Token(
             kind=kind,
             text=text_out,
@@ -187,6 +228,7 @@ def _tokenize_page(
             end=end,
             bbox=page.bbox_for(start, end),
             consumed=consumed,
+            lost_symbol=lost_symbol,
         )
         cursor = end
 

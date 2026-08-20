@@ -100,14 +100,35 @@ class TestBrokenTypography:
         assert {m.status for m in moves} == {"ok"}
         assert {m.variation_index for m in moves} == {0}
 
-    def test_a_move_does_not_start_inside_a_broken_symbol(self):
+    def test_a_move_inside_a_broken_symbol_is_marked_not_dropped(self):
         # `ll:\c3` is a knight this book's font broke apart. Read from `c3`
-        # on, it is a legal pawn move: scored ok at full confidence, and every
-        # move after it played on a position the book never reached. Refusing
-        # it lowers the ok count and raises what the count is worth.
+        # on it is a legal pawn move — scored ok at full confidence, with a
+        # position the book never reached under every move after it. The token
+        # is kept, because the board can often name the piece the page lost,
+        # but it carries the wreck so that nothing reads it as a pawn move.
         tokens = tokenize_pages([page_of("3 ll:\\c3 i.g7 4 e4 'ii'e8")])
+        moves = [t for t in tokens if t.kind == "move"]
 
-        assert [t.text for t in tokens if t.kind == "move"] == ["e4"]
+        assert [t.text for t in moves] == ["c3", "g7", "e4", "e8"]
+        assert [t.lost_symbol for t in moves] == ["ll:\\", "i.", "", "'ii'"]
+
+    def test_a_word_run_into_an_ellipsis_is_not_a_broken_symbol(self):
+        # One book's OCR drops the space and prints `jouer...e5`. The dot does
+        # carry a letter, and it still announces nothing but an ordinary black
+        # move — reading a lost piece into it would refuse the pawn move and
+        # then find no piece able to reach the square.
+        tokens = tokenize_pages([page_of("Il faut jouer...e5 et non 12 Bxf5")])
+        moves = [t for t in tokens if t.kind == "move"]
+
+        assert [(t.text, t.lost_symbol) for t in moves] == [("e5", ""), ("Bxf5", "")]
+
+    def test_the_tap_zone_covers_the_symbol_and_not_only_the_square(self):
+        # The wreck is the piece as the book printed it, so it belongs to the
+        # move's span: the reader puts its tap zone there.
+        tokens = tokenize_pages([page_of("3 i.g7")])
+        move = next(t for t in tokens if t.kind == "move")
+
+        assert move.raw == "i.g7"
 
     def test_a_dot_still_opens_a_move(self):
         # The refusal has to leave the two forms a dot legitimately precedes.
