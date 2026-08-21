@@ -10,14 +10,16 @@ from __future__ import annotations
 
 import json
 import os
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import extract, notation, package, parse, tokenize
+from . import diagrams, extract, notation, package, parse, tokenize
 
 ARTEFACTS = {
     "pages": "01_pages.json",
     "glyphs": "01b_glyphs.json",
+    "diagrams": "01c_diagrams.json",
     "notation": "02_notation.json",
     "tokens": "03_tokens.json",
     "moves": "04_moves.json",
@@ -31,6 +33,9 @@ class PipelineResult:
     tokens: list[tokenize.Token]
     parsed: parse.ParseResult
     rce_path: str | None
+    #: The diagram blocks found in the text layer, empty unless the book sets
+    #: its positions in a diagram font.
+    diagrams: list[Any] = field(default_factory=list)
     #: Piece symbols recovered from the page images, empty unless the book
     #: needed it and a `glyph_model` was given.
     glyphs: list[Any] = field(default_factory=list)
@@ -57,6 +62,14 @@ class PipelineResult:
             f"Moves:       {counts['moves']}"
             f"  (ok {counts['ok']}, uncertain {counts['uncertain']}, broken {counts['broken']})",
         ]
+        if self.diagrams:
+            verdicts = Counter(c["verdict"] for c in self.parsed.diagram_checks)
+            lines.append(
+                f"Diagrams:    {len(self.diagrams)} printed in the text layer"
+                f"  ({verdicts['confirms']} confirm the line,"
+                f" {verdicts['corrects']} correct it, {verdicts['seeds']} seed a game,"
+                f" {verdicts['unreadable'] + verdicts['unread']} unread)"
+            )
         breaks = self.parsed.break_diagnosis()
         lines += [
             # `ok` alone flatters a long line that broke early: see
@@ -165,10 +178,30 @@ def run(
         report.language = force_language
     _write(write_artefacts, work_dir, "notation", report.to_json())
 
-    tokens = tokenize.tokenize_pages(pages, piece_letters=report.piece_letters)
+    printed = diagrams.find(pages)
+    _write(write_artefacts, work_dir, "diagrams", [d.to_json() for d in printed])
+
+    tokens = tokenize.tokenize_pages(
+        pages, piece_letters=report.piece_letters, diagrams=printed
+    )
     _write(write_artefacts, work_dir, "tokens", [t.to_json() for t in tokens])
 
     parsed = parse.parse_tokens(tokens, strict_numbering=strict_numbering)
+    if printed:
+        # The first pass reads the diagrams as nothing but eight rows of
+        # characters, and that is enough to learn what the characters mean:
+        # wherever a game reached one without breaking, the position is known.
+        # The second pass has the font, so a diagram can seed a game printed
+        # from a picture and correct a line that drifted.
+        table = diagrams.learn(
+            (tuple(check["rows"]), check["reached"])
+            for check in parsed.diagram_checks
+            if check["sound"] and check["reached"]
+        )
+        if table:
+            parsed = parse.parse_tokens(
+                tokens, strict_numbering=strict_numbering, diagram_table=table
+            )
     _write(write_artefacts, work_dir, "moves", parsed.to_json())
 
     rce_path: str | None = None
@@ -192,6 +225,7 @@ def run(
         parsed=parsed,
         rce_path=rce_path,
         glyphs=recovered,
+        diagrams=printed,
     )
 
 

@@ -125,7 +125,7 @@ _MIN_COMMENT_LENGTH = 3
 
 @dataclass
 class Token:
-    kind: str  # move | move_number | var_open | var_close | result | annotation | text
+    kind: str  # move | move_number | var_open | var_close | result | annotation | text | diagram
     text: str  # normalised
     raw: str  # exactly as printed, before normalisation
     page: int  # 1-based
@@ -163,7 +163,10 @@ def normalise(text: str) -> str:
 
 
 def tokenize_pages(
-    pages: list[Page], *, piece_letters: str = SAN_PIECE_LETTERS
+    pages: list[Page],
+    *,
+    piece_letters: str = SAN_PIECE_LETTERS,
+    diagrams: list[Any] | None = None,
 ) -> list[Token]:
     """Tokenise every page in order, concatenating the results.
 
@@ -180,23 +183,60 @@ def tokenize_pages(
     Pages are tokenised independently, so a move split across a page break is
     lost. That is rare in practice — publishers avoid breaking a move in two —
     and detecting it reliably would require reflowing the whole book.
+
+    `diagrams` are the blocks `diagrams.find` located: each one becomes a
+    single `diagram` token and its rows are read as nothing else. Without that,
+    a diagram set in a diagram font arrives here as eight lines of letters and
+    is tokenised as prose — which is what it looked like until the font was
+    understood.
     """
     token_re = _build_token_re(piece_letters)
     to_san = str.maketrans(piece_letters, SAN_PIECE_LETTERS)
+    blocks: dict[int, list[Any]] = {}
+    for diagram in diagrams or ():
+        blocks.setdefault(diagram.page, []).append(diagram)
 
     tokens: list[Token] = []
     for page in pages:
-        tokens.extend(_tokenize_page(page, token_re, to_san))
+        tokens.extend(_tokenize_page(page, token_re, to_san, blocks.get(page.number, [])))
     return tokens
 
 
 def _tokenize_page(
-    page: Page, token_re: re.Pattern[str], to_san: dict[int, int]
+    page: Page,
+    token_re: re.Pattern[str],
+    to_san: dict[int, int],
+    diagrams: list[Any],
 ) -> Iterator[Token]:
+    """The page's tokens, the diagram blocks standing whole between them."""
     text = normalise(page.text)
     cursor = 0
+    for diagram in sorted(diagrams, key=lambda d: d.start):
+        yield from _tokenize_span(page, text, token_re, to_san, cursor, diagram.start)
+        yield Token(
+            kind="diagram",
+            text="/".join(diagram.rows),
+            raw=page.text[diagram.start : diagram.end],
+            page=page.number,
+            start=diagram.start,
+            end=diagram.end,
+            bbox=page.bbox_for(diagram.start, diagram.end),
+        )
+        cursor = diagram.end
+    yield from _tokenize_span(page, text, token_re, to_san, cursor, len(text))
 
-    for match in token_re.finditer(text):
+
+def _tokenize_span(
+    page: Page,
+    text: str,
+    token_re: re.Pattern[str],
+    to_san: dict[int, int],
+    lo: int,
+    hi: int,
+) -> Iterator[Token]:
+    cursor = lo
+
+    for match in token_re.finditer(text, lo, hi):
         kind = match.lastgroup
         assert kind is not None
         start, end = match.span()
@@ -245,8 +285,8 @@ def _tokenize_page(
         )
         cursor = end
 
-    if cursor < len(text):
-        prose = _make_text_token(page, text, cursor, len(text))
+    if cursor < hi:
+        prose = _make_text_token(page, text, cursor, hi)
         if prose is not None:
             yield prose
 

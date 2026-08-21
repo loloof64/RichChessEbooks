@@ -20,6 +20,7 @@ from typing import Any, Iterable
 
 import chess
 
+from . import diagrams
 from .extract import BBox
 from .tokenize import Token
 
@@ -156,6 +157,10 @@ class ParseResult:
     #: One entry per move whose SAN named a piece and a square two pieces could
     #: legally reach. Diagnostics, not contract: it never reaches `moves.json`.
     ambiguities: list[dict[str, Any]] = field(default_factory=list)
+    #: One entry per diagram met, and what it did: confirmed the board the
+    #: parser had reached, corrected it, seeded a game that had no starting
+    #: position, or could not be read. See `diagrams.py`.
+    diagram_checks: list[dict[str, Any]] = field(default_factory=list)
 
     def counts(self) -> dict[str, int]:
         return {
@@ -293,6 +298,7 @@ def parse_tokens(
     *,
     initial_fen: str = chess.STARTING_FEN,
     strict_numbering: bool = True,
+    diagram_table: dict[str, str] | None = None,
 ) -> ParseResult:
     """Assemble `tokens` into games of move nodes.
 
@@ -313,6 +319,12 @@ def parse_tokens(
     game_counter = 0
 
     pending_title: str | None = None
+    #: A position read from a diagram, waiting for the number printed under it
+    #: to say whose move it is.
+    pending_position: str | None = None
+    #: Whether the main line has been sound since the game began: a diagram is
+    #: only allowed to teach the font from a board that can be believed.
+    line_sound = True
     game: Game | None = None
     stack: list[_Level] = []
     #: Position and parent before each half-move of the game's main line,
@@ -321,19 +333,21 @@ def parse_tokens(
     #: position rather than an approximation of one.
     main_history: dict[int, tuple[chess.Board, str | None]] = {}
 
-    def start_game(page: int) -> None:
-        nonlocal game, game_counter, stack, pending_title
+    def start_game(page: int, from_diagram: str | None = None) -> None:
+        nonlocal game, game_counter, stack, pending_title, line_sound
         game_counter += 1
+        opening_fen = from_diagram or initial_fen
         game = Game(
             id=f"g{game_counter}",
             title=pending_title,
-            initial_fen=initial_fen,
+            initial_fen=opening_fen,
             root_move_id=None,
             page_start=page,
         )
         result.games.append(game)
-        stack = [_Level(board=chess.Board(initial_fen), parent_id=None)]
+        stack = [_Level(board=chess.Board(opening_fen), parent_id=None)]
         pending_title = None
+        line_sound = True
         main_history.clear()
 
     def _place_by_number(declared: int) -> None:
@@ -394,9 +408,57 @@ def parse_tokens(
                 level.moves_allowed = 0
             continue
 
+        if token.kind == "diagram":
+            rows = tuple(token.text.split("/"))
+            reached = stack[0].board.board_fen() if stack else None
+            printed = diagrams.decode(rows, diagram_table) if diagram_table else None
+            if printed is None:
+                verdict = "unread" if diagram_table is None else "unreadable"
+            elif not stack:
+                verdict = "seeds"
+            elif printed == reached:
+                verdict = "confirms"
+            else:
+                verdict = "corrects"
+            if verdict in ("seeds", "corrects"):
+                pending_position = printed
+            result.diagram_checks.append(
+                {
+                    "page": token.page,
+                    "rows": list(rows),
+                    # The board the parser had reached, kept whatever the
+                    # verdict: this is what `diagrams.learn` reads back, and
+                    # `sound` is what says it may.
+                    "reached": reached,
+                    "printed": printed,
+                    "sound": bool(stack) and line_sound,
+                    "verdict": verdict,
+                }
+            )
+            continue
+
         if token.kind == "move_number":
             number = int(re.match(r"\d+", token.text).group())
             is_black_only = "..." in token.text
+            if pending_position is not None:
+                # The diagram gave the placement and this number gives the rest
+                # of the position: whose move it is, and which move it is.
+                seeded = diagrams.initial_fen(
+                    pending_position, number=number, black_to_move=is_black_only
+                )
+                pending_position = None
+                if game is None:
+                    start_game(token.page, from_diagram=seeded)
+                else:
+                    # The book has just said where the pieces are, so the line
+                    # continues from there rather than from wherever the score
+                    # had drifted to. The moves already read keep their place in
+                    # the tree; what follows descends from the last of them.
+                    stack[:] = [_Level(board=chess.Board(seeded), parent_id=stack[0].parent_id)]
+                    main_history.clear()
+                    line_sound = True
+                stack[-1].moves_allowed = 1 if is_black_only else 2
+                continue
             if game is None or (number == 1 and not is_black_only and result.moves and not stack[1:]):
                 start_game(token.page)
             if stack:
@@ -514,6 +576,8 @@ def parse_tokens(
             # The position is lost from here on: anything that follows would be
             # played on a board that no longer matches the book. Close the line.
             level.moves_allowed = 0
+            if len(stack) == 1:
+                line_sound = False
 
     return result
 
