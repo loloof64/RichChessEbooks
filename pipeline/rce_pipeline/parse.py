@@ -201,6 +201,43 @@ class ParseResult:
             "nearest_repair_plies": sorted(a["upstream_repair_distance"] for a in downstream),
         }
 
+    def break_diagnosis(self) -> dict[str, int]:
+        """How much of this book's reading stands below a broken move.
+
+        When a move finds no legal reading the line is left on the position
+        before it, and the score goes on being read there. Everything under
+        that point is played on a board the book never reached — including the
+        moves that come out legal, which are then recorded `ok` at full
+        confidence while naming a position that is not the book's. Counting
+        them with the sound ones inflates the measurement, and the inflation
+        grows with the length of the line rather than with the quality of the
+        reading.
+
+        So `broken` is split into the lines that actually died (`first_breaks`,
+        one per line, the number worth working on) and what merely followed
+        them (`cascade`); and `ok` into `clean`, the moves no break stands
+        above, and `below_break`. **`clean` is the figure to compare between
+        two runs.**
+        """
+        by_id = {m.id: m for m in self.moves}
+
+        def below_a_break(move: MoveNode) -> bool:
+            parent = move.parent_id
+            while parent is not None:
+                if by_id[parent].status == "broken":
+                    return True
+                parent = by_id[parent].parent_id
+            return False
+
+        tally = dict(first_breaks=0, cascade=0, clean=0, below_break=0)
+        for move in self.moves:
+            tainted = below_a_break(move)
+            if move.status == "broken":
+                tally["cascade" if tainted else "first_breaks"] += 1
+            elif move.status == "ok":
+                tally["below_break" if tainted else "clean"] += 1
+        return tally
+
     def to_json(self) -> dict[str, Any]:
         return {
             "schema_version": "1.0.0",

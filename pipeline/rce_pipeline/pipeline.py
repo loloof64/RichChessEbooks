@@ -56,6 +56,15 @@ class PipelineResult:
             f"Games:       {counts['games']}",
             f"Moves:       {counts['moves']}"
             f"  (ok {counts['ok']}, uncertain {counts['uncertain']}, broken {counts['broken']})",
+        ]
+        breaks = self.parsed.break_diagnosis()
+        lines += [
+            # `ok` alone flatters a long line that broke early: see
+            # `ParseResult.break_diagnosis`.
+            f"Trusted:     {breaks['clean']} of those ok moves have no break above them"
+            f"  ({breaks['below_break']} do)",
+            f"Breaks:      {breaks['first_breaks']} lines died"
+            f"  ({breaks['cascade']} further moves read below them)",
             f"Skipped:     {counts['skipped']} move-shaped tokens rejected before validation",
         ]
         diagnosis = self.parsed.ambiguity_diagnosis()

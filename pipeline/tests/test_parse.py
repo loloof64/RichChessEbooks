@@ -280,6 +280,27 @@ class TestProseEndsTheNumbersLicence:
         assert sans(result) == ["e4", "e5", "Nf3"]
 
 
+class TestBreakDiagnosis:
+    def test_separates_the_line_that_died_from_what_was_read_below_it(self):
+        # `Ra5` is illegal here, so the line stays on the position before it
+        # and `Nc6` is then read on a board the book never reached — legal,
+        # and not the book's move.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Ra5"),
+                ("move_number", "3."), ("move", "Nc6"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert by_san["Ra5"].status == "broken"
+        assert by_san["Nc6"].status == "ok"
+        assert result.break_diagnosis() == {
+            "first_breaks": 1, "cascade": 0, "clean": 3, "below_break": 1,
+        }
+
+
 class TestLegality:
     def test_castling_written_with_zeros_is_not_treated_as_an_error(self):
         result = parse_tokens(
