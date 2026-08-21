@@ -280,6 +280,33 @@ class TestProseEndsTheNumbersLicence:
         assert sans(result) == ["e4", "e5", "Nf3"]
 
 
+class TestAGameWithNoStartingPosition:
+    def test_analysis_quoted_after_a_result_is_read_but_not_scored(self):
+        # "Black resigned in view of 27...Rf6 28 d5": a line nobody played,
+        # printed after the game it belongs to has ended.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("result", "1-0"),
+                ("move_number", "27..."), ("move", "Rf6"),
+                ("move_number", "28."), ("move", "d5"),
+            )
+        )
+
+        quoted = [m for m in result.moves if m.game_id == result.games[-1].id]
+        assert [m.san for m in quoted] == ["Rf6", "d5"]
+        assert all(m.status == "broken" and m.fen is None for m in quoted)
+        assert result.games[-1].position_known is False
+        # None of it counts: the pipeline was never asked to place these.
+        assert result.break_diagnosis()["clean"] == 2      # e4 and e5
+        assert result.break_diagnosis()["unscored"] == 2
+
+    def test_the_moves_keep_their_boxes(self):
+        result = parse_tokens(moves(("move_number", "27..."), ("move", "Rf6")))
+
+        assert result.moves[0].bbox == BOX
+
+
 class TestBreakDiagnosis:
     def test_separates_the_line_that_died_from_what_was_read_below_it(self):
         # `Ra5` is illegal here, so the line stays on the position before it
@@ -298,7 +325,7 @@ class TestBreakDiagnosis:
         assert by_san["Nc6"].status == "ok"
         assert result.break_diagnosis() == {
             "first_breaks": 1, "cascade": 0, "clean": 3, "below_break": 1,
-            "contradicted": 0,
+            "contradicted": 0, "unscored": 0,
         }
 
 

@@ -102,7 +102,8 @@ language does not fail, it produces a different game.
   "games": [
     { "id": "g1", "title": "Fischer – Spassky, Reykjavík 1972 (1)",
       "initial_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      "root_move_id": "g1-m1" }
+      "root_move_id": "g1-m1",
+      "position_known": true }
   ],
   "moves": [
     {
@@ -149,6 +150,15 @@ A move is a node in a tree, not a row in a list:
 
 `confidence` is a `[0, 1]` hint driving the overlay colour in the app. A `broken`
 move still carries `page` and `bbox` so the user can find and fix it.
+
+`position_known` on the game is `false` when the book never printed where that game
+starts — analysis quoted after a result (*"Black resigned in view of 27…Rf6 28 d5"*),
+or a run of pages opening in mid-score with no diagram to seed it. `initial_fen` is
+then a placeholder, every move is `broken`, and the app should offer the moves for
+correction without showing a board: the pipeline knows the squares the book printed
+and nothing about the position they were printed in. A diagram the book *did* print
+lifts this — it gives the game its starting position, and the moves are scored
+normally.
 
 Fields not listed in the schema are ignored by the app rather than rejected, so the
 pipeline can add diagnostics without breaking older builds.

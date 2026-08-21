@@ -137,6 +137,11 @@ class Game:
     initial_fen: str
     root_move_id: str | None
     page_start: int
+    #: False when the book never printed where this game starts: a score
+    #: resuming after a result, or a run of pages opening in mid-game with no
+    #: diagram to seed it. `initial_fen` is then a placeholder, the moves are
+    #: read for their boxes alone, and none of them is scored.
+    position_known: bool = True
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -145,6 +150,7 @@ class Game:
             "initial_fen": self.initial_fen,
             "root_move_id": self.root_move_id,
             "page_start": self.page_start,
+            "position_known": self.position_known,
         }
 
 
@@ -234,6 +240,7 @@ class ParseResult:
         **`clean` is the figure to compare between two runs.**
         """
         by_id = {m.id: m for m in self.moves}
+        unscored = {game.id for game in self.games if not game.position_known}
 
         def below_a_break(move: MoveNode) -> bool:
             parent = move.parent_id
@@ -244,8 +251,15 @@ class ParseResult:
             return False
 
         contradicted = set(self.contradicted)
-        tally = dict(first_breaks=0, cascade=0, clean=0, below_break=0, contradicted=0)
+        tally = dict(
+            first_breaks=0, cascade=0, clean=0, below_break=0, contradicted=0,
+            unscored=sum(1 for m in self.moves if m.game_id in unscored),
+        )
         for move in self.moves:
+            if move.game_id in unscored:
+                # Never played on a board the book printed: counting these
+                # would say the pipeline failed where it was never asked.
+                continue
             tainted = below_a_break(move)
             if move.status == "broken":
                 tally["cascade" if tainted else "first_breaks"] += 1
@@ -347,6 +361,9 @@ def parse_tokens(
     #: The last main-line move a diagram agreed with. What follows it is what a
     #: later disagreement puts in doubt.
     agreed_at: str | None = None
+    #: Whether the last thing read was a result. What follows one is commentary
+    #: until a first move opens the next game.
+    finished = False
     game: Game | None = None
     stack: list[_Level] = []
     #: Position and parent before each half-move of the game's main line,
@@ -355,8 +372,8 @@ def parse_tokens(
     #: position rather than an approximation of one.
     main_history: dict[int, tuple[chess.Board, str | None]] = {}
 
-    def start_game(page: int, from_diagram: str | None = None) -> None:
-        nonlocal game, game_counter, stack, pending_title, line_sound, agreed_at
+    def start_game(page: int, from_diagram: str | None = None, position_known: bool = True) -> None:
+        nonlocal game, game_counter, stack, pending_title, line_sound, agreed_at, finished
         game_counter += 1
         opening_fen = from_diagram or initial_fen
         game = Game(
@@ -365,6 +382,7 @@ def parse_tokens(
             initial_fen=opening_fen,
             root_move_id=None,
             page_start=page,
+            position_known=position_known,
         )
         result.games.append(game)
         result.main_lines[game.id] = [chess.Board(opening_fen).board_fen()]
@@ -372,6 +390,7 @@ def parse_tokens(
         pending_title = None
         line_sound = True
         agreed_at = None
+        finished = False
         main_history.clear()
 
     def _place_by_number(declared: int) -> None:
@@ -500,8 +519,23 @@ def parse_tokens(
                     line_sound = True
                 stack[-1].moves_allowed = 1 if is_black_only else 2
                 continue
-            if game is None or (number == 1 and not is_black_only and result.moves and not stack[1:]):
-                start_game(token.page)
+            opens_a_game = game is None or (
+                number == 1 and not is_black_only and result.moves and not stack[1:]
+            )
+            if opens_a_game:
+                # A game whose first move is not the first move: the book never
+                # printed where it starts. That is analysis quoted after a
+                # result — "Black resigned in view of 27...Rf6 28 d5" — or a run
+                # of pages opening in mid-score. Played from the initial
+                # position it becomes a game nobody played, breaking on its
+                # first move and carrying every move after it down; and where a
+                # wrong board makes a move legal, it is worse than broken.
+                #
+                # So the moves are read and none of them is scored. They keep
+                # their page and their box, which is what the reader needs to
+                # correct them, and `position_known` tells the app and the
+                # measurement not to believe the rest.
+                start_game(token.page, position_known=number == 1 and not is_black_only)
             if stack:
                 _place_by_number(_ply_of(number, is_black_only))
                 stack[-1].moves_allowed = 1 if is_black_only else 2
@@ -532,6 +566,7 @@ def parse_tokens(
 
         if token.kind == "result":
             game = None
+            finished = True
             stack = []
             continue
 
@@ -556,9 +591,18 @@ def parse_tokens(
             main_history.setdefault(
                 _ply_awaited(board_before), (board_before.copy(), level.parent_id)
             )
-        resolution = _resolve(
-            board_before, token.text, token.consumed, token.lost_symbol
-        )
+        if game.position_known:
+            resolution = _resolve(
+                board_before, token.text, token.consumed, token.lost_symbol
+            )
+        else:
+            resolution = _Resolution(
+                None,
+                _TRAILING_ANNOTATION.sub("", token.text.strip()),
+                "broken",
+                0.0,
+                {"raw": token.text, "reason": "the game's starting position was never printed"},
+            )
         move = resolution.move
 
         move_counter += 1
@@ -615,9 +659,11 @@ def parse_tokens(
         level.parent_id = node.id
         level.moves_allowed -= 1
 
-        if move is None:
+        if move is None and game.position_known:
             # The position is lost from here on: anything that follows would be
             # played on a board that no longer matches the book. Close the line.
+            # A game with no starting position has nothing to lose: its moves go
+            # on being read for their boxes.
             level.moves_allowed = 0
             if len(stack) == 1:
                 line_sound = False

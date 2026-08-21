@@ -164,6 +164,26 @@ class TestInTheParser:
         assert result.games[0].initial_fen.startswith(position)
         assert [c["verdict"] for c in result.diagram_checks] == ["seeds"]
 
+    def test_a_diagram_opens_a_game_on_any_number_it_likes(self):
+        # A game begins on its first move — unless the book printed where it
+        # begins. Here the previous game has ended and the next position is
+        # given as a picture, so `23...` opens a game that is fully scored.
+        position = fen_after("d4", "d5", "c4", "e6", "Nc3", "Nf6")
+        result = parse_tokens(
+            self.make_tokens(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("result", "1-0"),
+                ("diagram", "/".join(rows_of(position))),
+                ("move_number", "4."), ("move", "Bg5"), ("move", "Be7"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        opened = result.games[-1]
+        assert opened.position_known is True
+        assert opened.initial_fen.startswith(position)
+        assert [m.status for m in result.moves if m.game_id == opened.id] == ["ok", "ok"]
+
     def test_a_diagram_puts_a_line_that_drifted_back_on_the_board(self):
         # The score is read into the wrong branch, and then the book prints
         # where the pieces actually are.

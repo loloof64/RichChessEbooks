@@ -28,7 +28,12 @@ class TestMoveNumbers:
         tokens = tokenize_pages([page_of("12 Nb1 Nd7 13 Bd2 Nb4 14 Na4")])
 
         assert [t.text for t in tokens if t.kind == "move_number"] == ["12", "13", "14"]
-        assert [m.san for m in parse_tokens(tokens).moves] == ["Nb1", "Bd2", "Na4"]
+        # The moves are all read. None is scored: a page opening at move 12
+        # never said where the game starts, so `position_known` is false and
+        # they are kept for their boxes alone.
+        result = parse_tokens(tokens)
+        assert [m.san for m in result.moves] == ["Nb1", "Nd7", "Bd2", "Nb4", "Na4"]
+        assert result.games[0].position_known is False
 
     def test_an_opening_score_with_no_dots_starts_a_game(self):
         tokens = tokenize_pages([page_of("1 e4 c5 2 Nf3 Nc6 3 d4 cxd4 4 Nxd4")])

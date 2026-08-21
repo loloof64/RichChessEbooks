@@ -35,7 +35,12 @@
           "type": ["string", "null"],
           "description": "First move of the main line. Null for a diagram-only entry."
         },
-        "page_start": { "type": "integer", "minimum": 1 }
+        "page_start": { "type": "integer", "minimum": 1 },
+        "position_known": {
+          "type": "boolean",
+          "default": true,
+          "description": "False when the book never printed where this game starts \u2014 analysis quoted after a result, or a run of pages opening in mid-score with no diagram to seed it. `initial_fen` is then a placeholder and every move is `broken`: the moves are kept for their boxes, so a reader can correct them, and nothing about them is scored."
+        }
       }
     },
     "move": {
