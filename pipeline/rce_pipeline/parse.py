@@ -226,6 +226,21 @@ class _Level:
     from_bracket: bool = False
 
 
+#: The last word of a comment, when the comment really ends in one: letters
+#: only, no digit, no capital after the first — and no `:` or `\` or `'`, the
+#: marks `tokenize` reads as the wreck of a piece symbol. What this excludes is
+#: the debris a broken font leaves in the middle of a line of play — `exdS`,
+#: `iBxe4`, `18Rd2`, `:tel` — which the tokeniser can only emit as prose and
+#: which is not a comment at all: the moves are still running beside it.
+_PROSE_TAIL = re.compile(r"[A-Za-z][a-z]*[.,;:!?)\"\u201d\u00bb]*\s*$")
+
+
+def _ends_in_a_word(text: str) -> bool:
+    """Whether `text` reads as prose rather than as the wreck of a move."""
+    tail = text.split()[-1] if text.split() else ""
+    return bool(_PROSE_TAIL.match(tail))
+
+
 def _ply_of(number: int, is_black: bool) -> int:
     """The half-move a printed `12.` or `12...` announces. White's first is 0."""
     return 2 * (number - 1) + (1 if is_black else 0)
@@ -328,6 +343,18 @@ def parse_tokens(
             else:
                 # Prose before any move: the best candidate for a game heading.
                 pending_title = token.text[:120]
+            if level is not None and _ends_in_a_word(token.text):
+                # A number announces the moves printed *beside* it, and prose
+                # ends what it announced. Commentary names squares constantly —
+                # "the pawn at d5", "White intends e2-e3", "his bishop on g2" —
+                # and every one of them is shaped exactly like a move. Read as
+                # the reply the number was still waiting for, such a word is
+                # played on the board and the line is lost from there on,
+                # whether it turns out illegal (a break) or merely legal, which
+                # is worse: a wrong position scored `ok`. The book reprints the
+                # number when the score resumes after a comment, so nothing
+                # real is lost by letting the licence expire here.
+                level.moves_allowed = 0
             continue
 
         if token.kind == "move_number":

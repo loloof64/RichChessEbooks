@@ -214,7 +214,7 @@ class TestComments:
             moves(
                 ("move_number", "1."), ("move", "e4"),
                 ("text", "The king's pawn opening."),
-                ("move", "e5"),
+                ("move_number", "1..."), ("move", "e5"),
             )
         )
 
@@ -233,6 +233,51 @@ class TestComments:
         by_san = {m.san: m for m in result.moves}
         assert by_san["e5"].comment == "Black chooses the open game."
         assert by_san["c5"].comment is None
+
+
+class TestProseEndsTheNumbersLicence:
+    """A number announces the moves beside it, and a comment ends what it
+    announced. Every book in the corpus reprints the number when the score
+    resumes, and commentary names squares — "the pawn at d5" — in the shape of
+    a move."""
+
+    def test_a_square_named_in_prose_is_not_black_s_reply(self):
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"),
+                ("text", "White intends to advance to"),
+                ("move", "d4"),
+            )
+        )
+
+        assert sans(result) == ["e4"]
+        assert [s["reason"] for s in result.skipped] == ["no move number in context"]
+
+    def test_the_score_resumes_on_its_number(self):
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"),
+                ("text", "The king's pawn opening."),
+                ("move_number", "1..."), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+            )
+        )
+
+        assert sans(result) == ["e4", "e5", "Nf3"]
+
+    def test_the_wreck_of_a_move_does_not_end_it(self):
+        # A broken font leaves debris the tokeniser can only emit as prose —
+        # `exdS`, `18Rd2`, `:tel`. The moves are still running beside it, so the
+        # licence has to survive: this is a Boussole line, and the move after
+        # the wreck is real.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("text", "iBxe4"), ("move", "Nf3"),
+            )
+        )
+
+        assert sans(result) == ["e4", "e5", "Nf3"]
 
 
 class TestLegality:
