@@ -15,7 +15,7 @@ Two components, joined by one strict data contract:
 
 | | Where | What it does |
 | --- | --- | --- |
-| Pipeline | [`pipeline/`](pipeline/), driven by [`notebooks/rce_pipeline.ipynb`](notebooks/rce_pipeline.ipynb) | Reads the PDF, finds the moves and their page geometry, validates them against the rules, writes the archive |
+| Pipeline | [`pipeline/`](pipeline/), driven by [`notebooks/rce_pipeline.ipynb`](notebooks/rce_pipeline.ipynb) — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/loloof64/RichChessEbooks/blob/main/notebooks/rce_pipeline.ipynb) | Reads the PDF, finds the moves and their page geometry, validates them against the rules, writes the archive |
 | Reader | [`lib/`](lib/) | Opens the archive, renders the book, overlays the tap zones, shows the board |
 | Contract | [`docs/rce-format.md`](docs/rce-format.md) + [`docs/schemas/`](docs/schemas/) | The `.rce` format the two agree on |
 
@@ -53,8 +53,8 @@ model is incompatible with this one.
 
 ## Getting a book in
 
-1. Open [`notebooks/rce_pipeline.ipynb`](notebooks/rce_pipeline.ipynb) in Colab, upload
-   your PDF, and run it. Start with a chapter (`FIRST_PAGE` / `LAST_PAGE`) whose
+1. Open the notebook in Colab — the badge above opens it straight from `main`, so it
+   is always the pushed version — upload your PDF, and run it. Start with a chapter (`FIRST_PAGE` / `LAST_PAGE`) whose
    content you know. If step 4 says the book's piece symbols are only in the image,
    step 4b wants the glyph classifier uploaded too.
 2. Check step 7 — it draws the extracted boxes on the rendered page. If the frames sit
