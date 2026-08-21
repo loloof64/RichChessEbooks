@@ -161,6 +161,14 @@ class ParseResult:
     #: parser had reached, corrected it, seeded a game that had no starting
     #: position, or could not be read. See `diagrams.py`.
     diagram_checks: list[dict[str, Any]] = field(default_factory=list)
+    #: Moves a diagram below them proved wrong: they were legal, so nothing
+    #: broke, but the position they left was not the one the book printed.
+    contradicted: list[str] = field(default_factory=list)
+    #: Every position each game's main line passed through, in order. Read by
+    #: `diagrams.learn`, which looks for the printed position on both sides of
+    #: where the diagram was met: a parser reading a difficult book is as often
+    #: behind the page as ahead of it.
+    main_lines: dict[str, list[str]] = field(default_factory=dict)
 
     def counts(self) -> dict[str, int]:
         return {
@@ -220,9 +228,10 @@ class ParseResult:
 
         So `broken` is split into the lines that actually died (`first_breaks`,
         one per line, the number worth working on) and what merely followed
-        them (`cascade`); and `ok` into `clean`, the moves no break stands
-        above, and `below_break`. **`clean` is the figure to compare between
-        two runs.**
+        them (`cascade`); and `ok` into `clean`, the moves nothing stands
+        against, `below_break`, and `contradicted` — the moves a diagram
+        further down proved wrong without any of them being illegal.
+        **`clean` is the figure to compare between two runs.**
         """
         by_id = {m.id: m for m in self.moves}
 
@@ -234,13 +243,23 @@ class ParseResult:
                 parent = by_id[parent].parent_id
             return False
 
-        tally = dict(first_breaks=0, cascade=0, clean=0, below_break=0)
+        contradicted = set(self.contradicted)
+        tally = dict(first_breaks=0, cascade=0, clean=0, below_break=0, contradicted=0)
         for move in self.moves:
             tainted = below_a_break(move)
             if move.status == "broken":
                 tally["cascade" if tainted else "first_breaks"] += 1
             elif move.status == "ok":
-                tally["below_break" if tainted else "clean"] += 1
+                if tainted:
+                    tally["below_break"] += 1
+                elif move.id in contradicted:
+                    # A diagram below this move printed a different position, so
+                    # one of the moves between the last agreement and there is
+                    # wrong. Legality never noticed — that is what makes this
+                    # the second way `ok` lies, after the break cascade.
+                    tally["contradicted"] += 1
+                else:
+                    tally["clean"] += 1
         return tally
 
     def to_json(self) -> dict[str, Any]:
@@ -325,6 +344,9 @@ def parse_tokens(
     #: Whether the main line has been sound since the game began: a diagram is
     #: only allowed to teach the font from a board that can be believed.
     line_sound = True
+    #: The last main-line move a diagram agreed with. What follows it is what a
+    #: later disagreement puts in doubt.
+    agreed_at: str | None = None
     game: Game | None = None
     stack: list[_Level] = []
     #: Position and parent before each half-move of the game's main line,
@@ -334,7 +356,7 @@ def parse_tokens(
     main_history: dict[int, tuple[chess.Board, str | None]] = {}
 
     def start_game(page: int, from_diagram: str | None = None) -> None:
-        nonlocal game, game_counter, stack, pending_title, line_sound
+        nonlocal game, game_counter, stack, pending_title, line_sound, agreed_at
         game_counter += 1
         opening_fen = from_diagram or initial_fen
         game = Game(
@@ -345,9 +367,11 @@ def parse_tokens(
             page_start=page,
         )
         result.games.append(game)
+        result.main_lines[game.id] = [chess.Board(opening_fen).board_fen()]
         stack = [_Level(board=chess.Board(opening_fen), parent_id=None)]
         pending_title = None
         line_sound = True
+        agreed_at = None
         main_history.clear()
 
     def _place_by_number(declared: int) -> None:
@@ -411,6 +435,10 @@ def parse_tokens(
         if token.kind == "diagram":
             rows = tuple(token.text.split("/"))
             reached = stack[0].board.board_fen() if stack else None
+            # Where in its game's main line this diagram was met. The
+            # positions around that point are what `diagrams.learn` searches:
+            # a diagram printed where the score had drifted is still a diagram
+            # of a position the line passes through, a few plies either side.
             printed = diagrams.decode(rows, diagram_table) if diagram_table else None
             if printed is None:
                 verdict = "unread" if diagram_table is None else "unreadable"
@@ -420,6 +448,17 @@ def parse_tokens(
                 verdict = "confirms"
             else:
                 verdict = "corrects"
+            if verdict == "confirms":
+                agreed_at = stack[0].parent_id
+            if verdict == "corrects":
+                # Everything played since the last agreement led away from the
+                # position the book has just printed. None of it broke, so only
+                # the diagram can say so.
+                suspect = stack[0].parent_id
+                while suspect is not None and suspect != agreed_at:
+                    result.contradicted.append(suspect)
+                    suspect = by_id[suspect].parent_id
+                agreed_at = None
             if verdict in ("seeds", "corrects"):
                 pending_position = printed
             result.diagram_checks.append(
@@ -430,6 +469,8 @@ def parse_tokens(
                     # verdict: this is what `diagrams.learn` reads back, and
                     # `sound` is what says it may.
                     "reached": reached,
+                    "game": game.id if game is not None else None,
+                    "index": len(result.main_lines.get(game.id, [])) if game is not None else 0,
                     "printed": printed,
                     "sound": bool(stack) and line_sound,
                     "verdict": verdict,
@@ -560,6 +601,8 @@ def parse_tokens(
         if move is not None:
             level.board.push(move)
             node.fen = level.board.fen()
+            if len(stack) == 1:
+                result.main_lines.setdefault(game.id, []).append(level.board.board_fen())
 
         result.moves.append(node)
         by_id[node.id] = node

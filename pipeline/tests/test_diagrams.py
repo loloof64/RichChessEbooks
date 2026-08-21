@@ -75,7 +75,7 @@ class TestLearning:
     def test_recovers_the_font_from_one_known_position(self):
         rows = rows_of(chess.STARTING_BOARD_FEN)
 
-        table = diagrams.learn([(rows, chess.STARTING_BOARD_FEN)])
+        table = diagrams.learn([(rows, [chess.STARTING_BOARD_FEN])])
 
         assert diagrams.decode(rows, table) == chess.STARTING_BOARD_FEN
 
@@ -83,10 +83,10 @@ class TestLearning:
         # The board the parser had reached is wrong here, and it is the only
         # observation that disagrees: the two sound ones outvote it as wholes.
         sound = [
-            (rows_of(chess.STARTING_BOARD_FEN), chess.STARTING_BOARD_FEN),
-            (rows_of(fen_after("e4")), fen_after("e4")),
+            (rows_of(chess.STARTING_BOARD_FEN), [chess.STARTING_BOARD_FEN]),
+            (rows_of(fen_after("e4")), [fen_after("e4")]),
         ]
-        drifted = (rows_of(fen_after("e4", "e5")), fen_after("d4", "d5"))
+        drifted = (rows_of(fen_after("e4", "e5")), [fen_after("d4", "d5")])
 
         table = diagrams.learn(sound + [drifted])
 
@@ -95,7 +95,7 @@ class TestLearning:
     def test_learns_the_letter_it_never_saw_from_its_other_case(self):
         # No game reaches a position with a white queen on a dark square, so
         # the book never prints that form beside a board anyone knows.
-        table = diagrams.learn([(rows_of(chess.STARTING_BOARD_FEN), chess.STARTING_BOARD_FEN)])
+        table = diagrams.learn([(rows_of(chess.STARTING_BOARD_FEN), [chess.STARTING_BOARD_FEN])])
 
         assert table["q"] == "Q"
         assert table["m"] == "k"
@@ -103,7 +103,7 @@ class TestLearning:
 
 class TestDecoding:
     def test_refuses_a_diagram_holding_a_character_it_has_not_learned(self):
-        table = diagrams.learn([(rows_of(chess.STARTING_BOARD_FEN), chess.STARTING_BOARD_FEN)])
+        table = diagrams.learn([(rows_of(chess.STARTING_BOARD_FEN), [chess.STARTING_BOARD_FEN])])
         rows = rows_of(chess.STARTING_BOARD_FEN)
         damaged = ("?" + rows[0][1:],) + rows[1:]
 
@@ -132,7 +132,7 @@ class TestInTheParser:
         ]
 
     def table(self):
-        return diagrams.learn([(rows_of(chess.STARTING_BOARD_FEN), chess.STARTING_BOARD_FEN)])
+        return diagrams.learn([(rows_of(chess.STARTING_BOARD_FEN), [chess.STARTING_BOARD_FEN])])
 
     def test_a_diagram_gives_a_game_the_position_it_opens_on(self):
         # What a chapter opening on a picture used to cost: every move read
@@ -167,6 +167,41 @@ class TestInTheParser:
         by_san = {m.san: m for m in result.moves}
         assert by_san["dxc4"].status == "ok"
         assert [c["verdict"] for c in result.diagram_checks] == ["corrects"]
+
+    def test_a_correction_puts_the_moves_above_it_in_doubt(self):
+        # None of these moves is illegal, so nothing breaks; the diagram is the
+        # only thing in the document that knows they are wrong.
+        printed = fen_after("d4", "d5", "c4")
+        result = parse_tokens(
+            self.make_tokens(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("diagram", "/".join(rows_of(printed))),
+                ("move_number", "2..."), ("move", "dxc4"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert result.contradicted == [by_san["e5"].id, by_san["e4"].id]
+        assert result.break_diagnosis()["clean"] == 1      # dxc4, below the diagram
+        assert result.break_diagnosis()["contradicted"] == 2
+
+    def test_a_confirmation_clears_what_stands_above_it(self):
+        printed = fen_after("e4", "e5")
+        drifted = fen_after("d4", "d5", "c4")
+        result = parse_tokens(
+            self.make_tokens(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("diagram", "/".join(rows_of(printed))),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                ("diagram", "/".join(rows_of(drifted))),
+            ),
+            diagram_table=self.table(),
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        # Only the two moves played since the diagram that agreed are in doubt.
+        assert result.contradicted == [by_san["Nc6"].id, by_san["Nf3"].id]
 
     def test_a_diagram_that_agrees_says_so_and_changes_nothing(self):
         result = parse_tokens(

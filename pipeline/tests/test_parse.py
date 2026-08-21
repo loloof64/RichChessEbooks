@@ -298,6 +298,7 @@ class TestBreakDiagnosis:
         assert by_san["Nc6"].status == "ok"
         assert result.break_diagnosis() == {
             "first_breaks": 1, "cascade": 0, "clean": 3, "below_break": 1,
+            "contradicted": 0,
         }
 
 

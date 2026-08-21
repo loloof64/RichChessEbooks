@@ -14,7 +14,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import diagrams, extract, notation, package, parse, tokenize
+from . import diagrams, extract, figurines, notation, package, parse, tokenize
 
 ARTEFACTS = {
     "pages": "01_pages.json",
@@ -36,6 +36,9 @@ class PipelineResult:
     #: The diagram blocks found in the text layer, empty unless the book sets
     #: its positions in a diagram font.
     diagrams: list[Any] = field(default_factory=list)
+    #: The book's own piece symbols, and the figurine each was read as, empty
+    #: unless it printed them as ordinary characters of a figurine font.
+    figurines: dict[str, str] = field(default_factory=dict)
     #: Piece symbols recovered from the page images, empty unless the book
     #: needed it and a `glyph_model` was given.
     glyphs: list[Any] = field(default_factory=list)
@@ -62,6 +65,14 @@ class PipelineResult:
             f"Moves:       {counts['moves']}"
             f"  (ok {counts['ok']}, uncertain {counts['uncertain']}, broken {counts['broken']})",
         ]
+        if self.figurines:
+            from .notation import FIGURINE_TO_LETTER
+
+            read = "  ".join(
+                f"{symbol}={FIGURINE_TO_LETTER[figurine]}"
+                for symbol, figurine in self.figurines.items()
+            )
+            lines.append(f"Figurines:   {read}   (settled on legality, not on the font's name)")
         if self.diagrams:
             verdicts = Counter(c["verdict"] for c in self.parsed.diagram_checks)
             lines.append(
@@ -74,8 +85,9 @@ class PipelineResult:
         lines += [
             # `ok` alone flatters a long line that broke early: see
             # `ParseResult.break_diagnosis`.
-            f"Trusted:     {breaks['clean']} of those ok moves have no break above them"
-            f"  ({breaks['below_break']} do)",
+            f"Trusted:     {breaks['clean']} of those ok moves have nothing against them"
+            f"  ({breaks['below_break']} stand below a break,"
+            f" {breaks['contradicted']} are contradicted by a diagram)",
             f"Breaks:      {breaks['first_breaks']} lines died"
             f"  ({breaks['cascade']} further moves read below them)",
             f"Skipped:     {counts['skipped']} move-shaped tokens rejected before validation",
@@ -145,6 +157,15 @@ def run(
     pages = extract.extract_pages(
         pdf_path, first_page=first_page, last_page=last_page, sort_blocks=sort_blocks
     )
+
+    # A book printing its pieces as characters of a figurine font — `¤c3` for a
+    # knight — is turned into the Unicode book it would otherwise have been,
+    # before anything downstream looks at it. Costs nothing on a book that does
+    # not: with no candidate character there is nothing to settle.
+    symbols = figurines.candidates(pages)
+    read_as = figurines.settle(pages, symbols) if symbols else {}
+    if read_as:
+        pages = figurines.rewrite(pages, read_as)
     _write(write_artefacts, work_dir, "pages", [p.to_json() for p in pages])
 
     report = notation.detect_notation(pages)
@@ -194,10 +215,22 @@ def run(
         # The second pass has the font, so a diagram can seed a game printed
         # from a picture and correct a line that drifted.
         table = diagrams.learn(
-            (tuple(check["rows"]), check["reached"])
+            (tuple(check["rows"]), [check["reached"]])
             for check in parsed.diagram_checks
             if check["sound"] and check["reached"]
         )
+        if not table:
+            # No line reached a diagram intact — the case of a book whose piece
+            # symbols had to be recovered from the page images. The recent
+            # history of every line is trawled instead, and two diagrams must
+            # then agree before the font is believed.
+            table = diagrams.learn(
+                (
+                    (tuple(check["rows"]), diagrams.around(parsed.main_lines, check))
+                    for check in parsed.diagram_checks
+                ),
+                min_diagrams=2,
+            )
         if table:
             parsed = parse.parse_tokens(
                 tokens, strict_numbering=strict_numbering, diagram_table=table
@@ -226,6 +259,7 @@ def run(
         rce_path=rce_path,
         glyphs=recovered,
         diagrams=printed,
+        figurines=read_as,
     )
 
 

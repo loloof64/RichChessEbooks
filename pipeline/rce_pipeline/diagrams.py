@@ -22,18 +22,26 @@ from __future__ import annotations
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 from .extract import Page
 
 #: A diagram is eight ranks of eight squares.
 SIDE = 8
 
-#: The characters a diagram row may be made of, before anything is known about
-#: which letter is which piece. Digits are excluded: a row of a chess diagram
-#: never carries one, and the exclusion is what keeps ordinary short lines of
-#: text out.
-_ROW = re.compile(r"[A-Za-z.,_+*'|/\\-]{8}$")
+#: A line that could be a rank: short, and carrying no digit. A diagram row
+#: never carries one, and a book's own page numbers and move numbers are what
+#: that keeps out. Everything else about the line is decided over the block:
+#: eight lines of the same length, holding a position between them.
+#:
+#: The width is a range because a book frames its board. Sakaev prints eight
+#: characters and nothing else; Quality Chess prints ten — a rank frame, the
+#: eight squares, and the board's edge — in a font whose glyphs sit in the
+#: private use area and mean nothing to anybody but itself.
+_ROW = re.compile(r"[^\d\n]{8,14}$")
+
+#: The widest frame a board is allowed to carry on either side.
+_MAX_MARGIN = 6
 
 #: A position has at least this many empty squares — thirty-two in the initial
 #: position, more in every position that follows it. Two characters therefore
@@ -69,16 +77,18 @@ def _find_in_page(page: Page) -> list[Diagram]:
     found: list[Diagram] = []
     run: list[tuple[str, int, int]] = []
     for line, start, end in list(_lines(text)) + [("", len(text), len(text))]:
-        if _ROW.fullmatch(line):
+        # A run holds lines of one width: the ranks of a board are printed to
+        # the same measure, and a change of width ends it.
+        if _ROW.fullmatch(line) and (not run or len(line) == len(run[0][0])):
             run.append((line, start, end))
             continue
         found.extend(_blocks_of(page.number, run))
-        run = []
+        run = [(line, start, end)] if _ROW.fullmatch(line) else []
     return found
 
 
 def _blocks_of(page: int, run: list[tuple[str, int, int]]) -> Iterable[Diagram]:
-    """The diagrams inside one run of eight-character lines.
+    """The diagrams inside one run of equal-width lines.
 
     A book may draw every row twice, the same characters over themselves; the
     second copy is the same rank, not the next one. That is decided over the
@@ -89,11 +99,64 @@ def _blocks_of(page: int, run: list[tuple[str, int, int]]) -> Iterable[Diagram]:
     if len(run) >= 2 * SIDE and len(run) % (2 * SIDE) == 0:
         if all(run[i][0] == run[i + 1][0] for i in range(0, len(run), 2)):
             run = [(line, start, run[i * 2 + 1][2]) for i, (line, start, _) in enumerate(run[::2])]
-    for start in range(0, len(run) - SIDE + 1, SIDE):
-        block = run[start : start + SIDE]
-        rows = tuple(line for line, _, _ in block)
-        if _looks_like_a_position(rows):
-            yield Diagram(page, block[0][1], block[-1][2], rows)
+
+    while len(run) >= SIDE:
+        block, taken = _board_within(run)
+        if block is None:
+            return
+        yield Diagram(page, taken[0][1], taken[-1][2], block)
+        run = run[run.index(taken[-1]) + 1 :]
+
+
+def _board_within(
+    run: list[tuple[str, int, int]],
+) -> tuple[tuple[str, ...] | None, list[tuple[str, int, int]]]:
+    """The eight rows and eight columns of `run` that are the board itself.
+
+    A book frames its board, above it and beside it: Quality Chess prints a row
+    of edge glyphs, then the eight ranks, then another row. Which rows and
+    columns are the board is not asked of the book — every window of eight by
+    eight is tried, and the one whose characters are most spread out wins.
+
+    Spread is what tells a square from a frame. A square's character comes back
+    across the whole board — half of it is empty, and empty is one character
+    per colour of square — while a frame glyph is drawn along one row or one
+    column and nowhere else. Counting how often a character appears would not
+    separate the two: a frame row repeats one glyph eight times over.
+    """
+    best: tuple[str, ...] | None = None
+    best_lines: list[tuple[str, int, int]] = []
+    best_score = 0
+    width = len(run[0][0])
+    for top in range(0, min(len(run) - SIDE, _MAX_MARGIN) + 1):
+        lines = run[top : top + SIDE]
+        for left in range(0, min(width - SIDE, _MAX_MARGIN) + 1):
+            window = tuple(line[left : left + SIDE] for line, _, _ in lines)
+            if len(set("".join(window))) > _MAX_GLYPHS:
+                continue
+            score = _spread(window)
+            if score > best_score:
+                best, best_lines, best_score = window, lines, score
+    if best_score < _MIN_EMPTY:
+        return None, []
+    return best, best_lines
+
+
+def _spread(window: tuple[str, ...]) -> int:
+    """How many of the sixty-four characters come back on another row *and* on
+    another column — the squares, as opposed to the frame around them."""
+    rows: dict[str, set[int]] = defaultdict(set)
+    columns: dict[str, set[int]] = defaultdict(set)
+    for r, row in enumerate(window):
+        for c, char in enumerate(row):
+            rows[char].add(r)
+            columns[char].add(c)
+    return sum(
+        1
+        for row in window
+        for c, char in enumerate(row)
+        if len(rows[char]) > 1 and len(columns[char]) > 1
+    )
 
 
 def _lines(text: str) -> Iterable[tuple[str, int, int]]:
@@ -112,52 +175,76 @@ def _lines(text: str) -> Iterable[tuple[str, int, int]]:
 _MAX_GLYPHS = 26
 
 
-def _looks_like_a_position(rows: tuple[str, ...]) -> bool:
-    counts = Counter("".join(rows))
-    if len(counts) > _MAX_GLYPHS:
-        return False
-    return sum(n for _, n in counts.most_common(2)) >= _MIN_EMPTY
+#: How far either side of where a diagram was met its position is looked for.
+#: A parser reading a difficult book is a few plies out, not lost; and every
+#: board offered is one more chance for a wrong one to be believed.
+SEARCH_DEPTH = 12
 
 
-def learn(observations: Iterable[tuple[tuple[str, ...], str]]) -> dict[str, str]:
-    """The book's letters, from diagrams whose position is already known.
+def around(main_lines: dict[str, list[str]], check: dict[str, Any]) -> list[str]:
+    """The positions this game's main line passes through near this diagram."""
+    line = main_lines.get(check.get("game") or "", [])
+    middle = check.get("index", 0)
+    return line[max(0, middle - SEARCH_DEPTH) : middle + SEARCH_DEPTH + 1]
 
-    `observations` pairs a diagram's rows with the board FEN the game had
-    reached there. **Most of them are wrong**, and that is the whole
-    difficulty: a diagram is most useful exactly where the parser had drifted,
-    and a drifted board teaches the wrong letters. Voting character by
-    character does not survive it — one book's sixteen observations left four
-    letters standing.
 
-    So the observations vote as wholes instead. Each one proposes the table it
-    implies on its own; the table supported by the most others wins, and the
-    letters are then merged from that agreeing set. A wrong board agrees with
-    nothing, because two boards drift apart in their own directions while every
-    correct one says the same thing.
+def learn(
+    observations: Iterable[tuple[tuple[str, ...], Sequence[str]]],
+    *,
+    min_diagrams: int = 1,
+) -> dict[str, str]:
+    """The book's letters, from diagrams printed on positions it can reach.
+
+    Each observation pairs a diagram's rows with **every board the line passed
+    through** on its way there, most recent first. Offering the whole recent
+    history rather than the board the parser stopped on is what makes this work
+    on a book whose reading is poor: the parser is usually a few plies out
+    rather than lost, and the position the diagram prints is one it walked past.
+
+    Most observations are wrong, and that is the whole difficulty: a diagram is
+    most useful exactly where the score had drifted, and a drifted board teaches
+    the wrong letters. Voting character by character does not survive it — one
+    book's sixteen observations left four letters standing out of twenty-three.
+    So the observations vote **as wholes**: each proposes the table it implies,
+    the table supported by the most other diagrams wins, and the letters are
+    merged from those. A wrong board agrees with nothing, because two boards
+    drift apart in their own directions while every correct one says the same.
+
+    `min_diagrams` is how many diagrams must agree before a table is believed.
+    One is enough when the board is known to be sound; ask for two when the
+    history is being trawled, where a single coincidence is conceivable.
 
     The rows are read rank eight first, the order a diagram is printed in for
     a reader sitting behind White. No book in the corpus prints one the other
     way up, and a book that did would rotate the files too, so guessing at
     orientation here would be generality nothing has asked for.
     """
-    prepared = []
-    for rows, board_fen in observations:
-        squares = _squares_of(board_fen)
-        if squares is not None and len(rows) == SIDE:
-            prepared.append((tuple(rows), squares))
+    prepared: list[tuple[tuple[str, ...], list[list[str]]]] = []
+    for rows, board_fens in observations:
+        boards = [squares for squares in map(_squares_of, board_fens) if squares]
+        if boards and len(rows) == SIDE:
+            prepared.append((tuple(rows), boards))
 
     best: dict[str, str] = {}
     best_support = 0
-    for table, _, _ in [(_table_of(rows, squares), rows, squares) for rows, squares in prepared]:
-        if table is None:
-            continue
-        agreeing = [other for other in prepared if _agrees(table, *other)]
-        if len(agreeing) <= best_support:
-            continue
-        merged: dict[str, str] = {}
-        for rows, squares in agreeing:
-            merged.update(_table_of(rows, squares) or {})
-        best, best_support = merged, len(agreeing)
+    for rows, boards in prepared:
+        for squares in boards:
+            table = _table_of(rows, squares)
+            if table is None:
+                continue
+            agreed = [
+                (other_rows, next((s for s in other_boards if _agrees(table, other_rows, s)), None))
+                for other_rows, other_boards in prepared
+            ]
+            supporting = [(r, s) for r, s in agreed if s is not None]
+            if len(supporting) <= best_support:
+                continue
+            merged: dict[str, str] = {}
+            for other_rows, squares_of_other in supporting:
+                merged.update(_table_of(other_rows, squares_of_other) or {})
+            best, best_support = merged, len(supporting)
+    if best_support < min_diagrams:
+        return {}
     return _extend_by_case(best)
 
 
