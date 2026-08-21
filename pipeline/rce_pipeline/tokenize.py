@@ -94,14 +94,15 @@ def _build_token_re(piece_letters: str) -> re.Pattern[str]:
 #: the book never reached under everything after it.
 #:
 #: The run is bounded and must not cross a space. What makes it wreckage
-#: rather than ordinary punctuation is the mark inside it: `:`, `\\`, `'`, or a
-#: lone dot carrying a letter. A dot carrying a digit or another dot is how
+#: rather than ordinary punctuation is the mark inside it: `:`, `\\`, `'`, `<`,
+#: `>`, or a lone dot carrying a letter. The angles are what a broken king
+#: leaves — `♔fi>h1` read as a pawn move to h1, `<♔f3` as one to f3. A dot carrying a digit or another dot is how
 #: `1.e4` and `13...Nb4` are printed, and those open a move as they always
 #: did — including when a book's OCR runs the word before into the ellipsis
 #: and prints `jouer...e5`, where the dot does carry a letter and still opens
 #: nothing but an ordinary black move.
-_WRECK_RUN = re.compile(r"[A-Za-z.:\\'|/]{1,5}$")
-_WRECK_MARK = re.compile(r"[:\\']|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
+_WRECK_RUN = re.compile(r"[A-Za-z.:\\'|/<>]{1,5}$")
+_WRECK_MARK = re.compile(r"[:\\'<>]|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
 
 
 #: A move that already says which piece moved, castling included. Written

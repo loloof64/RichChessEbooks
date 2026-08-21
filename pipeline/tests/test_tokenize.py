@@ -18,6 +18,18 @@ def page_of(text: str) -> Page:
     return Page(number=1, width=595.0, height=842.0, text=text, chars=chars)
 
 
+class TestTheWreckOfASymbol:
+    def test_an_angle_is_part_of_a_broken_king(self):
+        # `12 ♔fi>h1` arrives with the king drawn away and `fi>` left behind.
+        # Without the angle in the run, `h1` was read as a pawn move to the
+        # first rank — legal to parse, impossible to play, and it carried
+        # fifty-eight moves of one book down with it.
+        tokens = tokenize_pages([page_of("12 fi>h1 c5")])
+
+        move = next(t for t in tokens if t.kind == "move" and t.text == "h1")
+        assert move.lost_symbol == "fi>"
+
+
 class TestMoveNumbers:
     def test_a_dot_is_not_required_to_announce_a_move(self):
         # Batsford, Gambit and Informator print `12 Nb1`, and so does the

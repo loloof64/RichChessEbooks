@@ -307,6 +307,50 @@ class TestAGameWithNoStartingPosition:
         assert result.moves[0].bbox == BOX
 
 
+class TestAFalseDisambiguator:
+    """`♗1g3` is `Bg3`: the `1` is what is left of the bishop, not a rank."""
+
+    def test_the_wreck_between_the_piece_and_the_square_is_dropped(self):
+        # `Nbf3` names a knight on the b-file, and there is none: the letter is
+        # what is left of the symbol. (`N1f3` would parse as written — a
+        # redundant disambiguator is still true — and needs no repair.)
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nbf3"),
+            )
+        )
+
+        knight = result.moves[-1]
+        assert knight.san == "Nf3"
+        assert knight.status == "uncertain"
+        assert knight.confidence == 0.5
+
+    def test_nothing_is_dropped_where_the_board_cannot_settle_it(self):
+        # Both knights reach d2, so removing the letter leaves a move the board
+        # cannot choose between. The move stays broken rather than being read
+        # as one of the two at random.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "Nf3"), ("move", "d5"),
+                ("move_number", "2."), ("move", "e3"), ("move", "e6"),
+                ("move_number", "3."), ("move", "Ncd2"),
+            )
+        )
+
+        assert result.moves[-1].status == "broken"
+
+    def test_a_square_is_never_repaired_this_way(self):
+        # `Qh9` is not a disambiguated move, and nothing here may turn it into
+        # `Qh5`: that is the mistake `_MAX_REPAIR_COST` exists to refuse.
+        result = parse_tokens(
+            moves(("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                  ("move_number", "2."), ("move", "Qh9")),
+        )
+
+        assert result.moves[-1].status == "broken"
+
+
 class TestBreakDiagnosis:
     def test_separates_the_line_that_died_from_what_was_read_below_it(self):
         # `Ra5` is illegal here, so the line stays on the position before it

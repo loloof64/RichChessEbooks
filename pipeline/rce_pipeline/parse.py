@@ -720,6 +720,10 @@ def _resolve(
     except (ValueError, AssertionError):
         failure = "no legal reading in this position"
 
+    settled = _drop_a_false_disambiguator(board, plain, raw)
+    if settled is not None:
+        return settled
+
     best_cost = _MAX_REPAIR_COST + 1.0
     best: list[tuple[chess.Move, str]] = []
     # The check mark is not part of what the reader wrote down: `python-chess`
@@ -755,6 +759,54 @@ def _resolve(
         "uncertain",
         max(0.0, 1.0 - best_cost / 2.0),
         {"raw": raw, "reason": f"read as {legal_san} (edit cost {best_cost:g})"},
+    )
+
+
+#: A move naming its piece, a letter or digit, and then its square: `Nbd2` as
+#: the book prints it, and `B1g3` as a broken symbol leaves it.
+_DISAMBIGUATED = re.compile(r"^([KQRBN])([a-h1-8])(x?[a-h][1-8](?:=[QRBN])?)$")
+
+
+def _drop_a_false_disambiguator(
+    board: chess.Board, plain: str, raw: str
+) -> _Resolution | None:
+    """Read `B1g3` as `Bg3` — when, and only when, nothing else could be meant.
+
+    A figurine the page half destroyed leaves a character welded inside the
+    move: `♗1g3`, `♘bd4`, `♕fh4+`. Between a piece letter and a square, such a
+    character is exactly where a disambiguator goes, so the move is read as one
+    and is illegal, and on Grivas that one shape carries three hundred moves
+    down with it.
+
+    Removing a character is a full edit and `_MAX_REPAIR_COST` refuses it on
+    purpose — allowing any single deletion is how `Qh9` becomes `Qh5`. This is
+    narrower in two ways that matter: only the character between the piece and
+    its square is removed, never one of the square's own; and the reading is
+    accepted only if the board leaves **one** move it can be. A disambiguator
+    the book really printed is there because two pieces reach the square, so
+    dropping it raises `AmbiguousMoveError` and this returns nothing.
+
+    `uncertain` at 0.5, like every move the board settled rather than the page.
+    """
+    match = _DISAMBIGUATED.match(_CHECK_MARK.sub("", plain))
+    if match is None:
+        return None
+    piece, dropped, square = match.groups()
+    try:
+        move = board.parse_san(piece + square)
+    except (ValueError, AssertionError, chess.AmbiguousMoveError):
+        return None
+    san = board.san(move)
+    return _Resolution(
+        move,
+        san,
+        "uncertain",
+        0.5,
+        {
+            "raw": raw,
+            "reason": f"read as {san}: {dropped!r} between the piece and the square is "
+            "the wreck of the symbol, not a disambiguator",
+        },
     )
 
 
