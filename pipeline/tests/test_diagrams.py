@@ -92,6 +92,19 @@ class TestLearning:
 
         assert diagrams.decode(rows_of(fen_after("e4", "e5")), table) == fen_after("e4", "e5")
 
+    def test_the_other_case_is_found_through_the_private_use_area(self):
+        # A font carrying no Unicode meaning of its own is mapped into U+F0xx,
+        # keeping the ASCII layout underneath: the partner of U+F070 is U+F050,
+        # exactly as `p` and `P`. Quality Chess's board is printed like that.
+        private = tuple(
+            "".join(chr(ord(char) + 0xF000) for char in row)
+            for row in rows_of(chess.STARTING_BOARD_FEN)
+        )
+
+        table = diagrams.learn([(private, [chess.STARTING_BOARD_FEN])])
+
+        assert table[chr(ord("q") + 0xF000)] == "Q"
+
     def test_learns_the_letter_it_never_saw_from_its_other_case(self):
         # No game reaches a position with a white queen on a dark square, so
         # the book never prints that form beside a board anyone knows.

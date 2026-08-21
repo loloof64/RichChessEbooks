@@ -248,6 +248,27 @@ def learn(
     return _extend_by_case(best)
 
 
+#: Where a font that carries no Unicode meaning of its own puts the ASCII it
+#: was drawn against. `Chess-Merida` prints its pawn at U+F070, which is `p`.
+_PRIVATE_USE = 0xF000
+
+
+def _case_partner(char: str) -> str | None:
+    """The same letter in the other case, private use area included.
+
+    A diagram font names its two forms of a piece with one letter in two cases,
+    and a font mapped into the private use area keeps the ASCII layout
+    underneath — so the partner of U+F070 is U+F050, exactly as `p` and `P`.
+    """
+    code = ord(char)
+    private = _PRIVATE_USE <= code <= _PRIVATE_USE + 0xFF
+    base = chr(code - _PRIVATE_USE) if private else char
+    if not base.isalpha():
+        return None
+    partner = base.swapcase()
+    return chr(ord(partner) + _PRIVATE_USE) if private else partner
+
+
 def _extend_by_case(table: dict[str, str]) -> dict[str, str]:
     """The same letter in the other case, when the book has shown it means so.
 
@@ -259,17 +280,17 @@ def _extend_by_case(table: dict[str, str]) -> dict[str, str]:
     reaches a position with a white queen on a dark square, so that form is
     never printed beside a board anyone knows.
     """
-    pairs = [
-        (char, table[char.swapcase()])
-        for char in table
-        if char.isalpha() and char.swapcase() in table
-    ]
-    if any(table[char] != piece for char, piece in pairs):
+    partners = {char: _case_partner(char) for char in table}
+    if any(
+        table[partner] != piece
+        for char, piece in table.items()
+        if (partner := partners[char]) in table
+    ):
         return table
     extended = dict(table)
     for char, piece in table.items():
-        if char.isalpha():
-            extended.setdefault(char.swapcase(), piece)
+        if partners[char] is not None:
+            extended.setdefault(partners[char], piece)
     return extended
 
 
