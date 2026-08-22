@@ -24,7 +24,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
-from .extract import Page
+from .extract import BBox, Page
 
 #: A diagram is eight ranks of eight squares.
 SIDE = 8
@@ -57,9 +57,22 @@ class Diagram:
     start: int
     end: int
     rows: tuple[str, ...]
+    #: Where the diagram was printed, for a block that has no text of its own
+    #: to be measured from — a board drawn as a picture, whose `start` and
+    #: `end` are the single point in the text where it was met. `None` for a
+    #: diagram set in a font, where the characters carry their own boxes.
+    bbox: BBox | None = None
 
     def to_json(self) -> dict[str, Any]:
-        return {"page": self.page, "start": self.start, "end": self.end, "rows": list(self.rows)}
+        payload: dict[str, Any] = {
+            "page": self.page,
+            "start": self.start,
+            "end": self.end,
+            "rows": list(self.rows),
+        }
+        if self.bbox is not None:
+            payload["bbox"] = self.bbox.to_json()
+        return payload
 
 
 def find(pages: Iterable[Page]) -> list[Diagram]:

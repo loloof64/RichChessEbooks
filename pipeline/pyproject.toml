@@ -25,7 +25,14 @@ glyphs = [
     "numpy>=1.24",
     "pillow>=10.0",
 ]
-dev = ["pytest>=8.0", "rce-pipeline[glyphs]"]
+# Step 1d, the boards a book draws rather than sets: the clustering works on
+# arrays, and the silhouette that makes a piece the same on a light square and
+# on a dark one is a morphological opening.
+pictures = [
+    "numpy>=1.24",
+    "scipy>=1.11",
+]
+dev = ["pytest>=8.0", "rce-pipeline[glyphs]", "rce-pipeline[pictures]"]
 
 [tool.setuptools.packages.find]
 include = ["rce_pipeline*"]

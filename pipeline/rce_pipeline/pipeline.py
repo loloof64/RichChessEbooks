@@ -14,12 +14,13 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import diagrams, extract, figurines, notation, package, parse, tokenize
+from . import diagrams, extract, figurines, notation, package, parse, pictures, tokenize
 
 ARTEFACTS = {
     "pages": "01_pages.json",
     "glyphs": "01b_glyphs.json",
     "diagrams": "01c_diagrams.json",
+    "pictures": "01d_pictures.json",
     "notation": "02_notation.json",
     "tokens": "03_tokens.json",
     "moves": "04_moves.json",
@@ -36,6 +37,9 @@ class PipelineResult:
     #: The diagram blocks found in the text layer, empty unless the book sets
     #: its positions in a diagram font.
     diagrams: list[Any] = field(default_factory=list)
+    #: The diagrams read out of the pictures a book draws, empty unless it
+    #: draws them and the arrays `pictures` works on are installed.
+    pictures: list[Any] = field(default_factory=list)
     #: The book's own piece symbols, and the figurine each was read as, empty
     #: unless it printed them as ordinary characters of a figurine font.
     figurines: dict[str, str] = field(default_factory=dict)
@@ -73,10 +77,20 @@ class PipelineResult:
                 for symbol, figurine in self.figurines.items()
             )
             lines.append(f"Figurines:   {read}   (settled on legality, not on the font's name)")
-        if self.diagrams:
+        if self.diagrams or self.pictures:
             verdicts = Counter(c["verdict"] for c in self.parsed.diagram_checks)
+            printed = len(self.diagrams) + len(self.pictures)
+            # Where they came from is worth printing beside what they did: a
+            # book setting its boards in a font and a book drawing them are
+            # read by different steps, and only one of the two can be turned
+            # off by a missing install.
+            source = (
+                f"{len(self.diagrams)} set in the text layer, {len(self.pictures)} drawn"
+                if self.diagrams and self.pictures
+                else ("set in the text layer" if self.diagrams else "drawn as pictures")
+            )
             lines.append(
-                f"Diagrams:    {len(self.diagrams)} printed in the text layer"
+                f"Diagrams:    {printed} {source}"
                 f"  ({verdicts['confirms']} confirm the line,"
                 f" {verdicts['corrects']} correct it, {verdicts['seeds']} seed a game,"
                 f" {verdicts['unreadable'] + verdicts['unread']} unread)"
@@ -132,6 +146,7 @@ def run(
     force_language: str | None = None,
     glyph_model: str | None = None,
     glyph_confidence: float | None = None,
+    read_pictures: bool = True,
     write_artefacts: bool = True,
 ) -> PipelineResult:
     """Run every step on `pdf_path`.
@@ -151,6 +166,10 @@ def run(
     move number, and it is what makes those books parseable at all.
     `glyph_confidence` overrides the threshold it accepts a piece at; see
     `glyphs.DEFAULT_MIN_CONFIDENCE` for what it is worth changing.
+
+    `read_pictures` turns off step 1d, which reads the boards a book draws as
+    images. It is on by default and costs one pass over the page's images on a
+    book that draws none; turn it off to measure what the diagrams are worth.
     """
     os.makedirs(work_dir, exist_ok=True)
 
@@ -202,13 +221,22 @@ def run(
     printed = diagrams.find(pages)
     _write(write_artefacts, work_dir, "diagrams", [d.to_json() for d in printed])
 
+    # A book draws its boards or sets them, and the two are read by different
+    # steps; from here down neither the tokeniser nor the parser is told which
+    # of the two a position came from.
+    drawn: list[Any] = []
+    if read_pictures and pictures.available():
+        drawn = pictures.find(pdf_path, pages)
+        _write(write_artefacts, work_dir, "pictures", [d.to_json() for d in drawn])
+    boards = sorted(printed + drawn, key=lambda d: (d.page, d.start))
+
     tokens = tokenize.tokenize_pages(
-        pages, piece_letters=report.piece_letters, diagrams=printed
+        pages, piece_letters=report.piece_letters, diagrams=boards
     )
     _write(write_artefacts, work_dir, "tokens", [t.to_json() for t in tokens])
 
     parsed = parse.parse_tokens(tokens, strict_numbering=strict_numbering)
-    if printed:
+    if boards:
         # The first pass reads the diagrams as nothing but eight rows of
         # characters, and that is enough to learn what the characters mean:
         # wherever a game reached one without breaking, the position is known.
@@ -259,6 +287,7 @@ def run(
         rce_path=rce_path,
         glyphs=recovered,
         diagrams=printed,
+        pictures=drawn,
         figurines=read_as,
     )
 

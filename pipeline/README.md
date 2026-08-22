@@ -31,7 +31,9 @@ pytest
 ```
 
 The recogniser's dependencies (`scikit-learn`, `scikit-image`, `numpy`, `pillow`) are an
-extra rather than a requirement: a book with a usable text layer never loads them.
+extra rather than a requirement: a book with a usable text layer never loads them. So
+are the arrays step 1d works on (`numpy`, `scipy`, the `pictures` extra), which only a
+book drawing its diagrams as images needs.
 
 ## The five steps
 
@@ -44,6 +46,8 @@ dominates the runtime and is the one you least often need to repeat.
 | `extract.py` | Text and per-**character** geometry, via PyMuPDF | `01_pages.json` |
 | `scan.py` | Printed lines rebuilt from the layer's boxes, and their crops | — |
 | `glyphs.py` | The piece symbols in those crops, written back into the pages | `01b_glyphs.json` |
+| `diagrams.py` | The positions a book **sets** in a diagram font, read from the layer | `01c_diagrams.json` |
+| `pictures.py` | The positions a book **draws** as an image, read from the image | `01d_pictures.json` |
 | `notation.py` | Figurine Unicode, figurine font, or letters — and which language | `02_notation.json` |
 | `tokenize.py` | Typed tokens (move, number, bracket, prose), each keeping its box | `03_tokens.json` |
 | `parse.py` | Move tree, legality against `python-chess`, FEN reconstruction | `04_moves.json` |
@@ -55,6 +59,15 @@ moves to their punctuation (`14.Nf3!,` `e4)`), and a word-level box would swallo
 `scan.py` and `glyphs.py` sit beside step 1 rather than in the chain: they run only when
 `run(glyph_model=...)` is given and the book needs them. They are described under [Books
 whose symbols are only in the image](#books-whose-symbols-are-only-in-the-image).
+
+`diagrams.py` and `pictures.py` read the same thing two ways. A publisher either sets a
+position in a **diagram font** — eight lines of eight characters, already in the text
+layer — or **draws** it as an image, where the text layer holds nothing at all. Neither
+module knows what a piece looks like: both hand the parser eight rows of eight
+characters, and what a character means is learned from the positions the book's own
+moves reach. `pictures.py` needs numpy and scipy (the `pictures` extra) and is skipped
+without them; pass `run(read_pictures=False)` to measure a book without its drawn
+boards.
 
 ## Books whose symbols are only in the image
 

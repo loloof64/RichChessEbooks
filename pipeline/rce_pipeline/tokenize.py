@@ -221,7 +221,7 @@ def _tokenize_page(
             page=page.number,
             start=diagram.start,
             end=diagram.end,
-            bbox=page.bbox_for(diagram.start, diagram.end),
+            bbox=diagram.bbox or page.bbox_for(diagram.start, diagram.end),
         )
         cursor = diagram.end
     yield from _tokenize_span(page, text, token_re, to_san, cursor, len(text))
