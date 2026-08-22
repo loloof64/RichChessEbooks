@@ -246,3 +246,67 @@ def test_the_clustering_is_held_to_the_thirteen_things_a_board_can_carry():
     labels = pictures._cluster(squares)
     assert len(set(labels)) == 13
     assert labels[-1] == labels[0]
+
+
+def scan(tmp_path, boards, *, tilt=0.0):
+    """A PDF of scanned pages: one image per page, the page itself.
+
+    The board is pasted into a sheet of paper with a few rules of text-like
+    ink beside it, which is the situation `_framed_boards` is for — there is
+    no picture to ask about, only a page.
+    """
+    from scipy import ndimage
+
+    path = str(tmp_path / f"scan{tilt}.pdf")
+    doc = fitz.open()
+    for board_fen in boards:
+        sheet = np.full((1000, 760), _LIGHT, dtype=np.float32)
+        board = board_image(board_fen)
+        if tilt:
+            board = ndimage.rotate(board, tilt, reshape=True, cval=_LIGHT, order=1)
+        sheet[40 : 40 + board.shape[0], 60 : 60 + board.shape[1]] = board
+        for line in range(12):  # something for the rule finder to reject
+            sheet[620 + line * 24 : 626 + line * 24, 80:700:9] = _INK
+        samples = (np.clip(sheet, 0.0, 1.0) * 255).astype(np.uint8).tobytes()
+        page = doc.new_page(width=400, height=530)
+        page.insert_image(
+            fitz.Rect(0, 0, 400, 530),
+            pixmap=fitz.Pixmap(fitz.csGRAY, sheet.shape[1], sheet.shape[0], samples, 0),
+        )
+        page.insert_text(fitz.Point(40, 500), "14 Nf3 Bg4")
+    doc.save(path)
+    doc.close()
+    return path
+
+
+def test_a_board_inside_a_scan_is_found_by_its_frame(tmp_path):
+    """A scanned book stores the page and nothing else: the board has to be
+    found in it, and its frame is what finds it."""
+    positions = [OPENING, MIDDLE, ENDGAME]
+    path = scan(tmp_path, positions)
+    found = pictures.find(path, extract.extract_pages(path))
+    assert len(found) == 3
+
+    table = diagrams.learn([(found[0].rows, [OPENING])])
+    assert [diagrams.decode(diagram.rows, table) for diagram in found] == positions
+
+
+def test_a_tilted_scan_is_still_found(tmp_path):
+    """A scanned rule is not straight. Measured on SuperAttaquant, a degree
+    out of true: the longest unbroken stretch of its top rule is half the
+    board. Only that the board is found is asserted — a tilt leaves the grid
+    tilted too, and what that costs the reading is measured on the corpus,
+    not here."""
+    path = scan(tmp_path, [OPENING, MIDDLE, ENDGAME], tilt=0.8)
+    assert len(pictures.find(path, extract.extract_pages(path))) == 3
+
+
+def test_a_page_already_read_is_not_read_again(tmp_path):
+    """A diagram font draws a framed board when the page is rendered, so the
+    search of the last resort finds it a second time — 45 diagrams on Markos
+    where the book prints 25."""
+    path = scan(tmp_path, [OPENING, MIDDLE, ENDGAME])
+    pages = extract.extract_pages(path)
+    assert pictures.find(path, pages, skip_pages={1, 2}) == pictures.find(
+        path, [p for p in pages if p.number == 3]
+    )

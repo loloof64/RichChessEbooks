@@ -57,7 +57,7 @@ handoff.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterator, Sequence
+from typing import Any, Container, Iterator, Sequence
 
 from .diagrams import SIDE, Diagram
 from .extract import BBox, Page
@@ -154,6 +154,35 @@ SQUARE_TOLERANCE = 0.25
 #: always reach 1 — while the inkiest rank of a position is 0.44.
 FRAME_INK = 0.5
 
+#: What a scanned page is rendered at to be searched for a board. 200 gives
+#: about 50 pixels to a square on the two scanned books, which is twice what
+#: the signature needs and a quarter of the pixels a page renders at 400.
+SCAN_DPI = 200
+
+#: How dark a pixel of a scan has to be to be ink. Higher than the 0.5 a drawn
+#: picture is read at: a scanned rule comes out grey, and SuperAttaquant's
+#: frames are only found whole at 0.7.
+SCAN_INK = 0.7
+
+#: How far a scanned rule may drift as it crosses the page, as a share of the
+#: page's shorter side. A page a degree out of true breaks every rule into
+#: fragments; the ink is smeared this far along the rule's own axis before the
+#: runs are measured. Measured on SuperAttaquant, 1312 pixels across at
+#: `SCAN_DPI`: the top rule of a 413-pixel board runs 213 pixels unbroken, 392
+#: at five pixels of smear, and its whole 413 at nine.
+SKEW_TOLERANCE = 0.004
+
+#: Most of a scanned page's shorter side a board may take up.
+MAX_SCAN_SHARE = 0.7
+
+#: How far from square a frame found on a scan may be. Looser than
+#: `SQUARE_TOLERANCE`, which is applied to a board already located: here the
+#: two rules are themselves a few pixels thick and drifting.
+SCAN_SQUARE_TOLERANCE = 0.03
+
+#: How much of a frame's height the rule down its side has to be found over.
+RULE_OVERLAP = 0.7
+
 #: A board's shading, measured to tell a board from any other square picture.
 #: The two colours of square differ by this much, at least, in the mean of
 #: what is left once the pieces are taken off.
@@ -197,15 +226,23 @@ def available() -> bool:
     return True
 
 
-def find(pdf_path: str, pages: Sequence[Page]) -> list[Diagram]:
+def find(
+    pdf_path: str, pages: Sequence[Page], *, skip_pages: Container[int] = frozenset()
+) -> list[Diagram]:
     """Every diagram printed as a picture on `pages`, in reading order.
 
     The clustering is done over the whole book at once, and has to be: one
     board on its own says only that two of its squares differ, while thirty
     boards say that this shape is a rook, wherever it stands. A book drawing
     no boards costs one pass over its images and nothing else.
+
+    `skip_pages` are the pages `diagrams.find` has already read. A diagram
+    font **draws a framed board** when the page is rendered, so the search of
+    the last resort finds it a second time and the parser meets one position
+    twice — 45 diagrams on Markos where the book prints 25. A page is read one
+    way or the other, never both.
     """
-    boards = list(_boards(pdf_path, pages))
+    boards = list(_boards(pdf_path, pages, skip_pages))
     if not boards:
         return []
 
@@ -222,18 +259,37 @@ def find(pdf_path: str, pages: Sequence[Page]) -> list[Diagram]:
 
 
 def _boards(
-    pdf_path: str, pages: Sequence[Page]
+    pdf_path: str, pages: Sequence[Page], skip_pages: Container[int]
 ) -> Iterator[tuple[tuple[int, BBox, int], list[Any]]]:
-    """Each board picture on `pages`, with the signatures of its squares."""
+    """Each board picture on `pages`, with the signatures of its squares.
+
+    Two ways in, tried in that order. A book that stores each board as its own
+    image is read from the stored pixels, which are the best there are. A book
+    that is a **scan** stores one image per page — the page — and the board has
+    to be found inside it; that costs a rendering pass, so it is only done on a
+    page whose own images gave nothing.
+    """
     by_number = {page.number: page for page in pages}
     doc = fitz.open(pdf_path)
     try:
         for number, page in sorted(by_number.items()):
+            if number in skip_pages:
+                continue
             source = doc[number - 1]
+            found = 0
             for rect, image in _candidate_images(doc, source):
                 region = _board_region(image)
                 if region is None:
                     continue
+                squares = _signatures(image, region)
+                if squares is None:
+                    continue
+                found += 1
+                bbox = BBox.from_mupdf(tuple(rect), page.height)
+                yield (number, bbox, _offset_for(page, bbox)), squares
+            if found:
+                continue
+            for rect, image, region in _framed_boards(source):
                 squares = _signatures(image, region)
                 if squares is None:
                     continue
@@ -276,6 +332,154 @@ def _candidate_images(doc: Any, page: Any) -> Iterator[tuple[Any, Any]]:
             continue
         samples = np.frombuffer(pixmap.samples, dtype=np.uint8)
         yield rect, samples.reshape(pixmap.height, pixmap.width).astype(np.float32) / 255.0
+
+
+def _framed_boards(page: Any) -> Iterator[tuple[Any, Any, tuple[int, int, int, int]]]:
+    """The boards drawn on a scan of `page`, found by the frame around them.
+
+    A scanned book stores the page and nothing else, so there is no picture to
+    ask about: the board has to be found. What finds it is its frame — four
+    rules, two across and two down, meeting in a square nothing else on a page
+    of prose makes. The shading test in `_signatures` then has the last word,
+    so a table or a boxed sidebar costs a crop and is dropped.
+
+    **A scanned line is not straight.** Measured on SuperAttaquant, whose pages
+    sit about a degree out of true: the longest unbroken run along the top rule
+    of a board is 213 pixels of the 413 the board is wide, because the rule
+    drifts a pixel or two down as it crosses. Smearing the ink a few pixels
+    down its own axis before the runs are measured recovers the whole rule —
+    213 becomes 392 at five pixels, 413 at nine. The same tilt leaves the grid
+    inside a degree out, which is a seventh of a square at the far corner and
+    what `INSET` is there to absorb.
+    """
+    import numpy as np
+
+    pixmap = page.get_pixmap(dpi=SCAN_DPI, colorspace=fitz.csGRAY)
+    image = (
+        np.frombuffer(pixmap.samples, dtype=np.uint8)
+        .reshape(pixmap.height, pixmap.width)
+        .astype(np.float32)
+        / 255.0
+    )
+    scale = 72.0 / SCAN_DPI
+    smallest = int(MIN_WIDTH_PT / scale)
+    largest = int(min(pixmap.width, pixmap.height) * MAX_SCAN_SHARE)
+    if largest < smallest:
+        return
+    ink = image < SCAN_INK
+    # How far a rule drifts depends on how far it runs, so the smear is taken
+    # from the page and not from the smallest board looked for.
+    smear = max(1, int(round(min(pixmap.width, pixmap.height) * SKEW_TOLERANCE)))
+    across = _rules(ink, smear, smallest)
+    down = _rules(ink.T, smear, smallest)
+
+    for top, bottom, left, right in _squares_between(across, down, smallest, largest):
+        crop = image[top:bottom, left:right]
+        if crop.shape[0] < 8 * SIDE or crop.shape[1] < 8 * SIDE:
+            continue
+        rect = fitz.Rect(left * scale, top * scale, right * scale, bottom * scale)
+        yield rect, crop, (0, crop.shape[0], 0, crop.shape[1])
+
+
+def _rules(ink: Any, smear: int, smallest: int) -> list[tuple[int, int, int, int]]:
+    """The long straight rules of `ink`, as `(first, last, from, to)`.
+
+    Rows here, and columns by handing in the transpose. `first` and `last` are
+    the rows the rule is thick over; `from` and `to` are how far along it runs.
+    """
+    import numpy as np
+    from scipy import ndimage
+
+    smeared = ndimage.grey_dilation(ink.astype(np.uint8), size=(smear, 1)).astype(bool)
+    rules: list[tuple[int, int, int, int]] = []
+    run: list[tuple[int, int, int]] = []
+    for index in range(smeared.shape[0] + 1):
+        span = _longest_run(smeared[index]) if index < smeared.shape[0] else None
+        if span is not None and span[1] - span[0] >= smallest:
+            run.append((index, span[0], span[1]))
+            continue
+        if run:
+            # The rule's own reach is the longest stretch any one of its rows
+            # holds, not what all of them agree on: a rule drifting across a
+            # tilted page has each row starting a pixel later than the last,
+            # and what they agree on is the part in the middle.
+            widest = max(run, key=lambda r: r[2] - r[1])
+            rules.append((run[0][0], run[-1][0], widest[1], widest[2]))
+            run = []
+    return rules
+
+
+def _longest_run(row: Any) -> tuple[int, int] | None:
+    """Where the longest unbroken stretch of ink on this line begins and ends."""
+    import numpy as np
+
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], row.view(np.int8), [0]))))
+    if not len(edges):
+        return None
+    starts, ends = edges[0::2], edges[1::2]
+    longest = int(np.argmax(ends - starts))
+    return int(starts[longest]), int(ends[longest])
+
+
+def _squares_between(
+    across: list[tuple[int, int, int, int]],
+    down: list[tuple[int, int, int, int]],
+    smallest: int,
+    largest: int,
+) -> Iterator[tuple[int, int, int, int]]:
+    """The square boxes two rules across and two rules down enclose.
+
+    What is yielded is the **inside** of the box: a frame left in the crop
+    becomes a body of its own in the corner squares, and the corner squares are
+    where a rook usually stands.
+    """
+    for i, upper in enumerate(across):
+        for lower in across[i + 1 :]:
+            if not smallest <= lower[0] - upper[1] <= largest:
+                continue
+            begins, ends = max(upper[2], lower[2]), min(upper[3], lower[3])
+            if ends - begins < smallest:
+                continue
+            left = _rule_at(down, begins, upper[0], lower[1], smallest)
+            right = _rule_at(down, ends, upper[0], lower[1], smallest)
+            if left is None or right is None:
+                continue
+            # Squareness is asked of the **inside** of the frame, and only
+            # once all four rules are known. Comparing the gap between two
+            # rules against the length they run over is comparing an inside
+            # with an outside, and the difference is two rules thick — which
+            # on a rendered scan is enough to fail a board that is square.
+            top, bottom, x0, x1 = upper[1] + 1, lower[0], left[1] + 1, right[0]
+            height, width = bottom - top, x1 - x0
+            if min(height, width) < smallest:
+                continue
+            if abs(height - width) > SCAN_SQUARE_TOLERANCE * min(height, width):
+                continue
+            yield top, bottom, x0, x1
+
+
+def _rule_at(
+    rules: list[tuple[int, int, int, int]], where: int, first: int, last: int, smallest: int
+) -> tuple[int, int, int, int] | None:
+    """The rule covering `where` and running most of `first`..`last`.
+
+    Covering, rather than centred on: a rule is several pixels thick before
+    the smear widens it further, and `where` is the end of another rule's
+    reach — the outer corner of the frame, not the middle of its side.
+
+    Most of the length, and not all of it: the side of a frame is measured
+    from the row that holds its longest stretch of ink, and on a tilted page
+    that row is not the one reaching furthest at both ends. Asking for the
+    whole height found the frames of SuperAttaquant and paired none of them.
+    """
+    tolerance = max(4.0, smallest * SCAN_SQUARE_TOLERANCE)
+    wanted = (last - first) * RULE_OVERLAP
+    for rule in rules:
+        if not rule[0] - tolerance <= where <= rule[1] + tolerance:
+            continue
+        if min(rule[3], last) - max(rule[2], first) >= wanted:
+            return rule
+    return None
 
 
 def _board_region(image: Any) -> tuple[int, int, int, int] | None:

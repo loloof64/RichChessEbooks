@@ -86,7 +86,8 @@ class PipelineResult:
             # read by different steps, and only one of the two can be turned
             # off by a missing install.
             source = (
-                f"{len(self.diagrams)} set in the text layer, {len(self.pictures)} drawn"
+                f"of which {len(self.diagrams)} set in the text layer "
+                f"and {len(self.pictures)} drawn"
                 if self.diagrams and self.pictures
                 else ("set in the text layer" if self.diagrams else "drawn as pictures")
             )
@@ -228,7 +229,7 @@ def run(
     drawn: list[Any] = []
     if read_pictures:
         if pictures.available():
-            drawn = pictures.find(pdf_path, pages)
+            drawn = pictures.find(pdf_path, pages, skip_pages={d.page for d in printed})
             _write(write_artefacts, work_dir, "pictures", [d.to_json() for d in drawn])
         else:
             # Said out loud rather than skipped quietly: a book whose boards
