@@ -271,3 +271,50 @@ class TestInTheTokeniser:
         kinds = [t.kind for t in tokens]
         assert kinds == ["text", "diagram", "text"]
         assert tokens[1].text == "/".join(rows)
+
+
+TWINS = [("T", "R"), ("S", "N"), ("L", "B"), ("D", "Q"), ("M", "K"), ("J", "I")]
+
+MIDDLEGAME = "r1bq1rk1/pp2ppbp/2np1np1/8/2P1P3/2N1BP2/PP2N1PP/R2QKB1R"
+ENDGAME = "8/5pk1/6p1/8/8/6P1/5PK1/8"
+
+
+def test_the_boards_name_the_characters_when_no_game_can():
+    """A book of puzzles never plays a move up to a diagram, so `learn` is
+    handed nothing. The positions themselves still say a great deal."""
+    boards = [rows_of(fen) for fen in (chess.Board().board_fen(), MIDDLEGAME, ENDGAME)]
+    tables = diagrams.settle(boards, TWINS, ".")
+
+    assert FONT in tables
+    assert all(diagrams.decode(rows, table) for table in tables for rows in boards)
+
+
+def test_legality_cannot_do_it_alone_and_says_so_by_leaving_a_tie():
+    """Swapping a knight for a bishop leaves every position legal, and so does
+    exchanging the two colours. What comes back is a shortlist, not an answer
+    — `pipeline._best_table` reads the book with each of them."""
+    boards = [rows_of(fen) for fen in (MIDDLEGAME, ENDGAME)]
+    tables = diagrams.settle(boards, TWINS, ".")
+
+    assert len(tables) > 1
+    # A shortlist all the same, and it shrinks as boards are added: two boards
+    # leave 96 tables standing, and Grivas' thirty leave 12.
+    assert len(tables) < 200
+
+
+def test_a_character_no_twin_covers_leaves_nothing_to_settle():
+    """A board carrying a stray cannot be read under any table, so it supports
+    none of them; a book of nothing but such boards settles nothing."""
+    rows = list(rows_of(MIDDLEGAME))
+    rows[4] = "?" + rows[4][1:]
+    assert diagrams.settle([tuple(rows)], TWINS, ".") == []
+
+
+def test_three_rooks_beside_eight_pawns_never_happened():
+    """`python-chess` counts pawns and kings but not promotions. A third rook
+    was made from a pawn, and a side that still has all eight never made one.
+    Eight rooks on their own are legal — six promotions — so it is the two
+    counts together that this catches."""
+    impossible = "7k/8/8/8/8/8/PPPPPPPP/RRRK4"
+    assert not diagrams._stands(rows_of(impossible), FONT)
+    assert diagrams._stands(rows_of(ENDGAME), FONT)

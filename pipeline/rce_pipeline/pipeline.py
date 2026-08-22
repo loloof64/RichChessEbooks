@@ -227,9 +227,11 @@ def run(
     # steps; from here down neither the tokeniser nor the parser is told which
     # of the two a position came from.
     drawn: list[Any] = []
+    reading: Any = None
     if read_pictures:
         if pictures.available():
-            drawn = pictures.find(pdf_path, pages, skip_pages={d.page for d in printed})
+            reading = pictures.read(pdf_path, pages, skip_pages={d.page for d in printed})
+            drawn = reading.diagrams
             _write(write_artefacts, work_dir, "pictures", [d.to_json() for d in drawn])
         else:
             # Said out loud rather than skipped quietly: a book whose boards
@@ -273,6 +275,17 @@ def run(
                 ),
                 min_diagrams=2,
             )
+        if not table and reading is not None and reading.twins and reading.empty:
+            # No game reached a diagram, so nothing taught the characters what
+            # they mean. Ask the boards: `diagrams.settle` returns every table
+            # the positions themselves allow, and the book breaks the tie —
+            # each is read with, and the one leaving the most moves standing
+            # clean wins. That is `figurines.settle`'s argument, one level up.
+            table = _best_table(
+                diagrams.settle([d.rows for d in drawn], reading.twins, reading.empty),
+                tokens,
+                strict_numbering=strict_numbering,
+            )
         if table:
             parsed = parse.parse_tokens(
                 tokens, strict_numbering=strict_numbering, diagram_table=table
@@ -304,6 +317,39 @@ def run(
         pictures=drawn,
         figurines=read_as,
     )
+
+
+#: How many of the tables `diagrams.settle` allows are tried against the book.
+#: Reading one costs about twenty milliseconds, and the tie shrinks fast as
+#: boards are added: two boards leave 96 tables standing, Grivas' thirty leave
+#: 12 and SuperAttaquant's eleven leave 22.
+MAX_TABLES_TRIED = 200
+
+
+def _best_table(
+    candidates: list[dict[str, str]], tokens: list[Any], *, strict_numbering: bool
+) -> dict[str, str]:
+    """The one of `candidates` that leaves the book reading best.
+
+    Legality alone cannot separate a knight from a bishop, nor say which
+    colour a book fills: a position with the two colours exchanged is still a
+    position. The moves can, and reading them is what settles it.
+    """
+    best: dict[str, str] = {}
+    best_score = (-1, -1)
+    for table in candidates[:MAX_TABLES_TRIED]:
+        attempt = parse.parse_tokens(
+            tokens, strict_numbering=strict_numbering, diagram_table=table
+        )
+        read = sum(
+            1
+            for check in attempt.diagram_checks
+            if check["verdict"] not in ("unread", "unreadable")
+        )
+        score = (attempt.break_diagnosis()["clean"], read)
+        if score > best_score:
+            best, best_score = table, score
+    return best
 
 
 def _write(enabled: bool, work_dir: str, key: str, payload: Any) -> None:

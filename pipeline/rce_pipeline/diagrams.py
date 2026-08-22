@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from itertools import permutations
 from typing import Any, Iterable, Sequence
 
 from .extract import BBox, Page
@@ -378,3 +379,97 @@ def initial_fen(board_fen: str, *, number: int, black_to_move: bool) -> str:
             rights += "k" if black[7] == "r" else ""
             rights += "q" if black[0] == "r" else ""
     return f"{board_fen} {'b' if black_to_move else 'w'} {rights or '-'} - 0 {number}"
+
+
+#: The six kinds of piece, in the order a table is written for them.
+KINDS = "kqrbnp"
+
+#: How many pieces of a kind a side may hold, counting promotions: one queen
+#: and two of everything else to begin with, and eight pawns that can each
+#: become any of them.
+_AT_MOST = {"k": 1, "q": 9, "r": 10, "b": 10, "n": 10, "p": 8}
+
+#: How many pawns a side begins with, and so how many promotions it can have
+#: made: a board holding three rooks and eight pawns never happened.
+_PAWNS = 8
+
+
+def settle(
+    boards: Sequence[Sequence[str]],
+    twins: Sequence[tuple[str, str]],
+    empty: str,
+) -> list[dict[str, str]]:
+    """Every table the positions themselves allow, the likeliest first.
+
+    :func:`learn` names a character from a position the book's own moves
+    reach. A book whose moves never reach a diagram — a book of puzzles, or one
+    whose pages open in mid-score, which is the very thing a diagram would fix
+    — gives it nothing to learn from. This asks the boards instead, the way
+    :func:`figurines.settle` asks the board which character is which piece.
+
+    What makes it tractable is that the characters come **in twins**: the same
+    piece in the two colours, which `pictures` finds by their silhouette (the
+    drawing is the same; only the fill differs). Six twins onto six kinds of
+    piece is 720 arrangements rather than the 479 million of twelve characters
+    onto twelve pieces, and each arrangement is then either way round.
+
+    Which way round is left to the boards and, after them, to the moves: a
+    position with the colours exchanged is still a legal position, so nothing
+    static can tell one from the other. What is assumed is only that the book
+    draws its two colours the same way throughout, which is a statement about
+    a printing press and not about chess.
+
+    The tables come back ordered by how many of the boards they leave legal,
+    and there will usually be several at the top — swapping a knight for a
+    bishop leaves every position legal. The caller breaks the tie by reading
+    the book with each of them.
+    """
+    positions = [rows for rows in boards]
+    ranked: list[tuple[int, dict[str, str]]] = []
+    for order in permutations(KINDS):
+        for flipped in (False, True):
+            table = {empty: "."}
+            for (first, second), kind in zip(twins, order):
+                white, black = (second, first) if flipped else (first, second)
+                table[white] = kind.upper()
+                table[black] = kind
+            ranked.append((sum(_stands(rows, table) for rows in positions), table))
+    if not ranked:
+        return []
+    best = max(score for score, _ in ranked)
+    if best == 0:
+        # Not one board came out a position anybody could have reached, under
+        # any arrangement — which on a book whose boards are read cleanly does
+        # not happen, and on one whose boards each carry a character no twin
+        # covers is all it can say. A table nothing supports is not a table.
+        return []
+    return [table for score, table in ranked if score == best]
+
+
+def _stands(rows: Sequence[str], table: dict[str, str]) -> bool:
+    """Whether these rows, read with `table`, are a position that can happen.
+
+    A board that cannot be read at all — a character no twin covers — counts
+    against no table in particular, since every table is missing the same
+    character; it simply says nothing.
+    """
+    import chess
+
+    board_fen = decode(tuple(rows), table)
+    if board_fen is None:
+        return False
+    counts = Counter(board_fen)
+    for side in (str.upper, str.lower):
+        held = {kind: counts.get(side(kind), 0) for kind in KINDS}
+        if any(held[kind] > _AT_MOST[kind] for kind in KINDS):
+            return False
+        # Every piece beyond the ones a side begins with came from a pawn, and
+        # it had only eight. `python-chess` does not check this and it is what
+        # separates a character read as a rook from the same one read as a
+        # pawn: eight rooks is a position nobody ever reached.
+        promoted = sum(max(0, held[kind] - (1 if kind == "q" else 2)) for kind in "qrbn")
+        if promoted + held["p"] > _PAWNS:
+            return False
+    return any(
+        chess.Board(f"{board_fen} {colour} - - 0 1").is_valid() for colour in ("w", "b")
+    )

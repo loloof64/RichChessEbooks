@@ -56,6 +56,7 @@ handoff.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Container, Iterator, Sequence
 
@@ -226,9 +227,33 @@ def available() -> bool:
     return True
 
 
+@dataclass(frozen=True)
+class Reading:
+    """What a pass over a book's pictures found."""
+
+    #: The boards, as blocks of invented characters, in reading order.
+    diagrams: list[Diagram]
+    #: The characters paired by silhouette: the same piece in its two colours.
+    #: A drawing is the same drawing whichever colour it is filled with, so
+    #: the shape half of two twins' signatures agrees to within a thousandth
+    #: where the next nearest character is fifty times further off. Measured
+    #: on Grivas against the table its own games taught: every pair right.
+    twins: list[tuple[str, str]]
+    #: The character an empty square came out as — the commonest of all, since
+    #: a position is at least half empty.
+    empty: str | None
+
+
 def find(
     pdf_path: str, pages: Sequence[Page], *, skip_pages: Container[int] = frozenset()
 ) -> list[Diagram]:
+    """The diagrams of :func:`read`, for a caller that needs nothing else."""
+    return read(pdf_path, pages, skip_pages=skip_pages).diagrams
+
+
+def read(
+    pdf_path: str, pages: Sequence[Page], *, skip_pages: Container[int] = frozenset()
+) -> Reading:
     """Every diagram printed as a picture on `pages`, in reading order.
 
     The clustering is done over the whole book at once, and has to be: one
@@ -244,9 +269,10 @@ def find(
     """
     boards = list(_boards(pdf_path, pages, skip_pages))
     if not boards:
-        return []
+        return Reading(diagrams=[], twins=[], empty=None)
 
-    labels = _cluster([square for _, squares in boards for square in squares])
+    squares = [square for _, sqs in boards for square in sqs]
+    labels = _cluster(squares)
     found: list[Diagram] = []
     cursor = 0
     for page, bbox, offset in (meta for meta, _ in boards):
@@ -255,7 +281,55 @@ def find(
         rows = tuple("".join(chars[i * SIDE : (i + 1) * SIDE]) for i in range(SIDE))
         found.append(Board(page=page, rows=rows, bbox=bbox, offset=offset).as_diagram())
     found.sort(key=lambda d: (d.page, d.start))
-    return found
+    empty, twins = _twins(squares, labels)
+    return Reading(diagrams=found, twins=twins, empty=empty)
+
+
+def _twins(squares: Sequence[Any], labels: Sequence[int]) -> tuple[str | None, list[tuple[str, str]]]:
+    """The empty square's character, and the characters paired by silhouette.
+
+    A piece is the same drawing in both colours — only the fill changes — so
+    the shape half of a signature says which two characters are one piece,
+    and the shade half is what kept them apart in the first place.
+
+    The pairing is a matching and not a poll of each character's own nearest:
+    three characters can point in a chain, a to b and b to c, and asking for
+    agreement then leaves all three unpaired. The closest pair of all is taken
+    first, then the closest pair of what is left, until nothing is left —
+    which on a book with twelve characters gives six pairs and no chain. An
+    odd character out is left unpaired, and the boards it stands on are then
+    read by nobody, which is the bargain `decode` already makes.
+    """
+    import numpy as np
+
+    centres: dict[int, Any] = {}
+    counts: Counter[int] = Counter(labels)
+    for label, square in zip(labels, squares):
+        centres[label] = centres.get(label, 0) + np.asarray(square, dtype=np.float64)
+    for label in centres:
+        centres[label] = centres[label] / counts[label]
+    if not counts:
+        return None, []
+
+    empty = counts.most_common(1)[0][0]
+    shape = {
+        label: centre[: SIGNATURE_SIDE**2]
+        for label, centre in centres.items()
+        if label != empty and counts[label] >= MIN_SUPPORT
+    }
+    apart = sorted(
+        (float(np.abs(shape[one] - shape[other]).mean()), one, other)
+        for index, one in enumerate(sorted(shape))
+        for other in sorted(shape)[index + 1 :]
+    )
+    taken: set[int] = set()
+    twins: list[tuple[str, str]] = []
+    for _distance, one, other in apart:
+        if one in taken or other in taken:
+            continue
+        taken |= {one, other}
+        twins.append((chr(_FIRST_CHAR + one), chr(_FIRST_CHAR + other)))
+    return chr(_FIRST_CHAR + empty), twins
 
 
 def _boards(

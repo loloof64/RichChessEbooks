@@ -310,3 +310,17 @@ def test_a_page_already_read_is_not_read_again(tmp_path):
     assert pictures.find(path, pages, skip_pages={1, 2}) == pictures.find(
         path, [p for p in pages if p.number == 3]
     )
+
+
+def test_the_two_colours_of_a_piece_are_paired_by_their_silhouette(tmp_path):
+    """What makes naming the characters tractable: a piece is the same drawing
+    in both colours, so the shape half of the signature pairs them and the
+    problem falls from twelve characters onto twelve pieces to six onto six."""
+    path = book(tmp_path, [OPENING, MIDDLE, ENDGAME])
+    reading = pictures.read(path, extract.extract_pages(path))
+
+    assert len(reading.twins) == 6
+    assert reading.empty is not None
+    table = diagrams.learn([(reading.diagrams[0].rows, [OPENING])])
+    for one, other in reading.twins:
+        assert table[one].swapcase() == table[other]
