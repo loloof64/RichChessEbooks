@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
@@ -225,9 +226,21 @@ def run(
     # steps; from here down neither the tokeniser nor the parser is told which
     # of the two a position came from.
     drawn: list[Any] = []
-    if read_pictures and pictures.available():
-        drawn = pictures.find(pdf_path, pages)
-        _write(write_artefacts, work_dir, "pictures", [d.to_json() for d in drawn])
+    if read_pictures:
+        if pictures.available():
+            drawn = pictures.find(pdf_path, pages)
+            _write(write_artefacts, work_dir, "pictures", [d.to_json() for d in drawn])
+        else:
+            # Said out loud rather than skipped quietly: a book whose boards
+            # are all drawn would otherwise report no diagrams at all, which
+            # reads as "this book has none" and is a different thing.
+            warnings.warn(
+                "step 1d skipped: reading the boards a book draws needs numpy and "
+                "scipy (pip install 'rce-pipeline[pictures]'). A book that sets its "
+                "diagrams in a font is unaffected.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
     boards = sorted(printed + drawn, key=lambda d: (d.page, d.start))
 
     tokens = tokenize.tokenize_pages(
