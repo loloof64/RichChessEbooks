@@ -120,6 +120,11 @@ MIN_SUPPORT = 2
 #: second reading of a piece already found, never a new one. Grivas produced
 #: sixteen believed clusters where thirteen exist, and the three extra ones
 #: were what left thirteen of its thirty boards unreadable.
+#:
+#: It is reached by *merging* the clusters, never by keeping the thirteen
+#: largest — see `_merge_kinds`. On a scan the second reading of a pawn is
+#: commoner than the queen, who stands once to a board, so a cut by frequency
+#: drops her and every board she is on.
 MAX_KINDS = 13
 
 #: How far a stray may be from a believed cluster and still be read as one.
@@ -713,15 +718,31 @@ def _weights(length: int, size: int) -> Any:
 def _cluster(squares: Sequence[Any]) -> list[int]:
     """A label per square: the same label means the same thing on the board.
 
-    Greedy, single pass, nearest centroid — the clusters are far apart and
-    there is nothing here for a cleverer algorithm to earn. What it does need
-    is a second thought about the strays: a square whose alignment was a pixel
-    out lands in a cluster of its own, and one such square is enough for
-    `diagrams.decode` to refuse the whole board. So the clusters are held to
-    the thirteen things a board can carry (`MAX_KINDS`) and everything else is
-    dissolved, its squares read as the nearest believed one — unless they are
-    too far from any, in which case each keeps a character nothing will ever
-    teach and its board is dropped.
+    A greedy single pass first, nearest centroid, which is all a drawn board
+    needs: on Grivas it finds thirteen large clusters and three specks. Then
+    the clusters that are believed — those holding `MIN_SUPPORT` squares — are
+    **merged** pairwise, closest pair first, until `MAX_KINDS` remain.
+
+    Merging, and not a cut at the thirteenth-largest, because on a scan the
+    same thing on the board makes more than one cluster. The support histogram
+    is what says so: Grivas falls off a cliff at thirteen (25 squares, then 3),
+    while SuperAttaquant supports 26 clusters and Boussole 31, in a smooth tail
+    the thirteenth sits in the middle of. Cutting there keeps two readings of a
+    pawn and drops the queen, who stands once to a board — Boussole's worst
+    square was d1, astray on 7 of its 13 boards. Merging reaches thirteen by
+    deciding two clusters are one kind instead, and the two scans go from 4 of
+    11 and 0 of 13 boards read to 10 and 8. Grivas comes out with exactly the
+    partition the cut gave it, square for square.
+
+    On the whole signature and not on its shape half: shape alone is what tells
+    a piece from its own other colour (see `_twins`), so merging by it collapses
+    a white rook into a black one — Grivas then carries as few as 7 characters
+    on a board where 9 stand.
+
+    A square in none of the surviving clusters is read as the nearest of them,
+    unless it is further than `STRAY_DISTANCE` from every one, in which case it
+    keeps a character nothing will ever teach and `diagrams.decode` drops its
+    board rather than guess.
     """
     import numpy as np
 
@@ -739,27 +760,80 @@ def _cluster(squares: Sequence[Any]) -> list[int]:
         centroids[nearest] += (square - centroids[nearest]) / counts[nearest]
         labels.append(nearest)
 
-    believed = sorted(
-        (index for index, count in enumerate(counts) if count >= MIN_SUPPORT),
-        key=lambda index: -counts[index],
-    )[:MAX_KINDS]
-    believed.sort()
-    if not believed:
+    supported = [index for index, count in enumerate(counts) if count >= MIN_SUPPORT]
+    if not supported:
         return labels
-    kept = {index: position for position, index in enumerate(believed)}
-    next_label = len(believed)
+    kinds = _merge_kinds(centroids, counts, supported)
+    kept = {
+        member: position
+        for position, kind in enumerate(kinds)
+        for member in kind.members
+    }
+    believed = [kind.centre for kind in kinds]
+    next_label = len(kinds)
     resolved: list[int] = []
     for square, label in zip(squares, labels):
         if label in kept:
             resolved.append(kept[label])
             continue
-        nearest, distance = _nearest([centroids[index] for index in believed], square)
+        nearest, distance = _nearest(believed, square)
         if nearest is not None and distance <= STRAY_DISTANCE:
             resolved.append(nearest)
         else:
             resolved.append(next_label)
             next_label += 1
     return resolved
+
+
+@dataclass
+class _Kind:
+    """One of the things a board carries, as the clusters that are it."""
+
+    #: The clusters of the greedy pass that turned out to be the same thing.
+    members: list[int]
+    #: Their centroids averaged, each weighted by the squares behind it.
+    centre: Any
+    weight: float
+
+
+def _merge_kinds(
+    centroids: Sequence[Any], counts: Sequence[int], supported: Sequence[int]
+) -> list[_Kind]:
+    """`supported` merged down to at most `MAX_KINDS`, closest pair first.
+
+    Agglomerative rather than another pass of the greedy loop, because the
+    order squares arrive in must not decide what merges: the closest pair of
+    all is taken first, whichever page it came from. Weighted by support, so a
+    cluster of three moves the mean of a cluster of five hundred by little.
+
+    There is no distance ceiling here. Thirteen is a fact about chess, not a
+    threshold — whatever the fourteenth cluster is, it is a second reading of
+    something already found, and the only question is which. Refusing to merge
+    a distant pair would leave the board with fourteen characters and no way
+    to read it, which is strictly worse than merging the least bad pair.
+    """
+    import numpy as np
+
+    kinds = [
+        _Kind(members=[index], centre=np.array(centroids[index], dtype=np.float64),
+              weight=float(counts[index]))
+        for index in supported
+    ]
+    while len(kinds) > MAX_KINDS:
+        one, other = min(
+            ((left, right) for left in range(len(kinds)) for right in range(left + 1, len(kinds))),
+            key=lambda pair: np.abs(kinds[pair[0]].centre - kinds[pair[1]].centre).mean(),
+        )
+        merged = kinds[one]
+        eaten = kinds.pop(other)
+        total = merged.weight + eaten.weight
+        merged.centre = (merged.centre * merged.weight + eaten.centre * eaten.weight) / total
+        merged.weight = total
+        merged.members += eaten.members
+    for kind in kinds:
+        kind.members.sort()
+    kinds.sort(key=lambda kind: kind.members[0])
+    return kinds
 
 
 def _nearest(centroids: Sequence[Any], square: Any) -> tuple[int | None, float]:

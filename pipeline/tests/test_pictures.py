@@ -248,6 +248,40 @@ def test_the_clustering_is_held_to_the_thirteen_things_a_board_can_carry():
     assert labels[-1] == labels[0]
 
 
+def test_a_rare_kind_survives_a_common_one_that_split_in_two():
+    """Thirteen is reached by merging, never by dropping the rarest.
+
+    A scan reads the same piece two ways, and the second reading is commoner
+    than a queen — who stands once to a board. Cutting at the thirteenth
+    largest cluster then keeps both readings of the common piece and loses the
+    queen, whose boards are all dropped with her.
+    """
+    rng = np.random.default_rng(0)
+    kinds = [rng.random(20).astype(np.float32) for _ in range(13)]
+    squares = [
+        kind + rng.normal(0, 0.001, 20).astype(np.float32)
+        for kind in kinds[:12]
+        for _ in range(20)
+    ]
+    # The thirteenth kind is rare — three squares over the whole book.
+    squares += [kinds[12] + rng.normal(0, 0.001, 20).astype(np.float32) for _ in range(3)]
+    # And the first kind is read a second way, ten times: further from itself
+    # than `MERGE_DISTANCE` allows, and still far nearer to itself than the
+    # rare kind is to anything.
+    squares += [
+        kinds[0] + 0.1 + rng.normal(0, 0.001, 20).astype(np.float32) for _ in range(10)
+    ]
+
+    labels = pictures._cluster(squares)
+    assert len(set(labels)) == 13
+    # The two readings of the first kind came out as one character...
+    assert set(labels[:20]) == set(labels[-10:])
+    # ...and the rare kind kept one of its own.
+    rare = set(labels[-13:-10])
+    assert len(rare) == 1
+    assert rare.isdisjoint(labels[:-13])
+
+
 def scan(tmp_path, boards, *, tilt=0.0):
     """A PDF of scanned pages: one image per page, the page itself.
 
