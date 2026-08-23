@@ -67,13 +67,33 @@ _TOKEN_TEMPLATE = r"""
     | (?P<move>
           (?:
               (?:O-O-O|O-O|0-0-0|0-0)
-            | [{pieces}]?[a-h]?[1-8]?x?[a-h][1-8](?:\s*=\s*[{pieces}])?
+            | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}])?
           )
           [+#]?
           (?![A-Za-z0-9])
       )
     | (?P<annotation>[!?]{{1,2}}|[±∓⩲⩱∞⟳→↑↓⇆=]|\+[-=]|-\+)
     """
+
+
+#: Letters a scanner leaves where a destination rank belongs. `5` read as `S`
+#: is the whole of it in this corpus — 40 of them over twelve pages of
+#: Boussole, 32 on Grivas, 13 on SuperAttaquant — and it does not cost one
+#: move but a line: the token matches nothing, the move is never read, the
+#: side to play is wrong from there, and the line dies a few plies later on a
+#: castling that is suddenly illegal. That is why `O-O` keeps appearing as the
+#: dying move in an audit and is never itself the fault.
+#:
+#: The move is emitted **as printed** — `dS`, not `d5`. `parse` already treats
+#: `5`/`S` as a near-free substitution, so the position is what decides what
+#: was on the page, and a token no legal move comes within half an edit of
+#: stays `broken`. Nothing here guesses.
+#:
+#: Only `S`. Adding `l` and `I` for rank 1 was measured and costs more than it
+#: brings, and a letter the book uses for a piece is dropped whatever it is: a
+#: German `S` is a Knight, and reading it as a rank would turn one of its moves
+#: into another.
+_LOOKALIKE_RANKS = "S"
 
 
 def _build_token_re(piece_letters: str) -> re.Pattern[str]:
@@ -84,8 +104,12 @@ def _build_token_re(piece_letters: str) -> re.Pattern[str]:
     English, `B` is a Bishop in English and nothing in French, so a permissive
     class turns a misread letter into a different, legal move.
     """
+    ranks = "1-8" + "".join(
+        letter for letter in _LOOKALIKE_RANKS if letter not in piece_letters
+    )
     return re.compile(
-        _TOKEN_TEMPLATE.format(pieces=re.escape(piece_letters)), re.VERBOSE
+        _TOKEN_TEMPLATE.format(pieces=re.escape(piece_letters), ranks=ranks),
+        re.VERBOSE,
     )
 
 #: What a piece symbol leaves behind when the glyph pass fails to restore it:

@@ -30,6 +30,35 @@ class TestTheWreckOfASymbol:
         assert move.lost_symbol == "fi>"
 
 
+class TestALetterWhereARankBelongs:
+    def test_a_rank_read_as_a_letter_still_becomes_a_move(self):
+        # Grivas prints black's sixth as `6 a4 QaS?!` and Boussole prints
+        # `3.gS cS` forty times over twelve pages. Left out of the pattern the
+        # move is not a move at all, so the side to play is wrong from there
+        # and the line dies a few plies later.
+        tokens = tokenize_pages([page_of("6 a4 QaS")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["a4", "QaS"]
+
+    def test_the_position_is_what_reads_it(self):
+        # Emitted as printed, and repaired by the board or not at all: `5`/`S`
+        # is a confusable pair, so `QaS` costs half an edit and only `Qa5`
+        # answers it here.
+        result = parse_tokens(tokenize_pages([page_of("1 d4 c6 2 Nc3 QaS")]))
+
+        move = result.moves[-1]
+        assert move.san == "Qa5"
+        assert move.status == "uncertain"
+        assert move.repair["raw"] == "QaS"
+
+    def test_a_letter_the_book_uses_for_a_piece_is_not_a_rank(self):
+        # A German book spells its Knight `S`. Reading `dS` as `d5` there
+        # would turn one of its moves into another.
+        tokens = tokenize_pages([page_of("6 a4 dS")], piece_letters="KDTLS")
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["a4"]
+
+
 class TestMoveNumbers:
     def test_a_dot_is_not_required_to_announce_a_move(self):
         # Batsford, Gambit and Informator print `12 Nb1`, and so does the
