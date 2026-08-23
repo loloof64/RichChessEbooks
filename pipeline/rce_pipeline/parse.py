@@ -181,6 +181,12 @@ class ParseResult:
     #: Moves a diagram below them proved wrong: they were legal, so nothing
     #: broke, but the position they left was not the one the book printed.
     contradicted: list[str] = field(default_factory=list)
+    #: Moves standing on a main line whose count no longer matches the book's
+    #: own numbering. Nothing is illegal there and no diagram need contradict
+    #: them: the line simply lost a move it could not read, so it is a move
+    #: behind the page, and every position it reaches after that is one the
+    #: book never printed. See `break_diagnosis`.
+    drifted: list[str] = field(default_factory=list)
     #: Every position each game's main line passed through, in order. Read by
     #: `diagrams.learn`, which looks for the printed position on both sides of
     #: where the diagram was met: a parser reading a difficult book is as often
@@ -246,9 +252,19 @@ class ParseResult:
         So `broken` is split into the lines that actually died (`first_breaks`,
         one per line, the number worth working on) and what merely followed
         them (`cascade`); and `ok` into `clean`, the moves nothing stands
-        against, `below_break`, and `contradicted` — the moves a diagram
-        further down proved wrong without any of them being illegal.
+        against, `below_break`, `contradicted` — the moves a diagram further
+        down proved wrong without any of them being illegal — and `drifted`.
         **`clean` is the figure to compare between two runs.**
+
+        `drifted` is the same inflation one level up, and it took a corpus to
+        see. A line that loses a move it cannot read goes on reading the moves
+        below it, in order and legally, a move behind the page: `14 f4!` is
+        played as White's thirteenth, every position after it is one the book
+        never printed, and nothing marks it — no move is illegal, so there is
+        no break, and a diagram only catches it where the book happens to
+        print one. What does mark it is the book's own numbering, which the
+        line stops agreeing with the moment the move is lost. Half of Grivas'
+        `clean` stood on such a line, and four of SuperAttaquant's fourteen.
         """
         by_id = {m.id: m for m in self.moves}
         unscored = {game.id for game in self.games if not game.position_known}
@@ -262,8 +278,9 @@ class ParseResult:
             return False
 
         contradicted = set(self.contradicted)
+        drifted = set(self.drifted)
         tally = dict(
-            first_breaks=0, cascade=0, clean=0, below_break=0, contradicted=0,
+            first_breaks=0, cascade=0, clean=0, below_break=0, contradicted=0, drifted=0,
             unscored=sum(1 for m in self.moves if m.game_id in unscored),
         )
         for move in self.moves:
@@ -283,6 +300,11 @@ class ParseResult:
                     # wrong. Legality never noticed — that is what makes this
                     # the second way `ok` lies, after the break cascade.
                     tally["contradicted"] += 1
+                elif move.id in drifted:
+                    # The book's numbering and this line's count have parted:
+                    # a move was lost, so the board is behind the page and no
+                    # position under here is the one that was printed.
+                    tally["drifted"] += 1
                 else:
                     tally["clean"] += 1
         return tally
@@ -440,6 +462,7 @@ def parse_tokens(
 
     last_declared: int | None = None
     last_licence = 2
+    adrift: set[str] = set()
     for token in tokens:
         if token.kind == "text":
             level = stack[-1] if stack else None
@@ -553,6 +576,18 @@ def parse_tokens(
                 last_declared = _ply_of(number, is_black_only)
                 last_licence = 1 if is_black_only else 2
                 _place_by_number(last_declared)
+                if len(stack) == 1 and game is not None and game.position_known:
+                    # Once the placement has had its say: a number that opened
+                    # an aside was a citation, and says nothing about the main
+                    # line. What is left is the main line disagreeing with the
+                    # book about which move it is on, and it only ever does
+                    # that by losing one. The line clears itself when a later
+                    # number agrees again — a diagram reseeds it, or the book
+                    # starts a fresh game.
+                    if last_declared != _ply_awaited(stack[0].board):
+                        adrift.add(game.id)
+                    else:
+                        adrift.discard(game.id)
                 stack[-1].moves_allowed = last_licence
             continue
 
@@ -675,6 +710,8 @@ def parse_tokens(
             if len(stack) == 1:
                 result.main_lines.setdefault(game.id, []).append(level.board.board_fen())
 
+        if game.id in adrift:
+            result.drifted.append(node.id)
         result.moves.append(node)
         by_id[node.id] = node
         if game.root_move_id is None:

@@ -369,8 +369,44 @@ class TestBreakDiagnosis:
         assert by_san["Nc6"].status == "ok"
         assert result.break_diagnosis() == {
             "first_breaks": 1, "cascade": 0, "clean": 3, "below_break": 1,
-            "contradicted": 0, "unscored": 0,
+            "contradicted": 0, "drifted": 0, "unscored": 0,
         }
+
+    def test_counts_the_moves_below_a_number_the_line_no_longer_matches(self):
+        # The book announces its third move and the line has only two behind
+        # it: one was never read. Nothing here is illegal — `Nc6` and `Bc4`
+        # are both fine — and both are played on a board a move behind the
+        # one the book printed, which is what `drifted` is for.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("move_number", "3."), ("move", "Nc6"), ("move", "Bc4"),
+            )
+        )
+
+        assert [m.status for m in result.moves] == ["ok"] * 5
+        diagnosis = result.break_diagnosis()
+        assert diagnosis["clean"] == 3
+        assert diagnosis["drifted"] == 2
+        assert set(result.drifted) == {result.moves[3].id, result.moves[4].id}
+
+    def test_a_line_that_matches_again_stops_being_adrift(self):
+        # A number the line does agree with clears it: whatever was lost, the
+        # book and the board are on the same move again, and what follows
+        # stands on the position that was printed.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("move_number", "3."), ("move", "Nc6"),
+                ("move_number", "3."), ("move", "Bc4"),
+            )
+        )
+
+        diagnosis = result.break_diagnosis()
+        assert diagnosis["drifted"] == 1
+        assert diagnosis["clean"] == 4
 
 
 class TestLegality:
