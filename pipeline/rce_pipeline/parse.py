@@ -48,6 +48,17 @@ _CONFUSABLE_PAIRS = frozenset(
 #: shows it in red and the user settles it against the printed page.
 _MAX_REPAIR_COST = 0.5
 
+#: How far from the number it printed a citation's position may be looked for,
+#: in plies, and in whole moves only. The two counts drift by a whole move at
+#: a time: the parser's advances a ply for every move it managed to read, so
+#: one move it could not read leaves it a move behind the book for the rest of
+#: the game. One move of drift is what the corpus has — 69 citations re-placed
+#: over six books, 36 of them on Markos. Four was measured and is worse
+#: (Grivas 162 clean to 156, Tactics 102 to 99, against three more on Sakaev):
+#: two moves of drift is rare, and the wider net only reaches citations that
+#: were already standing where they belonged.
+_CITATION_SPAN = 2
+
 #: Confidence given to an ambiguity settled by a character the glyph pass
 #: destroyed. Below the 0.75 of a look-alike repair on purpose: that repair
 #: reads a character that is still on the page, this one leans on a character
@@ -427,6 +438,8 @@ def parse_tokens(
             # one inside the other.
             stack[1:] = [_Level(board=board.copy(), parent_id=parent)]
 
+    last_declared: int | None = None
+    last_licence = 2
     for token in tokens:
         if token.kind == "text":
             level = stack[-1] if stack else None
@@ -537,8 +550,10 @@ def parse_tokens(
                 # measurement not to believe the rest.
                 start_game(token.page, position_known=number == 1 and not is_black_only)
             if stack:
-                _place_by_number(_ply_of(number, is_black_only))
-                stack[-1].moves_allowed = 1 if is_black_only else 2
+                last_declared = _ply_of(number, is_black_only)
+                last_licence = 1 if is_black_only else 2
+                _place_by_number(last_declared)
+                stack[-1].moves_allowed = last_licence
             continue
 
         if token.kind == "var_open":
@@ -595,6 +610,18 @@ def parse_tokens(
             resolution = _resolve(
                 board_before, token.text, token.consumed, token.lost_symbol
             )
+            if resolution.status == "broken" and not any(
+                other.from_bracket for other in stack
+            ):
+                # Nothing to lose: the move is dead where it stands. The
+                # number that announced it may still say where it belongs.
+                placed = _place_a_citation(
+                    main_history, last_declared, last_licence, token, stack
+                )
+                if placed is not None:
+                    level = stack[-1]
+                    board_before = level.board.copy()
+                    resolution = placed
         else:
             resolution = _Resolution(
                 None,
@@ -944,6 +971,65 @@ def _origin_hints(square: int) -> set[str]:
         chess.FILE_NAMES[chess.square_file(square)],
         chess.RANK_NAMES[chess.square_rank(square)],
     }
+
+
+def _place_a_citation(
+    history: dict[int, tuple[chess.Board, str | None]],
+    declared: int | None,
+    licence: int,
+    token: Token,
+    stack: list[_Level],
+) -> _Resolution | None:
+    """Re-place a move the line cannot play on the position its number names.
+
+    Books cite an earlier move in the middle of a sentence, with no bracket
+    and no indent — "Theory also suggests 4 ...g6 here", "and 7 Ba4 (Zhang
+    Zhong-Grivas, Elista OL)". `_place_by_number` is what diverts those, and
+    it works by arithmetic, which fails exactly when it is needed most: the
+    parser's ply count drifts from the book's by a move for every move it
+    could not read, so on a badly scanned game no number matches any position
+    and every citation is played as the continuation. It is illegal there,
+    and it takes the rest of the page down with it — 113 moves under one on
+    Grivas, 96 under another.
+
+    The board still knows. Among the positions the main line passed within a
+    ply or two of the number, one may make this move legal, and a citation
+    that only one position can play is a citation that says where it belongs.
+
+    Two things keep this honest. Only a move already `broken` is offered it,
+    so nothing that stands can be taken away; and where more than one position
+    can play the move, only the number's own is taken — a move two boards can
+    both play says nothing about where it was printed.
+    """
+    if declared is None or declared == _ply_awaited(stack[-1].board):
+        # The number says this move *is* the continuation. Then it is broken
+        # for a reason no other board can mend — an illegal move, a
+        # disambiguation the scanner dropped — and offering it one is how
+        # `2 Nc6` becomes a legal Black move a ply earlier, which is the one
+        # thing `_MAX_REPAIR_COST` exists to prevent.
+        return None
+    found: list[tuple[int, chess.Board, str | None, _Resolution]] = []
+    # Whole moves only: an odd offset lands the citation on a board where the
+    # other side is to play, and a move read for the wrong colour is a wrong
+    # move however legal it comes out.
+    for offset in range(-_CITATION_SPAN, _CITATION_SPAN + 1, 2):
+        entry = history.get(declared + offset)
+        if entry is None:
+            continue
+        board, parent = entry
+        trial = _resolve(board, token.text, token.consumed, token.lost_symbol)
+        if trial.status != "broken":
+            found.append((offset, board, parent, trial))
+    exact = [item for item in found if item[0] == 0]
+    chosen = exact[0] if exact else (found[0] if len(found) == 1 else None)
+    if chosen is None:
+        return None
+    _offset, board, parent, trial = chosen
+    # Replaces any aside in progress rather than nesting, as `_place_by_number`
+    # does, and carries the licence the number gave: a citation announced by
+    # `5...` is one move and one by `5.` is two.
+    stack[1:] = [_Level(board=board.copy(), parent_id=parent, moves_allowed=licence)]
+    return trial
 
 
 def _upstream_repair_distance(
