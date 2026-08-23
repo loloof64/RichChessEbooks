@@ -284,6 +284,7 @@ def run(
             table = _best_table(
                 diagrams.settle([d.rows for d in drawn], reading.twins, reading.empty),
                 tokens,
+                parsed,
                 strict_numbering=strict_numbering,
             )
         if table:
@@ -327,28 +328,44 @@ MAX_TABLES_TRIED = 200
 
 
 def _best_table(
-    candidates: list[dict[str, str]], tokens: list[Any], *, strict_numbering: bool
+    candidates: list[dict[str, str]],
+    tokens: list[Any],
+    without: parse.ParseResult,
+    *,
+    strict_numbering: bool,
 ) -> dict[str, str]:
-    """The one of `candidates` that leaves the book reading best.
+    """The one of `candidates` that leaves the book reading best, or none.
 
     Legality alone cannot separate a knight from a bishop, nor say which
     colour a book fills: a position with the two colours exchanged is still a
     position. The moves can, and reading them is what settles it.
+
+    **Reading no diagram is one of the candidates**, and `without` is it — the
+    parse the book already got before any table was tried. A table that leaves
+    the book worse than that is not a near miss to be taken for want of
+    something better: it seeds wrong positions into lines that were sound, and
+    every line downstream of one follows it. Boussole is where this was
+    measured. Under a clustering that got `settle` to return 20 tables at all,
+    the best of them took the book from 133 clean moves to 118 — legal
+    throughout, and wrong. Refusing it costs the book nothing it had.
     """
-    best: dict[str, str] = {}
-    best_score = (-1, -1)
-    for table in candidates[:MAX_TABLES_TRIED]:
-        attempt = parse.parse_tokens(
-            tokens, strict_numbering=strict_numbering, diagram_table=table
-        )
+    def score(attempt: parse.ParseResult) -> tuple[int, int]:
         read = sum(
             1
             for check in attempt.diagram_checks
             if check["verdict"] not in ("unread", "unreadable")
         )
-        score = (attempt.break_diagnosis()["clean"], read)
-        if score > best_score:
-            best, best_score = table, score
+        return attempt.break_diagnosis()["clean"], read
+
+    best: dict[str, str] = {}
+    best_score = score(without)
+    for table in candidates[:MAX_TABLES_TRIED]:
+        attempt = parse.parse_tokens(
+            tokens, strict_numbering=strict_numbering, diagram_table=table
+        )
+        this = score(attempt)
+        if this > best_score:
+            best, best_score = table, this
     return best
 
 
