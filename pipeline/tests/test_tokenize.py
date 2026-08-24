@@ -137,6 +137,16 @@ class TestASquareBrokenInTwo:
 
         assert [t.text for t in tokens if t.kind == "move"] == ["Rac1", "Qa5", "Rc1"]
 
+    def test_a_preposition_before_a_number_is_not_a_square(self):
+        # Boussole page 65: "Le probleme principal de 5...h6". The `de 5` is
+        # shaped exactly like a square whose file and rank the font broke
+        # apart, and reading it as one eats the number that announces the
+        # move. A rank carrying a dot is a move number, never a square.
+        tokens = tokenize_pages([page_of("Le probleme principal de 5...h6 est le roque ")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["5..."]
+        assert [t.text for t in tokens if t.kind == "move"] == ["h6"]
+
     def test_a_word_carried_over_from_the_line_above_swallows_nothing(self):
         # Boussole page 65: "pour Ie cloua-\nge 6.♗g5". The `ge` ending the
         # broken word reads as a square with its file and rank apart, which

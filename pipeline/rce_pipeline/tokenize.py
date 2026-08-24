@@ -95,7 +95,7 @@ _TOKEN_TEMPLATE = r"""
               # `pour Ie cloua-\nge 6.♗g5` reads `ge 6` as a square, which
               # takes the number of the move behind it — the `6.♗g5` of the
               # comment on Boussole page 65, and the whole line after it.
-            | (?<![A-Za-z])(?<!-\n)[{pieces}]?[a-h]?[1-8]?x?[a-h][ ][{ranks}]
+            | (?<![A-Za-z])(?<!-\n)[{pieces}]?[a-h]?[1-8]?x?[a-h][ ][{ranks}](?!\.)
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}])?
           )
           [+#]?
