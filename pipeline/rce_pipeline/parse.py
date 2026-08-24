@@ -332,6 +332,11 @@ class _Level:
     #: True when a `(` opened this level. Brackets are explicit and are trusted
     #: over the numbering heuristic below, which only guesses.
     from_bracket: bool = False
+    #: True once a move at this depth could not be read: the board no longer
+    #: follows the book, so what the same number still announces is read for
+    #: its box and nothing else. Cleared by the next number, which is where
+    #: the book itself starts the line again.
+    board_lost: bool = False
 
 
 #: The last word of a comment, when the comment really ends in one: letters
@@ -614,6 +619,10 @@ def parse_tokens(
                     else:
                         adrift.discard(game.id)
                 stack[-1].moves_allowed = last_licence
+                # The book has printed a number, so it is starting the line
+                # again: whatever follows is resolved against the board once
+                # more, as it was before this level lost it.
+                stack[-1].board_lost = False
             continue
 
         if token.kind == "var_open":
@@ -662,11 +671,26 @@ def parse_tokens(
             continue
 
         board_before = level.board.copy()
-        if len(stack) == 1:
+        if len(stack) == 1 and not level.board_lost:
             main_history.setdefault(
                 _ply_awaited(board_before), (board_before.copy(), level.parent_id)
             )
-        if game.position_known:
+        if level.board_lost:
+            # The move the number announced beside one it could not read.
+            # `8 Na2 e6`: the knight is unreadable and `e6` is dropped for
+            # want of a licence — 790 move tokens over the corpus, with no
+            # node and no box, so the reader cannot even correct them. It is
+            # read here and never scored: the board this level holds is the
+            # one from before the break, and a move that happens to be legal
+            # on it would be worse than a broken one.
+            resolution = _Resolution(
+                None,
+                _TRAILING_ANNOTATION.sub("", token.text.strip()),
+                "broken",
+                0.0,
+                {"raw": token.text, "reason": "read after a move the line could not"},
+            )
+        elif game.position_known:
             resolution = _resolve(
                 board_before, token.text, token.consumed, token.lost_symbol
             )
@@ -754,10 +778,11 @@ def parse_tokens(
 
         if move is None and game.position_known:
             # The position is lost from here on: anything that follows would be
-            # played on a board that no longer matches the book. Close the line.
-            # A game with no starting position has nothing to lose: its moves go
-            # on being read for their boxes.
-            level.moves_allowed = 0
+            # played on a board that no longer matches the book. The line is
+            # not closed but emptied — what the number still announces is read
+            # for its box, which is what the reader taps to correct it, and
+            # none of it is played or scored.
+            level.board_lost = True
             if len(stack) == 1:
                 line_sound = False
 

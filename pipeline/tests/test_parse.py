@@ -517,7 +517,7 @@ class TestLegality:
         assert result.moves[-1].san == "Nbd2"
         assert result.moves[-1].status == "ok"
 
-    def test_a_broken_move_keeps_its_geometry_and_closes_the_line(self):
+    def test_a_broken_move_keeps_its_geometry_and_empties_the_line(self):
         result = parse_tokens(
             moves(
                 ("move_number", "1."), ("move", "e4"), ("move", "a6"),
@@ -526,11 +526,30 @@ class TestLegality:
         )
 
         broken = [m for m in result.moves if m.status == "broken"]
-        assert len(broken) == 1
-        assert broken[0].bbox == BOX
-        assert broken[0].page == 1
-        # Nothing is read after it: the board no longer matches the book.
-        assert sans(result) == ["e4", "a6", "Qh9"]
+        assert [m.san for m in broken] == ["Qh9", "b6"]
+        assert all(m.bbox == BOX and m.page == 1 for m in broken)
+        # `b6` is legal here, and it is still not played: the board this line
+        # holds is the one from before `Qh9`, and a move that happens to fit it
+        # would be scored `ok` on a position the book never reached. What the
+        # number announced is read for its box and nothing else — 790 move
+        # tokens over the corpus used to be dropped outright, so the reader
+        # could not even tap them to correct them.
+        assert sans(result) == ["e4", "a6", "Qh9", "b6"]
+        assert all(m.fen is None and m.confidence == 0.0 for m in broken)
+
+    def test_the_next_number_starts_the_line_again(self):
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "a6"),
+                ("move_number", "2."), ("move", "Qh9"), ("move", "b6"),
+                ("move_number", "3."), ("move", "Nf3"),
+            )
+        )
+
+        # The book reprinting a number is where it starts the score again, so
+        # the board is asked once more — `Nf3` is legal after 1 e4 a6.
+        last = result.moves[-1]
+        assert (last.san, last.status) == ("Nf3", "ok")
 
     def test_promotion_is_recorded_in_uci(self):
         result = parse_tokens(
