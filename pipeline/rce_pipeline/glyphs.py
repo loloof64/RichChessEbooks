@@ -347,6 +347,9 @@ def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
                     # disambiguating letter beside it (`♘bd2` -> `♘d2`). Kept
                     # because this is the last place it exists.
                     consumed="".join(c.char for c in page.chars[start:end]),
+                    # A recovered symbol is set in whatever weight the
+                    # characters it covers were.
+                    bold=any(c.bold for c in page.chars[start:end]),
                 ),
             )
         )

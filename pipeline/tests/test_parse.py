@@ -10,24 +10,40 @@ import chess
 import pytest
 
 from rce_pipeline.extract import BBox
-from rce_pipeline.parse import _ambiguous_candidates, _confusable_distance, parse_tokens
+from rce_pipeline.parse import (
+    _ambiguous_candidates,
+    _confusable_distance,
+    parse_tokens,
+    weight_marks_the_line,
+)
 from rce_pipeline.tokenize import Token
 
 BOX = BBox(72.0, 640.0, 18.0, 10.0)
 
 
 def tok(
-    kind: str, text: str, page: int = 1, consumed: str = "", lost_symbol: str = ""
+    kind: str, text: str, page: int = 1, consumed: str = "", lost_symbol: str = "",
+    bold: bool = False,
 ) -> Token:
     return Token(
         kind=kind, text=text, raw=text, page=page,
         start=0, end=len(text), bbox=BOX, consumed=consumed,
-        lost_symbol=lost_symbol,
+        lost_symbol=lost_symbol, bold=bold,
     )
 
 
 def moves(*pairs: tuple[str, str]) -> list[Token]:
     return [tok(kind, text) for kind, text in pairs]
+
+
+def weighed(*triples: tuple[str, str, bool]) -> list[Token]:
+    """Tokens carrying the weight the book set them in — bold, or plain."""
+    return [tok(kind, text, bold=bold) for kind, text, bold in triples]
+
+
+def on_the_main_line(result, move) -> bool:
+    """Whether this move was played on the game rather than beside it."""
+    return chess.Board(move.fen).board_fen() in result.main_lines[move.game_id]
 
 
 def sans(result) -> list[str]:
@@ -133,11 +149,14 @@ class TestVariationsWrittenInProse:
     """Analysis interleaved with the game score, with nothing to mark it.
 
     Chess books do this constantly — "Another promising continuation is
-    13...Nb6 14 g5", "Threatening 17...Nxc2" — with no bracket, no bold and no
-    indent. Read as the continuation, such a line is played on a position the
-    book never reached and everything after it breaks. Laurent pointed out that
-    no typographic signal is available for it, which rules out the font and the
-    indent; the printed number is what remains.
+    13...Nb6 14 g5", "Threatening 17...Nxc2" — with no bracket and no indent.
+    Read as the continuation, such a line is played on a position the book
+    never reached and everything after it breaks.
+
+    The printed number is all there is to go on for a scan, whose text layer
+    is the OCR's own and carries no weight. A book that was typeset carries
+    the answer in the weight of the type, which is a fact rather than an
+    inference: see `TestTheWeightOfTheType`.
     """
 
     def test_a_number_that_does_not_continue_the_line_opens_a_variation(self):
@@ -864,3 +883,136 @@ class TestTwoAlternativesCitedTogether:
 
         assert (last.san, last.status) == ("Bd2", "ok")
         assert by_id[last.parent_id].san == "Qa5"
+
+
+class TestWeightMarksTheLine:
+    """Whether the book's own typesetting can be read as marking the score."""
+
+    def bolds(self, pattern: str) -> bool:
+        # One move token per character: `#` bold, `.` plain.
+        return weight_marks_the_line(
+            [tok("move", "e4", bold=ch == "#") for ch in pattern]
+        )
+
+    def test_a_book_setting_its_score_apart_is_read(self):
+        assert self.bolds("#." * 30)
+
+    def test_one_weight_throughout_says_nothing(self):
+        # Every scan: the text layer is the OCR's own and carries no weight.
+        assert not self.bolds("." * 60)
+        assert not self.bolds("#" * 60)
+
+    def test_a_handful_of_the_other_weight_is_not_a_convention(self):
+        # A bold caption or two in a book that sets everything else plain.
+        assert not self.bolds("#" * 3 + "." * 60)
+
+    def test_too_few_moves_to_tell(self):
+        assert not self.bolds("#." * 8)
+
+
+class TestTheWeightOfTheType:
+    """The line a move belongs to, read from the weight the book set it in.
+
+    Where a publisher typesets the game score bold and the analysis around it
+    plain — Sakaev, Markos and the Tactics book all do — the weight is a fact
+    where `_place_by_number` has only an inference, and it sees the case the
+    arithmetic cannot: analysis printed at exactly the half-move the game is
+    waiting for.
+    """
+
+    def test_analysis_agreeing_with_the_line_still_opens_a_variation(self):
+        # "The main continuations here are the classical 2...d6" — printed
+        # where the game awaits Black's second, and not the continuation.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True),
+                ("move_number", "2...", False), ("move", "d6", False),
+                ("move_number", "2...", True), ("move", "Nc6", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        # Both hang off Nf3, and it is the printed score that carries the game.
+        assert by_san["d6"].parent_id == by_san["Nf3"].id
+        assert by_san["Nc6"].parent_id == by_san["Nf3"].id
+        assert on_the_main_line(result, by_san["Nc6"])
+        assert not on_the_main_line(result, by_san["d6"])
+        assert all(m.status == "ok" for m in result.moves)
+
+    def test_the_arithmetic_reads_the_same_line_as_the_continuation(self):
+        # The same tokens with the weight taken away. `2...d6` agrees with the
+        # board the game stands on, so nothing diverts it: it is played on the
+        # game, and `2...Nc6` — the move the book actually printed there — is
+        # filed as the variation. The two have swapped places, and every
+        # position the rest of the page is read from is one move wrong.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("move_number", "2..."), ("move", "d6"),
+                ("move_number", "2..."), ("move", "Nc6"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert on_the_main_line(result, by_san["d6"])
+        assert not on_the_main_line(result, by_san["Nc6"])
+
+    def test_analysis_of_several_moves_is_not_restarted_at_each_number(self):
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                # "2.Bc4 Bc5 3.Qh5 Nf6" — one variation, three numbers.
+                ("move_number", "2.", False), ("move", "Bc4", False), ("move", "Bc5", False),
+                ("move_number", "3.", False), ("move", "Qh5", False), ("move", "Nf6", False),
+                ("move_number", "3.", True), ("move", "Bb5", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert by_san["Bc5"].parent_id == by_san["Bc4"].id
+        assert by_san["Qh5"].parent_id == by_san["Bc5"].id
+        assert by_san["Nf6"].parent_id == by_san["Qh5"].id
+        assert by_san["Bb5"].parent_id == by_san["Nc6"].id
+        assert all(m.status == "ok" for m in result.moves)
+
+    def test_the_score_resuming_ends_the_analysis_before_a_new_game_opens(self):
+        # A book whose analysis runs to the foot of the page and whose next
+        # game opens the one after. Without the score's weight closing the
+        # variation first, `1.d4` is read inside it and the two games are one.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", False), ("move", "Bc4", False),
+                ("move_number", "1.", True), ("move", "d4", True), ("move", "d5", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert len(result.games) == 2
+        assert by_san["d4"].game_id == result.games[1].id
+        assert by_san["d4"].parent_id is None
+
+    def test_brackets_still_win(self):
+        # The weight is the book's word on prose; inside a bracket it has
+        # already said what it means, and publishers set variations in
+        # brackets in the score's own weight.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("var_open", "(", True),
+                ("move_number", "1...", True), ("move", "c5", True),
+                ("var_close", ")", True),
+                ("move_number", "2.", True), ("move", "Nf3", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert by_san["c5"].parent_id == by_san["e4"].id
+        assert by_san["Nf3"].parent_id == by_san["e5"].id

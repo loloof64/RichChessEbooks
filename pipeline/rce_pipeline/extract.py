@@ -37,6 +37,21 @@ FIGURINE_FONT_HINTS = (
 #: detector can recognise a repaired page without importing the recogniser.
 GLYPH_FONT = "rce-glyph"
 
+#: MuPDF's "serifed" flag is bit 2 and its "bold" flag is bit 4; only the
+#: second one is wanted here.
+_BOLD_FLAG = 1 << 4
+
+
+def _is_bold(span: dict) -> bool:
+    """Whether a span is set in a bold face.
+
+    Two readings, because neither alone covers the corpus: MuPDF's own flag,
+    and the face's name. The flag is derived from the font descriptor and a
+    subsetted face can arrive without it, while a name ending in `-Bold` is
+    the publisher's own word for the same thing.
+    """
+    return bool(span.get("flags", 0) & _BOLD_FLAG) or "bold" in span.get("font", "").lower()
+
 
 @dataclass(frozen=True)
 class BBox:
@@ -92,6 +107,12 @@ class Char:
     font: str
     size: float
     consumed: str = ""
+    #: Set in a heavier weight than the body text. A book that typesets its
+    #: game score bold and its analysis plain says with the weight what it
+    #: says nowhere else, and `parse` reads it as the line it belongs to.
+    #: Always False for a scan, whose text layer is the OCR's and carries no
+    #: weight at all — there the same fact lives in the pixels.
+    bold: bool = False
 
 
 @dataclass
@@ -132,6 +153,7 @@ class Page:
                     "font": c.font,
                     "size": c.size,
                     **({"consumed": c.consumed} if c.consumed else {}),
+                    **({"bold": True} if c.bold else {}),
                 }
                 for c in self.chars
             ],
@@ -205,6 +227,7 @@ def _extract_page(page: "fitz.Page", number: int, *, sort_blocks: bool) -> Page:
             for span in line.get("spans", []):
                 font = span.get("font", "")
                 size = float(span.get("size", 0.0))
+                bold = _is_bold(span)
                 for glyph in span.get("chars", []):
                     chars.append(
                         Char(
@@ -212,6 +235,7 @@ def _extract_page(page: "fitz.Page", number: int, *, sort_blocks: bool) -> Page:
                             bbox=BBox.from_mupdf(glyph["bbox"], height),
                             font=font,
                             size=size,
+                            bold=bold,
                         )
                     )
 

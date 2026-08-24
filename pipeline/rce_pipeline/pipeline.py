@@ -78,6 +78,11 @@ class PipelineResult:
                 for symbol, figurine in self.figurines.items()
             )
             lines.append(f"Figurines:   {read}   (settled on legality, not on the font's name)")
+        if parse.weight_marks_the_line(self.tokens):
+            lines.append(
+                "Weight:      the score is set apart from the analysis around "
+                "it, and is read from the type"
+            )
         if self.diagrams or self.pictures:
             verdicts = Counter(c["verdict"] for c in self.parsed.diagram_checks)
             printed = len(self.diagrams) + len(self.pictures)

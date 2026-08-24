@@ -89,6 +89,24 @@ _MAX_COMMENT_LENGTH = 600
 
 _TRAILING_ANNOTATION = re.compile(r"[!?]+$")
 
+#: What a book's typography has to show before its weight is read as marking
+#: the game score: both weights present among its move tokens, neither of them
+#: a handful. A book setting everything in one weight — every scan, whose text
+#: layer is the OCR's own and carries none — has nothing to say here, and one
+#: where all but a few moves are bold is marking something else.
+_MARKED_SHARE = 0.10
+_MARKED_MINIMUM = 40
+
+
+def weight_marks_the_line(tokens: Iterable[Token]) -> bool:
+    """Whether this book sets its game score in a different weight from its analysis."""
+    weights = [token.bold for token in tokens if token.kind in ("move", "move_number")]
+    if len(weights) < _MARKED_MINIMUM:
+        return False
+    bold = sum(weights)
+    return min(bold, len(weights) - bold) >= _MARKED_SHARE * len(weights)
+
+
 #: The check and mate marks. Stripped from both sides before a printed move is
 #: compared to a legal one: the position decides them, not the reader, so a
 #: book that prints `Nxc3` for `Nxc3+` has made no error to repair.
@@ -370,6 +388,7 @@ def parse_tokens(
     initial_fen: str = chess.STARTING_FEN,
     strict_numbering: bool = True,
     diagram_table: dict[str, str] | None = None,
+    weighted: bool | None = None,
 ) -> ParseResult:
     """Assemble `tokens` into games of move nodes.
 
@@ -379,8 +398,19 @@ def parse_tokens(
     like moves — figure captions, "diagram b4", page references — and the
     numbering is what separates them from real notation. Turn it off for a
     document that prints long unnumbered sequences.
+
+    `weighted` says whether the book marks its game score with the weight of
+    the type. It is read from the tokens themselves by default, which wants
+    the whole book: the share of bold moves on any one page says more about
+    that page than about the publisher.
     """
     result = ParseResult()
+    tokens = list(tokens)
+    #: Whether this book marks its game score with the weight of the type. It
+    #: is a property of the whole book, not of a page: a page of pure score
+    #: carries no plain move and a page of pure analysis no bold one.
+    if weighted is None:
+        weighted = weight_marks_the_line(tokens)
     # Keyed by (game_id, parent_id): every game has its own root, so a bare
     # `None` parent would otherwise be shared across games and make the second
     # game's first move look like a variation of the first game's.
@@ -442,10 +472,15 @@ def parse_tokens(
         """Send what follows to the line the printed number actually belongs to.
 
         Books interleave analysis with the game score in plain prose, with no
-        bracket, no bold and no indent to mark it — "Another promising
-        continuation is 13...♘b6 14 g5", "Threatening 17...♘xc2". Read as the
-        continuation, such a line is played on a position the book never
-        reached and every move after it breaks.
+        bracket and no indent to mark it — "Another promising continuation is
+        13...♘b6 14 g5", "Threatening 17...♘xc2". Read as the continuation,
+        such a line is played on a position the book never reached and every
+        move after it breaks.
+
+        This is the reading for a book that gives nothing better. Where the
+        publisher sets the score in its own weight, `_place_by_weight` reads
+        that instead — which is every book of the corpus that was typeset
+        rather than scanned.
 
         The number itself says so. `13...` announces Black's thirteenth, and a
         position knows which half-move it awaits; when the two disagree, this
@@ -480,6 +515,63 @@ def parse_tokens(
             # "15 Rhg1!? and 15 Qh3" are two alternatives to the same move, not
             # one inside the other.
             stack[1:] = [_Level(board=board.copy(), parent_id=parent)]
+
+    def _resume_the_score(declared: int) -> None:
+        """End whatever analysis is open: a number in the score's own weight.
+
+        Split out of `_place_by_weight` and called before the test for a new
+        game, because a game only ever opens at the top of the stack. A book
+        whose analysis runs to the foot of one page and whose next game opens
+        the one after — which is every second page of a puzzle book — would
+        otherwise never start it, and read a hundred pages as one game.
+        """
+        if len(stack) < 2 or any(level.from_bracket for level in stack):
+            return
+        nonlocal closed_aside
+        # A prose variation has no closing bracket: the end of one is only
+        # ever visible as the game picking up again.
+        board_before = stack[-1].board_before_last
+        closed_aside = (
+            (board_before.copy(), stack[-1].parent_of_last)
+            if board_before is not None and _ply_awaited(board_before) == declared
+            else None
+        )
+        del stack[1:]
+
+    def _place_by_weight(bold: bool, declared: int) -> None:
+        """Send what follows to the line the book's own typesetting names.
+
+        Where a publisher sets the game score bold and the analysis around it
+        plain, the weight of the number is a fact where `_place_by_number` has
+        only an inference — and it says the thing the arithmetic cannot see.
+        "The main continuations are the classical 6...e6 and the trendy
+        6...Nbd7", printed exactly where the game awaits Black's sixth, agrees
+        with the position on every count and is not the continuation; the
+        number that resumes the score after two pages of analysis disagrees
+        with it and is.
+
+        Brackets still win, as they do for the arithmetic: this reads what the
+        book prints outside them.
+        """
+        if bold or any(level.from_bracket for level in stack):
+            # A bold number has already had `_resume_the_score`, above.
+            return
+        nonlocal closed_aside
+        if len(stack) > 1 and declared == _ply_awaited(stack[-1].board):
+            # The variation in progress is waiting for exactly this number, so
+            # this continues it. Without the test, an analysis two plies long
+            # restarts at every number it prints — "3.Qh5+ Kg8 4.Ng5" branched
+            # afresh at the `4`, from a board its own first move had left.
+            return
+        closed_aside = None
+        # Analysis. It is printed beside the game and never on it, whatever
+        # the number says; the number only says *where* beside. Where it names
+        # a ply the score has played, the variation starts from the position
+        # the book branched it at; where it names one the score has not
+        # reached — analysis of a move still to come — there is no such
+        # position, and the current one is the closest the book has printed.
+        board, parent = main_history.get(declared) or (stack[0].board, stack[0].parent_id)
+        stack[1:] = [_Level(board=board.copy(), parent_id=parent)]
 
     last_declared: int | None = None
     last_licence = 2
@@ -585,6 +677,8 @@ def parse_tokens(
                     line_sound = True
                 stack[-1].moves_allowed = 1 if is_black_only else 2
                 continue
+            if weighted and token.bold and stack:
+                _resume_the_score(_ply_of(number, is_black_only))
             opens_a_game = game is None or (
                 number == 1 and not is_black_only and result.moves and not stack[1:]
             )
@@ -605,7 +699,10 @@ def parse_tokens(
             if stack:
                 last_declared = _ply_of(number, is_black_only)
                 last_licence = 1 if is_black_only else 2
-                _place_by_number(last_declared)
+                if weighted:
+                    _place_by_weight(token.bold, last_declared)
+                else:
+                    _place_by_number(last_declared)
                 if len(stack) == 1 and game is not None and game.position_known:
                     # Once the placement has had its say: a number that opened
                     # an aside was a citation, and says nothing about the main

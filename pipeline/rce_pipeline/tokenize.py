@@ -178,6 +178,11 @@ class Token:
     #: never restored, as in `i.g7`. Its presence says the book named a piece
     #: here, so `parse` must not read the token as the pawn move it spells.
     lost_symbol: str = ""
+    #: Printed in a heavier weight than the body text. Books that typeset the
+    #: game score bold and the analysis around it plain mark, character by
+    #: character, the one thing `parse` otherwise has to guess: which line a
+    #: move belongs to.
+    bold: bool = False
 
     def to_json(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -191,6 +196,8 @@ class Token:
             payload["consumed"] = self.consumed
         if self.lost_symbol:
             payload["lost_symbol"] = self.lost_symbol
+        if self.bold:
+            payload["bold"] = True
         return payload
 
 
@@ -319,6 +326,7 @@ def _tokenize_span(
             bbox=page.bbox_for(start, end),
             consumed=consumed,
             lost_symbol=lost_symbol,
+            bold=_weight_of(page, start, end),
         )
         cursor = end
 
@@ -326,6 +334,18 @@ def _tokenize_span(
         prose = _make_text_token(page, text, cursor, hi)
         if prose is not None:
             yield prose
+
+
+def _weight_of(page: Page, start: int, end: int) -> bool:
+    """Whether the token as a whole is set bold.
+
+    By majority of the characters that carry ink, not by any single one: a
+    book that sets `12...` bold prints the ellipsis in the plain face it
+    happens to have loaded, and a figurine can come from a face of its own
+    with no weight to it.
+    """
+    marks = [c.bold for c in page.chars[start:end] if not c.char.isspace()]
+    return bool(marks) and sum(marks) * 2 > len(marks)
 
 
 def _make_text_token(page: Page, text: str, start: int, end: int) -> Token | None:
