@@ -791,3 +791,57 @@ class TestLostSymbol:
         last = result.moves[-1]
 
         assert (last.san, last.status, last.confidence) == ("a6", "ok", 1.0)
+
+
+class TestTwoAlternativesCitedTogether:
+    """"White can choose between 7 ♘a2 and 7 ♘b1", both at the same juncture.
+
+    The second alternative carries the number the main line is waiting for, so
+    the aside the first one opened is closed on it and it is played as the
+    continuation — where it is illegal, since the two are alternatives to the
+    same move and only one of them is the game.
+    """
+
+    def opening(self, *tail: tuple[str, str]) -> list[Token]:
+        # Grivas-Siebrecht, page 17: 1 d4 d5 2 c4 c6 3 Nf3 Nf6 4 Nc3 dxc4
+        # 5 e3 b5 6 a4 Qa5, then "6...b4 is more natural, when White can
+        # choose between 7 Na2 and 7 Nb1".
+        played = ["d4", "d5", "c4", "c6", "Nf3", "Nf6", "Nc3", "dxc4",
+                  "e3", "b5", "a4", "Qa5"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        tokens += moves(("move_number", "6..."), ("move", "b4"),
+                        ("move_number", "7"), ("move", "Na2"))
+        return tokens + [tok(kind, text) for kind, text in tail]
+
+    def test_the_second_alternative_stands_beside_the_first(self):
+        result = parse_tokens(
+            self.opening(("move_number", "7"), ("move", "Nb1"))
+        )
+        by_id = {move.id: move for move in result.moves}
+        first = next(move for move in result.moves if move.san == "Na2")
+        second = result.moves[-1]
+
+        # Legal after 6...b4 and pinned stiff after 6...Qa5: the queen bears
+        # on e1 through c3, so the knight on c3 cannot move at all.
+        assert second.san == "Nb1"
+        assert second.status == "ok"
+        # Beside the move it is an alternative to, not under it.
+        assert second.parent_id == first.parent_id
+        assert by_id[second.parent_id].san == "b4"
+
+    def test_the_main_line_still_picks_up_where_it_left_off(self):
+        # The resumption the number announced is what usually follows, and it
+        # must not be diverted: 7 Bd2 is legal in the game and never reaches
+        # the aside at all.
+        result = parse_tokens(
+            self.opening(("move_number", "7"), ("move", "Bd2"))
+        )
+        by_id = {move.id: move for move in result.moves}
+        last = result.moves[-1]
+
+        assert (last.san, last.status) == ("Bd2", "ok")
+        assert by_id[last.parent_id].san == "Qa5"

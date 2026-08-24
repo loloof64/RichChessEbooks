@@ -404,6 +404,13 @@ def parse_tokens(
     #: branched from here, which gives the variation its true starting
     #: position rather than an approximation of one.
     main_history: dict[int, tuple[chess.Board, str | None]] = {}
+    #: The position an aside offered just before the main line picked up
+    #: again, and the move it hung from. A book cites two alternatives to the
+    #: same move in one breath — "White can choose between 7 Na2 and 7 Nb1" —
+    #: and the second one carries the number the main line is waiting for, so
+    #: the aside is closed on it. Kept here so a move that turns out illegal
+    #: in the main line can still be offered the board it was printed for.
+    closed_aside: tuple[chess.Board, str | None] | None = None
 
     def start_game(page: int, from_diagram: str | None = None, position_known: bool = True) -> None:
         nonlocal game, game_counter, stack, pending_title, line_sound, agreed_at, finished
@@ -448,9 +455,18 @@ def parse_tokens(
             return
         if declared == _ply_awaited(stack[-1].board):
             return
+        nonlocal closed_aside
+        closed_aside = None
         if len(stack) > 1 and declared == _ply_awaited(stack[0].board):
             # The main line resumes. A prose variation has no closing bracket,
             # so its end is only ever visible as the game picking up again.
+            board_before = stack[-1].board_before_last
+            closed_aside = (
+                (board_before.copy(), stack[-1].parent_of_last)
+                if board_before is not None
+                and _ply_awaited(board_before) == declared
+                else None
+            )
             del stack[1:]
             return
         if declared in main_history:
@@ -653,6 +669,10 @@ def parse_tokens(
                 placed = _place_a_citation(
                     main_history, last_declared, last_licence, token, stack
                 )
+                if placed is None:
+                    placed = _place_beside_a_citation(
+                        closed_aside, last_declared, last_licence, token, stack
+                    )
                 if placed is not None:
                     level = stack[-1]
                     board_before = level.board.copy()
@@ -1065,6 +1085,42 @@ def _place_a_citation(
     # Replaces any aside in progress rather than nesting, as `_place_by_number`
     # does, and carries the licence the number gave: a citation announced by
     # `5...` is one move and one by `5.` is two.
+    stack[1:] = [_Level(board=board.copy(), parent_id=parent, moves_allowed=licence)]
+    return trial
+
+
+def _place_beside_a_citation(
+    closed_aside: tuple[chess.Board, str | None] | None,
+    declared: int | None,
+    licence: int,
+    token: Token,
+    stack: list[_Level],
+) -> _Resolution | None:
+    """Read a move as the second of two alternatives the book cited together.
+
+    "White can choose between 7 Na2 and 7 Nb1", "Other moves would meet the
+    same fate: 17...Nc5? 18 Be4 a6; 17...Qb8 18 Bb5!". Both alternatives carry
+    the same number, and that number is the one the main line is waiting for,
+    so the second one closes the aside the first one opened and is played as
+    the continuation — where it is illegal, since the two are alternatives to
+    the *same* move and only one of them is the game.
+
+    `_place_a_citation` cannot help here: its own guard reads the number as
+    saying "this is the continuation", which is exactly what it says. What
+    knows better is the aside that was closed a moment ago, still standing at
+    the position this number named. Offering that board keeps the main line
+    intact: only a move already broken is offered it, and the resumption the
+    number announced still happens — a move the game really does continue with
+    is legal in the main line and never gets this far.
+    """
+    if closed_aside is None or declared is None:
+        return None
+    board, parent = closed_aside
+    if _ply_awaited(board) != declared:
+        return None
+    trial = _resolve(board, token.text, token.consumed, token.lost_symbol)
+    if trial.status == "broken":
+        return None
     stack[1:] = [_Level(board=board.copy(), parent_id=parent, moves_allowed=licence)]
     return trial
 
