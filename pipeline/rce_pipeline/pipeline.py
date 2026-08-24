@@ -15,7 +15,17 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import diagrams, extract, figurines, notation, package, parse, pictures, tokenize
+from . import (
+    diagrams,
+    extract,
+    figurines,
+    notation,
+    package,
+    parse,
+    pictures,
+    tokenize,
+    weight,
+)
 
 ARTEFACTS = {
     "pages": "01_pages.json",
@@ -254,9 +264,25 @@ def run(
     tokens = tokenize.tokenize_pages(
         pages, piece_letters=report.piece_letters, diagrams=boards
     )
-    _write(write_artefacts, work_dir, "tokens", [t.to_json() for t in tokens])
+    marked = 0
+    if not parse.weight_marks_the_line(tokens):
+        # A scan's text layer is the OCR's own: one subsetted face for the
+        # whole page, and the weight the publisher set the score in nowhere in
+        # it. The ink still carries it. Only asked here, because reading it
+        # costs a rendering of every page and the text layer is free.
+        try:
+            marked = weight.mark(pdf_path, tokens)
+        except ImportError:  # pragma: no cover - numpy is an optional install
+            warnings.warn(
+                "step 3b skipped: measuring the weight a scan prints its score "
+                "in needs numpy (pip install 'rce-pipeline[pictures]'). A book "
+                "whose text layer carries the weight is unaffected.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     parsed = parse.parse_tokens(tokens, strict_numbering=strict_numbering)
+    table: dict[str, str] = {}
     if boards:
         # The first pass reads the diagrams as nothing but eight rows of
         # characters, and that is enough to learn what the characters mean:
@@ -296,6 +322,33 @@ def run(
             parsed = parse.parse_tokens(
                 tokens, strict_numbering=strict_numbering, diagram_table=table
             )
+
+    if marked:
+        # The ink separated the two weights cleanly; whether reading them helps
+        # is for the book to say, as it says which table of diagram characters
+        # to keep. Asked here rather than beside the measurement, because the
+        # reading to judge is the finished one: a book's diagrams correct its
+        # lines, and a comparison made before they are read compares two
+        # readings neither of which is the one it will ship.
+        #
+        # What the measurement cannot see is the score's own numbers going
+        # missing. On a scan the OCR runs them into the prose around them —
+        # `16lilxd4`, "White has a large advantage. 17" — and a rule that waits
+        # for a number in the score's weight to resume the score then never
+        # resumes it. Grivas' marks are right on every one of page 17's
+        # forty-five numbers, and it gains fifteen moves there and loses
+        # fifty-seven on the three pages where the numbers did not survive.
+        plain = parse.parse_tokens(
+            tokens,
+            strict_numbering=strict_numbering,
+            diagram_table=table or None,
+            weighted=False,
+        )
+        if plain.break_diagnosis()["clean"] >= parsed.break_diagnosis()["clean"]:
+            for token in tokens:
+                token.bold = False
+            parsed = plain
+    _write(write_artefacts, work_dir, "tokens", [t.to_json() for t in tokens])
     _write(write_artefacts, work_dir, "moves", parsed.to_json())
 
     rce_path: str | None = None

@@ -90,8 +90,8 @@ _MAX_COMMENT_LENGTH = 600
 _TRAILING_ANNOTATION = re.compile(r"[!?]+$")
 
 #: What a book's typography has to show before its weight is read as marking
-#: the game score: both weights present among its move tokens, neither of them
-#: a handful. A book setting everything in one weight — every scan, whose text
+#: the game score: both weights present among its move numbers, neither of
+#: them a handful. A book setting everything in one weight — every scan, whose text
 #: layer is the OCR's own and carries none — has nothing to say here, and one
 #: where all but a few moves are bold is marking something else.
 _MARKED_SHARE = 0.10
@@ -99,8 +99,13 @@ _MARKED_MINIMUM = 40
 
 
 def weight_marks_the_line(tokens: Iterable[Token]) -> bool:
-    """Whether this book sets its game score in a different weight from its analysis."""
-    weights = [token.bold for token in tokens if token.kind in ("move", "move_number")]
+    """Whether this book sets its game score in a different weight from its analysis.
+
+    Asked of the move numbers alone, because they are what the placement reads
+    and what a scan's ink can be measured on: a figurine is a dense drawing,
+    and the moves carrying one overlap between the weights.
+    """
+    weights = [token.bold for token in tokens if token.kind == "move_number"]
     if len(weights) < _MARKED_MINIMUM:
         return False
     bold = sum(weights)

@@ -889,9 +889,16 @@ class TestWeightMarksTheLine:
     """Whether the book's own typesetting can be read as marking the score."""
 
     def bolds(self, pattern: str) -> bool:
-        # One move token per character: `#` bold, `.` plain.
+        # One move number per character: `#` bold, `.` plain.
         return weight_marks_the_line(
-            [tok("move", "e4", bold=ch == "#") for ch in pattern]
+            [tok("move_number", "1.", bold=ch == "#") for ch in pattern]
+        )
+
+    def test_the_moves_own_weight_is_not_asked(self):
+        # A figurine is a dense drawing, and on a scan the moves carrying one
+        # overlap between the weights. Only the numbers are ever measured.
+        assert not weight_marks_the_line(
+            [tok("move", "e4", bold=n % 2 == 0) for n in range(60)]
         )
 
     def test_a_book_setting_its_score_apart_is_read(self):
