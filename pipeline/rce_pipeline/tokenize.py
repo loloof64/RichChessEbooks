@@ -303,6 +303,7 @@ def _tokenize_span(
         # "e8 = Q"); squeeze them so downstream code sees canonical text.
         text_out = match.group() if kind == "annotation" else re.sub(r"\s+", "", match.group())
         consumed = lost_symbol = ""
+        number_at: int | None = None
         if kind == "move":
             text_out = text_out.translate(to_san)
             consumed = "".join(c.consumed for c in page.chars[start:end])
@@ -319,12 +320,40 @@ def _tokenize_span(
             # wreck ends on a letter — and losing black's fifth move made
             # white's sixth illegal and killed the game from there.
             if not lost_symbol and start and text[start - 1].isalnum():
-                continue
+                # Unless what runs into it is its own move number. A symbol
+                # the glyph pass restores gives back one character where the
+                # scan had three, and the space beside it goes with them:
+                # `2.ltJf3` arrives as `2Nf3`, `22♖xf7` as `22Rxf7`. Neither
+                # the number nor the move is then read, and the move that
+                # would have resumed the score is exactly the one lost.
+                welded = _WELDED_NUMBER.search(text, cursor, start)
+                if welded is None:
+                    continue
+                number_at = welded.start(1)
             # The wreck is the piece as the book printed it, so the token
             # starts there: the reader's tap zone has to cover the symbol, not
             # just the square beside it. Taken off the token's start before
             # the prose above is closed, so the two do not both claim it.
             start -= len(lost_symbol)
+
+        if number_at is not None:
+            # The number stands as its own token, so the move behind it is
+            # announced exactly as a printed one would be.
+            if number_at > cursor:
+                prose = _make_text_token(page, text, cursor, number_at)
+                if prose is not None:
+                    yield prose
+            yield Token(
+                kind="move_number",
+                text=text[number_at:start],
+                raw=page.text[number_at:start],
+                page=page.number,
+                start=number_at,
+                end=start,
+                bbox=page.bbox_for(number_at, start),
+                bold=_weight_of(page, number_at, start),
+            )
+            cursor = start
 
         if start > cursor:
             prose = _make_text_token(page, text, cursor, start)
@@ -350,6 +379,11 @@ def _tokenize_span(
         if prose is not None:
             yield prose
 
+
+#: A move number run into the move it announces. The separator is lost with
+#: the symbol the glyph pass replaces: three characters of scan (`ltJ`) come
+#: back as one (`N`), and the space or the dot in front of them goes too.
+_WELDED_NUMBER = re.compile(r"(?<![A-Za-z\d])(\d{1,3})$")
 
 #: A bare move number ending a run of prose. Believed only where a diagram
 #: stands between it and the move it announces.

@@ -167,6 +167,26 @@ class TestMoveNumbers:
 
         assert [t.text for t in tokens if t.kind == "move_number"] == ["17", "18"]
 
+    def test_a_number_run_into_its_own_move_still_announces_it(self):
+        # The glyph pass gives back one character where the scan had three,
+        # and the space beside them goes too: Boussole prints `2.♘f3 ♘c6
+        # 3.♗c4` and the scan reads `2.ltJf3 ltJc6 3.i.c4`, which arrives here
+        # as `2Nf3 Nc6 3Bc4`. Neither the number nor the move it carries was
+        # read, and an opening lost like that takes the whole game with it.
+        tokens = tokenize_pages([page_of("1.e4 e5 2Nf3 Nc6 3Bc4 Bc5 ")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["1.", "2", "3"]
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5",
+        ]
+
+    def test_a_word_run_into_a_move_is_still_not_one(self):
+        # The rule reaches back over digits alone. A move growing out of a
+        # word is what the lookbehind is there for, and stays refused.
+        tokens = tokenize_pages([page_of("La Be3 est une case, comme laBe3 ou b1Be3 ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Be3"]
+
     def test_a_number_does_not_reach_into_the_word_before_it(self):
         # Tolerating a space inside the number let it start on any digit at
         # all, including one ending a word: `Nf6 6 Nc3`, with the knight's
