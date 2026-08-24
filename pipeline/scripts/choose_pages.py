@@ -19,6 +19,13 @@ be told apart from a good one by its notation style.
         most games, densest in move numbers to break the tie. Feed the range
         it prints to `pipeline.run(first_page=..., last_page=...)`.
 
+    python scripts/choose_pages.py book.pdf --window 12 --whole-games
+        The same run, grown outwards until it cuts no game at either end. A
+        window that opens in mid-score leaves its first game unscored, and one
+        that ends in mid-score loses the diagrams that judge its last: measure
+        whole games, or the figures blame the pipeline for what the window
+        removed.
+
 Ranking by game starts rather than by notation density is deliberate. Density
 finds the analysis pages, which are exactly the ones that cannot be replayed.
 """
@@ -43,6 +50,25 @@ _GAME_START = re.compile(
 )
 
 _MOVE_NUMBER = re.compile(r"(?<![A-Za-z\d])\d{1,3}\s*\.")
+
+#: A number with a move behind it, dot or no dot, whatever the book draws the
+#: piece with. Used only above a page's first game start, where its count says
+#: whether the page opens that game or carries the tail of an earlier one.
+_NUMBERED_MOVE = re.compile(
+    rf"(?<![A-Za-z\d])\d{{1,3}}\s*\.?\s*(?:\.\.\.\s*)?(?:{_PIECE}|.)?[a-h][1-8]"
+)
+
+#: How many such moves make a tail rather than a cross-reference. A page that
+#: opens a game prints none above its first move; a page that continues one
+#: prints its score, which is dozens. Measured on the six corpus books: 23, 18
+#: and 33 above the line, 0, 0 and 0 below it.
+_CONTINUES = 3
+
+#: How far outside its window a range may reach to take in a whole game. A book
+#: that opens a game every few pages is snapped to one; a puzzle book, whose
+#: fragments start from a position it never prints, keeps the window it was
+#: given rather than swallowing the chapter.
+_SNAP_BUDGET = 6
 
 #: Enough characters on the sampled pages to call it a text layer. Below this
 #: the book is a scan, and belongs to the OCR path rather than this one.
@@ -90,8 +116,49 @@ def _survey(path: str) -> dict[str, object]:
     return row
 
 
-def _best_window(path: str, size: int) -> tuple[int, int, int, int]:
-    """The run of `size` pages opening the most games, densest to break ties."""
+def _continues_a_game(text: str) -> bool:
+    """Whether a page carries the tail of a game begun before it."""
+    start = _GAME_START.search(text)
+    head = text[: start.start()] if start else text
+    return len(_NUMBERED_MOVE.findall(head)) >= _CONTINUES
+
+
+def _whole_games(
+    texts: list[str], first: int, last: int, budget: int = _SNAP_BUDGET
+) -> tuple[int, int]:
+    """The window grown outwards until it holds whole games.
+
+    A window cut at an arbitrary page cuts a game at each end, and the
+    measurement then blames the pipeline for what the window removed: the game
+    in progress on the first page has no printed starting position, so every
+    move of it is read and none is scored, and the game running off the last
+    page loses the diagrams that would have judged it.
+
+    So the first page moves back to where the interrupted game begins, and the
+    last page forward to the page before the next game starts. Neither moves by
+    more than `budget` pages: a book that does not open games — a puzzle
+    collection, a run of analysis fragments — has no boundary within reach, and
+    is left with the window it was given.
+    """
+    starts = [i + 1 for i, text in enumerate(texts) if _GAME_START.search(text)]
+    if _continues_a_game(texts[first - 1]):
+        reachable = [p for p in starts if first - budget <= p < first]
+        if reachable:
+            first = reachable[-1]
+    following = [p for p in starts if last < p <= last + budget]
+    if following:
+        last = following[0] - 1
+    return first, last
+
+
+def _best_window(
+    path: str, size: int, whole_games: bool = False
+) -> tuple[int, int, int, int]:
+    """The run of `size` pages opening the most games, densest to break ties.
+
+    With `whole_games`, the run is then grown outwards to game boundaries; the
+    figures reported stay those of the window it was chosen by.
+    """
     texts = _page_texts(path)
     if len(texts) <= size:
         # A book shorter than the window is its own window, and its game
@@ -113,7 +180,10 @@ def _best_window(path: str, size: int) -> tuple[int, int, int, int]:
         if best is None or key > best[0]:
             best = (key, start)
     (opens, numbers), start = best
-    return start + 1, start + size, numbers, opens
+    first, last = start + 1, start + size
+    if whole_games:
+        first, last = _whole_games(texts, first, last)
+    return first, last, numbers, opens
 
 
 def main() -> None:
@@ -124,6 +194,11 @@ def main() -> None:
         type=int,
         default=None,
         help="report the best run of this many pages for each book",
+    )
+    parser.add_argument(
+        "--whole-games",
+        action="store_true",
+        help="grow that run outwards until it cuts no game at either end",
     )
     args = parser.parse_args()
 
@@ -152,7 +227,9 @@ def main() -> None:
         for row in rows:
             if row["pages"] < 2:
                 continue
-            first, last, numbers, opens = _best_window(row["path"], args.window)
+            first, last, numbers, opens = _best_window(
+                row["path"], args.window, args.whole_games
+            )
             print(f"{row['path'].rsplit('/', 1)[-1][:width]:<{width}} "
                   f"pages {first}-{last}: {numbers} move numbers, {opens} game starts")
 
