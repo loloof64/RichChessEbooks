@@ -932,6 +932,14 @@ def _resolve(
     if lost_symbol:
         return _settle_lost_symbol(board, plain, raw, lost_symbol)
 
+    if plain.startswith("x"):
+        # A capture whose piece left no character at all — not even a wreck
+        # for the glyph pass to hand over. No SAN begins with a capture: a
+        # pawn names the file it captures from, so `xc3+` is a piece move and
+        # nothing else. The board is asked which piece, exactly as it is for a
+        # wreck.
+        return _settle_lost_symbol(board, plain, raw, "")
+
     try:
         move = board.parse_san(plain)
         return _Resolution(move, board.san(move), "ok", 1.0)
@@ -1036,7 +1044,8 @@ def _settle_lost_symbol(
     """Name the piece from the position, when the page no longer names it.
 
     The book printed a piece and the glyph pass failed to restore it, so what
-    is left spells a pawn move. Playing that is worse than losing the move:
+    is left spells a pawn move — or, where the symbol left no character at
+    all, a capture with nothing in front of it (`xc3+`). Playing that is worse than losing the move:
     it is legal often enough to be accepted at full confidence, and every move
     after it is then played on a position the book never reached.
 
@@ -1052,7 +1061,14 @@ def _settle_lost_symbol(
             move = board.parse_san(piece + plain)
         except (ValueError, AssertionError):
             continue
-        readings.append((move, board.san(move)))
+        san = board.san(move)
+        if "x" in plain and "x" not in san:
+            # `python-chess` reads a capture that captures nothing as the
+            # quiet move it spells, so `xh7` comes back as `Rh7` on an empty
+            # square. The book printed a capture; a piece that merely walks
+            # there is not what it printed.
+            continue
+        readings.append((move, san))
 
     sans = [san for _, san in readings]
     if len(readings) == 1:
@@ -1062,13 +1078,19 @@ def _settle_lost_symbol(
             san,
             "uncertain",
             _LOST_SYMBOL_CONFIDENCE,
-            {"raw": raw, "reason": f"read as {san}: '{wreck}' is the only piece that fits"},
+            {
+                "raw": raw,
+                "reason": f"read as {san}: "
+                + (f"'{wreck}'" if wreck else "the lost piece")
+                + " is the only piece that fits",
+            },
             candidates=sans,
             settled_by="legality",
         )
 
+    printed = f"the piece printed as '{wreck}'" if wreck else "the piece"
     reason = (
-        f"the piece printed as '{wreck}' was lost, and "
+        f"{printed} was lost, and "
         + (f"could be {', '.join(sans[:4])}" if sans else "no piece reaches this square")
     )
     return _Resolution(None, plain, "broken", 0.0, {"raw": raw, "reason": reason},

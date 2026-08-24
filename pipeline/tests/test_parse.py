@@ -830,6 +830,57 @@ class TestLostSymbol:
 
         assert (last.san, last.status, last.confidence) == ("a6", "ok", 1.0)
 
+    def test_a_capture_with_nothing_in_front_of_it_is_a_lost_piece(self):
+        # Grivas page 29: the symbol of `♗xc3+` left no character at all, not
+        # even a wreck to hand over. No SAN begins with a capture — a pawn
+        # names the file it captures from — so the board is asked which piece,
+        # and only the bishop on b4 can take on c3.
+        played = ["d4", "Nf6", "c4", "e6", "Nc3", "Bb4", "Bg5", "h6",
+                  "Bh4", "c5", "d5"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        tokens += moves(("move_number", "6..."), ("move", "xc3+"))
+        last = parse_tokens(tokens).moves[-1]
+
+        assert (last.san, last.status) == ("Bxc3+", "uncertain")
+        assert last.repair["reason"].startswith("read as Bxc3+")
+
+    def test_a_capture_two_pieces_could_have_made_is_left_to_the_reader(self):
+        # 1 d4 d5 2 Nc3 Nf6 3 Bf4 Bf5 4 Nb5 Na6 5 Nxc7+ and `xc7`: the queen
+        # and the knight on a6 both take there, and nothing on the page
+        # separates them.
+        played = ["d4", "d5", "Nc3", "Nf6", "Bf4", "Bf5", "Nb5", "Na6", "Nxc7+"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        tokens += moves(("move_number", "5..."), ("move", "xc7"))
+        result = parse_tokens(tokens)
+
+        assert result.moves[-1].status == "broken"
+        assert sorted(result.ambiguities[-1]["candidates"]) == ["Nxc7", "Qxc7"]
+
+
+    def test_a_piece_that_only_walks_there_is_not_the_capture_printed(self):
+        # `python-chess` reads `Rxh7` on an empty h7 as the quiet move it
+        # spells, so every lost capture would find a piece that merely walks
+        # to the square. 1 d4 Nf6 2 Nf3 and `xe4`: nothing stands on e4.
+        played = ["d4", "Nf6", "Nf3"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        tokens += moves(("move_number", "2..."), ("move", "xe4"))
+        last = parse_tokens(tokens).moves[-1]
+
+        assert last.status == "broken"
+        assert "no piece reaches this square" in last.repair["reason"]
+
 
 class TestTwoAlternativesCitedTogether:
     """"White can choose between 7 ♘a2 and 7 ♘b1", both at the same juncture.
