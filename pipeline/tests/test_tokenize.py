@@ -75,6 +75,40 @@ class TestALetterWhereARankBelongs:
         assert [t.text for t in tokens if t.kind == "move"] == ["a4"]
 
 
+class TestTheStumpOfARestoredSymbol:
+    """What the glyph pass leaves in front of the letter it restored.
+
+    A move that names its piece never looks for the wreck of one, since
+    asking the board for a second piece in front of it can only fail. But the
+    ink the symbol was drawn with is still there — `lNc3`, `ltNxe5`, `iQd8` —
+    and a move running out of a letter was refused outright, which on Boussole
+    is 93 moves and on Grivas 11.
+    """
+
+    def test_a_move_keeps_the_stump_of_the_symbol_it_names(self):
+        tokens = tokenize_pages([page_of("1.e4 e5 2.lNf3 ltNc6 3.iBc4 ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "e4", "e5", "Nf3", "Nc6", "Bc4",
+        ]
+
+    def test_the_tap_zone_covers_the_stump_as_well(self):
+        # The stump is the piece as the book drew it, so it belongs to the
+        # zone the reader taps — exactly as an unrestored wreck does.
+        tokens = tokenize_pages([page_of("1.e4 e5 2.lNf3 ")])
+        knight = [t for t in tokens if t.text == "Nf3"][0]
+
+        assert knight.raw == ".lNf3"
+
+    def test_a_stump_names_no_second_piece(self):
+        # It is ink, not a symbol the board has to read: `lost_symbol` stays
+        # empty, or the parser would look for a piece in front of the knight.
+        tokens = tokenize_pages([page_of("1.e4 e5 2.lNf3 ")])
+        knight = [t for t in tokens if t.text == "Nf3"][0]
+
+        assert knight.lost_symbol == ""
+
+
 class TestASquareBrokenInTwo:
     def test_a_space_between_the_file_and_the_rank(self):
         # The subset font that breaks `18` into `1 8` breaks `♖ac1` into
@@ -180,12 +214,12 @@ class TestMoveNumbers:
             "e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5",
         ]
 
-    def test_a_word_run_into_a_move_is_still_not_one(self):
-        # The rule reaches back over digits alone. A move growing out of a
-        # word is what the lookbehind is there for, and stays refused.
-        tokens = tokenize_pages([page_of("La Be3 est une case, comme laBe3 ou b1Be3 ")])
+    def test_a_move_growing_out_of_a_word_is_still_not_one(self):
+        # What the lookbehind is there for: the tail of a word is not a move,
+        # and a digit welded to one does not make it a number either.
+        tokens = tokenize_pages([page_of("Sur la case4 le pion est faible ")])
 
-        assert [t.text for t in tokens if t.kind == "move"] == ["Be3"]
+        assert [t for t in tokens if t.kind == "move"] == []
 
     def test_a_number_does_not_reach_into_the_word_before_it(self):
         # Tolerating a space inside the number let it start on any digit at

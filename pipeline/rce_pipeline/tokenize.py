@@ -157,6 +157,29 @@ _WRECK_MARK = re.compile(r"[:\\'<>]|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
 _NAMES_A_PIECE = re.compile(r"[KQRBN]|O-O")
 
 
+#: The ink a restored symbol leaves in front of the piece letter it became.
+#: Short — one or two characters, where the wreck of a symbol nothing restored
+#: runs to five — because what stands here is the remains of a glyph and not a
+#: word: keeping it to two is what stops a French article welded to a square
+#: from making a move of it.
+_STUMP_RUN = re.compile(r"[A-Za-z.:\\'|/<>]{1,2}$")
+
+
+def _wreck_before_a_named_piece(text: str, start: int) -> str:
+    """The stump of a symbol standing in front of the letter it was read as.
+
+    What marks it is the same thing that marks any wreck, read across the
+    join: the case change into the piece letter (`lN`, `ltN`, `iQ`), or a mark
+    no word carries. `text[start]` is that letter, so it is part of the test
+    and never part of the answer.
+    """
+    run = _STUMP_RUN.search(text, 0, start)
+    if run is None:
+        return ""
+    stump = run.group()
+    return stump if _WRECK_MARK.search(stump + text[start]) else ""
+
+
 def _wreck_before(text: str, start: int) -> str:
     """The remains of a piece symbol printed just before `start`, if any."""
     run = _WRECK_RUN.search(text, 0, start)
@@ -327,9 +350,20 @@ def _tokenize_span(
                 # the number nor the move is then read, and the move that
                 # would have resumed the score is exactly the one lost.
                 welded = _WELDED_NUMBER.search(text, cursor, start)
-                if welded is None:
-                    continue
-                number_at = welded.start(1)
+                if welded is not None:
+                    number_at = welded.start(1)
+                else:
+                    # Or the remains of the symbol it names. The glyph pass
+                    # restores the piece letter and leaves the rest of the ink
+                    # standing in front of it — `lNc3`, `ltNxe5`, `iQd8` — and
+                    # a move that names its piece never looks for a wreck,
+                    # since asking the board for a second piece in front of one
+                    # can only fail. It is still the reader's tap zone, so the
+                    # token takes it in without reading anything into it.
+                    stump = _wreck_before_a_named_piece(text, start)
+                    if not stump:
+                        continue
+                    start -= len(stump)
             # The wreck is the piece as the book printed it, so the token
             # starts there: the reader's tap zone has to cover the symbol, not
             # just the square beside it. Taken off the token's start before
