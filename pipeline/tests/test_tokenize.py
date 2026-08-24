@@ -59,6 +59,25 @@ class TestALetterWhereARankBelongs:
         assert [t.text for t in tokens if t.kind == "move"] == ["a4"]
 
 
+class TestASquareBrokenInTwo:
+    def test_a_space_between_the_file_and_the_rank(self):
+        # The subset font that breaks `18` into `1 8` breaks `♖ac1` into
+        # `♖ac 1`. Left out, the move matches nothing and the line loses it.
+        tokens = tokenize_pages([page_of("23 Rac 1 Qa5 24 Rc 1")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Rac1", "Qa5", "Rc1"]
+
+    def test_the_tail_of_a_word_does_not_swallow_the_number(self):
+        # "the move 6.Bg5" ends in a file letter, a space and a rank, so the
+        # tolerance would read `e 6` there and eat the number with it —
+        # leaving the citation it announced with nothing to hang from. The
+        # space is only allowed where the move begins at a word boundary.
+        tokens = tokenize_pages([page_of("the move 6.Bg5 is best")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["6."]
+        assert [t.text for t in tokens if t.kind == "move"] == ["Bg5"]
+
+
 class TestMoveNumbers:
     def test_a_dot_is_not_required_to_announce_a_move(self):
         # Batsford, Gambit and Informator print `12 Nb1`, and so does the

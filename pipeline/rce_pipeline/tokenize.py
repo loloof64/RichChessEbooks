@@ -67,6 +67,14 @@ _TOKEN_TEMPLATE = r"""
     | (?P<move>
           (?:
               (?:O-O-O|O-O|0-0-0|0-0)
+              # A space between the square's file and its rank: the same
+              # subset font that breaks `18` into `1 8` breaks `Rac1` into
+              # `Rac 1`, and the move is then never read. Only where the token
+              # begins at a word boundary — otherwise the tail of an ordinary
+              # word swallows the number that follows it ("the move 6.Bg5"
+              # reads as `e 6`), and the citation the number announced is lost
+              # with it.
+            | (?<![A-Za-z])[{pieces}]?[a-h]?[1-8]?x?[a-h][ ][{ranks}]
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}])?
           )
           [+#]?
