@@ -783,6 +783,26 @@ def parse_tokens(
             result.skipped.append({**token.to_json(), "reason": "no geometry"})
             continue
 
+        if (
+            weighted
+            and not token.bold
+            and len(stack) == 1
+            and not any(other.from_bracket for other in stack)
+        ):
+            # A move in the analysis weight, standing on the main line with no
+            # number of its own to place it: the typography says it is not the
+            # score, and `_place_by_weight` never saw it. Sakaev page 37 reads
+            # "the move ...b7-b5 will be least useful" — a move the game has
+            # already played, illegal where it stands, and 93 moves under it.
+            stack.append(
+                _Level(
+                    board=level.board.copy(),
+                    parent_id=level.parent_id,
+                    moves_allowed=level.moves_allowed,
+                )
+            )
+            level = stack[-1]
+
         board_before = level.board.copy()
         if len(stack) == 1 and not level.board_lost:
             main_history.setdefault(

@@ -78,6 +78,12 @@ _TOKEN_TEMPLATE = r"""
     | (?P<move>
           (?:
               (?:O-O-O|O-O|0-0-0|0-0)
+              # The move written from square to square — `...b7-b5`, `♗f1-g2`
+              # — which is how a book names a plan and how some name a move.
+              # Read as two moves, the first of them is the piece standing
+              # still, and it is illegal: 93 of Sakaev's moves died under one
+              # `...b7-b5` in a sentence about the Caro-Kann.
+            | (?<![A-Za-z])[{pieces}]?[a-h][1-8]-[a-h][{ranks}]
               # A space between the square's file and its rank: the same
               # subset font that breaks `18` into `1 8` breaks `Rac1` into
               # `Rac 1`, and the move is then never read. Only where the token
@@ -155,6 +161,11 @@ def _build_token_re(piece_letters: str) -> re.Pattern[str]:
 _WRECK_RUN = re.compile(r"[A-Za-z.:\\'|/<>]{1,5}$")
 _WRECK_MARK = re.compile(r"[:\\'<>]|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
 
+
+#: A move written from square to square, the long form of it: `b7-b5`,
+#: `Bf1-g2`. Written against SAN letters because `text_out` is translated by
+#: the time it is read.
+_SQUARE_TO_SQUARE = re.compile(r"^([KQRBN]?)[a-h][1-8]-([a-h][1-8])$")
 
 #: A move that already says which piece moved, castling included. Written
 #: against SAN letters because `text_out` is translated by then.
@@ -334,6 +345,12 @@ def _tokenize_span(
         number_at: int | None = None
         if kind == "move":
             text_out = text_out.translate(to_san)
+            journey = _SQUARE_TO_SQUARE.match(text_out)
+            if journey is not None:
+                # Where the piece ends is the move; where it starts is where
+                # it already stands. The token keeps the whole of it, so the
+                # reader taps the journey the book drew.
+                text_out = journey.group(1) + journey.group(2)
             consumed = "".join(c.consumed for c in page.chars[start:end])
             # Only a move that names no piece can have lost one. A word run
             # into the ellipsis before a move — `jouer...Bxf5`, which the OCR

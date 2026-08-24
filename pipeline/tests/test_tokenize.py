@@ -75,6 +75,26 @@ class TestALetterWhereARankBelongs:
         assert [t.text for t in tokens if t.kind == "move"] == ["a4"]
 
 
+class TestTheMoveWrittenFromSquareToSquare:
+    """`...b7-b5`, `♗f1-g2` — the long form, and how a book names a plan."""
+
+    def test_the_destination_is_the_move(self):
+        tokens = tokenize_pages([page_of("1.e4 c6 2.d4 d5 3.Nc3 b5 4.e5 ...b7-b5 ")])
+
+        assert [t.text for t in tokens if t.kind == "move"][-1] == "b5"
+
+    def test_the_piece_carries_over(self):
+        tokens = tokenize_pages([page_of("White intends Bf1-g2 and O-O ")])
+
+        assert "Bg2" in [t.text for t in tokens if t.kind == "move"]
+
+    def test_the_reader_taps_the_whole_journey(self):
+        tokens = tokenize_pages([page_of("1.e4 c6 2.d4 ...b7-b5 ")])
+        journey = [t for t in tokens if t.kind == "move"][-1]
+
+        assert journey.raw == "b7-b5"
+
+
 class TestTheStumpOfARestoredSymbol:
     """What the glyph pass leaves in front of the letter it restored.
 

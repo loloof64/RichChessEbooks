@@ -1009,6 +1009,36 @@ class TestTheWeightOfTheType:
         assert not on_the_main_line(result, by_san["d6"])
         assert all(m.status == "ok" for m in result.moves)
 
+    def test_a_move_in_the_analysis_weight_never_stands_on_the_game(self):
+        # Sakaev page 37: "Here it is essential to consider in which variation
+        # of the Caro-Kann the move ...b7-b5 will be least useful." The move
+        # has no number of its own — the prose ellipsis is its whole licence —
+        # so nothing places it, and the game has already played it: illegal
+        # where it stands, and every move of the chapter under it. The weight
+        # says it is not the score before the board is even asked.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "c6", True),
+                ("move_number", "2.", True), ("move", "d4", True), ("move", "d5", True),
+                ("move_number", "3.", True), ("move", "Nc3", True), ("move", "b5", True),
+                ("move_number", "4.", True), ("move", "e5", True),
+                ("text", "essential to consider the move ...", False),
+                ("move", "b5", False),
+                ("move_number", "4...", True), ("move", "e6", True),
+                ("move_number", "5.", True), ("move", "Nf3", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert (by_san["e6"].status, by_san["Nf3"].status) == ("ok", "ok")
+        assert on_the_main_line(result, by_san["e6"])
+        # The citation is read and it is broken — the game has played it
+        # already — but it broke beside the score and not on it.
+        cited = [m for m in result.moves if m.san == "b5"][-1]
+        assert cited.status == "broken"
+        assert result.break_diagnosis()["below_break"] == 0
+
     def test_the_arithmetic_reads_the_same_line_as_the_continuation(self):
         # The same tokens with the weight taken away. `2...d6` agrees with the
         # board the game stands on, so nothing diverts it: it is played on the
