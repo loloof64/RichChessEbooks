@@ -51,6 +51,22 @@ class TestALetterWhereARankBelongs:
         assert move.status == "uncertain"
         assert move.repair["raw"] == "QaS"
 
+    def test_the_first_rank_is_a_letter_too(self):
+        # `11 ♘c1!` prints as `11 ♘cl`, and losing it left the rest of the
+        # game a move behind the page. Thirty-four of them on Grivas alone.
+        tokens = tokenize_pages([page_of("11 Ncl Rdfl Khl")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Ncl", "Rdfl", "Khl"]
+
+    def test_an_elided_article_is_not_a_move(self):
+        # With `l` read as a rank, the French `de l'échiquier` is shaped
+        # exactly like `Re1`: a file, a first rank, and a word boundary after
+        # it. Twenty-seven articles over two scanned books, and no real move
+        # in the corpus is followed by an apostrophe.
+        tokens = tokenize_pages([page_of("le fou de l'aile Rel")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Rel"]
+
     def test_a_letter_the_book_uses_for_a_piece_is_not_a_rank(self):
         # A German book spells its Knight `S`. Reading `dS` as `d5` there
         # would turn one of its moves into another.

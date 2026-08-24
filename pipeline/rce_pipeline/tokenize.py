@@ -78,7 +78,11 @@ _TOKEN_TEMPLATE = r"""
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}])?
           )
           [+#]?
-          (?![A-Za-z0-9])
+          # Never an apostrophe: with `l` read as a rank, the French elision
+          # `de l'échiquier` is shaped exactly like `Re1` and every article in
+          # the book becomes a move. 27 of them over two scans, and not one
+          # real move in the corpus is followed by one.
+          (?![A-Za-z0-9'])
       )
     | (?P<annotation>[!?]{{1,2}}|[±∓⩲⩱∞⟳→↑↓⇆=]|\+[-=]|-\+)
     """
@@ -101,7 +105,7 @@ _TOKEN_TEMPLATE = r"""
 #: brings, and a letter the book uses for a piece is dropped whatever it is: a
 #: German `S` is a Knight, and reading it as a rank would turn one of its moves
 #: into another.
-_LOOKALIKE_RANKS = "S"
+_LOOKALIKE_RANKS = "SlI"
 
 
 def _build_token_re(piece_letters: str) -> re.Pattern[str]:
