@@ -201,6 +201,32 @@ class TestInTheParser:
         assert by_san["dxc4"].status == "ok"
         assert [c["verdict"] for c in result.diagram_checks] == ["corrects"]
 
+    def test_a_diagram_inside_a_bracket_does_not_take_the_variation_away(self):
+        # A diagram is a figure the text flows around, so it can fall in the
+        # middle of a bracketed variation — and the position it prints is the
+        # game's, not the variation's. Re-seeding on it there puts the whole
+        # stack back on the main line while the variation is still running:
+        # here `Qxd4` takes the pawn the variation itself put on d4, and on
+        # the printed board there is no pawn to take.
+        printed = fen_after("e4", "e5", "Nf3", "Nc6")
+        result = parse_tokens(
+            self.make_tokens(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("var_open", "("),
+                ("move_number", "2."), ("move", "d4"), ("move", "exd4"),
+                ("diagram", "/".join(rows_of(printed))),
+                ("move_number", "3."), ("move", "Qxd4"),
+                ("var_close", ")"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        last = result.moves[-1]
+        assert (last.san, last.status) == ("Qxd4", "ok")
+        # Read and judged all the same: it is only the line it must not move.
+        assert [c["verdict"] for c in result.diagram_checks] == ["corrects"]
+
     def test_a_correction_puts_the_moves_above_it_in_doubt(self):
         # None of these moves is illegal, so nothing breaks; the diagram is the
         # only thing in the document that knows they are wrong.

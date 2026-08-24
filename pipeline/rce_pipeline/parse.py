@@ -632,7 +632,18 @@ def parse_tokens(
                     result.contradicted.append(suspect)
                     suspect = by_id[suspect].parent_id
                 agreed_at = None
-            if verdict in ("seeds", "corrects"):
+            if verdict in ("seeds", "corrects") and not any(
+                level.from_bracket for level in stack
+            ):
+                # A diagram is a figure the text flows around, so it can fall
+                # in the middle of a bracketed variation — and the position it
+                # prints is the game's, not the variation's. Seeding on it
+                # there would put the whole stack back on the main line while
+                # the variation is still running: on Grivas page 20 a diagram
+                # inside `(13...♘xg3` took the next page's `14 fxg3 ♗xe5 15
+                # ♘xe5!!` onto the game, where 185 moves died. The diagram is
+                # still read and still judged; it just does not move a line
+                # nobody is on.
                 pending_position = printed
             result.diagram_checks.append(
                 {
