@@ -251,23 +251,27 @@ def _tokenize_page(
     token_re: re.Pattern[str],
     to_san: dict[int, int],
     diagrams: list[Any],
-) -> Iterator[Token]:
+) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
     text = normalise(page.text)
+    tokens: list[Token] = []
     cursor = 0
     for diagram in sorted(diagrams, key=lambda d: d.start):
-        yield from _tokenize_span(page, text, token_re, to_san, cursor, diagram.start)
-        yield Token(
-            kind="diagram",
-            text="/".join(diagram.rows),
-            raw=page.text[diagram.start : diagram.end],
-            page=page.number,
-            start=diagram.start,
-            end=diagram.end,
-            bbox=diagram.bbox or page.bbox_for(diagram.start, diagram.end),
+        tokens.extend(_tokenize_span(page, text, token_re, to_san, cursor, diagram.start))
+        tokens.append(
+            Token(
+                kind="diagram",
+                text="/".join(diagram.rows),
+                raw=page.text[diagram.start : diagram.end],
+                page=page.number,
+                start=diagram.start,
+                end=diagram.end,
+                bbox=diagram.bbox or page.bbox_for(diagram.start, diagram.end),
+            )
         )
         cursor = diagram.end
-    yield from _tokenize_span(page, text, token_re, to_san, cursor, len(text))
+    tokens.extend(_tokenize_span(page, text, token_re, to_san, cursor, len(text)))
+    return _free_a_number_a_board_stranded(tokens, page, text)
 
 
 def _tokenize_span(
@@ -334,6 +338,97 @@ def _tokenize_span(
         prose = _make_text_token(page, text, cursor, hi)
         if prose is not None:
             yield prose
+
+
+#: A bare move number ending a run of prose. Believed only where a diagram
+#: stands between it and the move it announces.
+_STRANDED_NUMBER = re.compile(r"(?<![A-Za-z\d])(\d{1,3})\s*$")
+
+#: The same number printed as letters — `ll ... ♗d6` for `11 ... ♗d6`, the
+#: `l`/`1` confusion this corpus already repairs in a destination rank. On its
+#: own a letter is a letter; what makes this one a number is the ellipsis it
+#: carries, which announces a black move and can follow nothing else.
+_STRANDED_AS_LETTERS = re.compile(r"(?<![A-Za-z\d])([lI]{1,3})(\s*\.\s*\.\s*\.)\s*$")
+
+
+def _free_a_number_a_board_stranded(
+    tokens: list[Token], page: Page, text: str
+) -> list[Token]:
+    """Give back the move number a diagram separated from its move.
+
+    A book prints the diagram of a position between the number of the move
+    that reaches it and the move itself — Grivas p.17 reads `... w 7`, then a
+    drawn board, then `♗d2 b4`. A drawn board occupies no characters, so the
+    prose before it simply ends on a bare figure, and a bare figure is exactly
+    what `_TOKEN_TEMPLATE` refuses: with neither a dot nor a move behind it,
+    every page number and every year in the book would be a move number.
+
+    Read as prose, the number is lost and the move after the board arrives
+    with nothing announcing it. `parse` places it as a citation — into a
+    variation — so the main line never records where it stands, and the moves
+    that resume it a few lines later are played on the variation instead,
+    where they are illegal. Twenty-eight of Grivas' broken moves descend from
+    this one `7`.
+
+    All three have to stand together — prose ending in a bare number, a
+    diagram, a move — because that is the only shape in which the figure can
+    be believed. Anywhere else it stays what it reads as.
+    """
+    out: list[Token] = []
+    for at, token in enumerate(tokens):
+        found, reading = _a_stranded_number(tokens, at)
+        if found is None or reading is None:
+            out.append(token)
+            continue
+        start = token.start + found.start(1)
+        end = token.start + found.end(found.lastindex or 1)
+        prose = _make_text_token(page, text, token.start, start)
+        if prose is not None:
+            out.append(prose)
+        out.append(
+            Token(
+                kind="move_number",
+                text=reading,
+                raw=page.text[start:end],
+                page=token.page,
+                start=start,
+                end=end,
+                bbox=page.bbox_for(start, end),
+                bold=_weight_of(page, start, end),
+            )
+        )
+    return out
+
+
+def _a_stranded_number(tokens: list[Token], at: int) -> tuple[re.Match[str] | None, str | None]:
+    """The number this run of prose ends on, and how to read it, or nothing.
+
+    Two shapes, and each is believed only in the company that makes it a
+    number rather than a figure or a letter.
+    """
+    token = tokens[at]
+    if token.kind != "text" or at + 1 >= len(tokens):
+        return None, None
+    after = tokens[at + 1]
+    if after.kind == "diagram":
+        # A board between the number and its move, and a move after the board.
+        if at + 2 >= len(tokens) or tokens[at + 2].kind != "move":
+            return None, None
+        found = _STRANDED_NUMBER.search(token.raw)
+        return found, found.group(1) if found else None
+    if after.kind == "move":
+        # The number itself printed as letters, with the ellipsis that says it
+        # is one. `11` opening a page is the case in this corpus: the scanner
+        # reads `ll` and the running head swallows it.
+        found = _STRANDED_AS_LETTERS.search(token.raw)
+        if found is None:
+            return None, None
+        return found, found.group(1).translate(_LETTERS_TO_DIGITS) + "..."
+    return None, None
+
+
+#: What a scanner leaves of the digit `1` when it prints a move number.
+_LETTERS_TO_DIGITS = str.maketrans("lI", "11")
 
 
 def _weight_of(page: Page, start: int, end: int) -> bool:

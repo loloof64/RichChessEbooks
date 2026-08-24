@@ -230,3 +230,67 @@ class TestBrokenTypography:
         assert [t.text for t in tokens if t.kind == "move"] == [
             "e4", "e5", "Nf3", "Nc6", "Nb4",
         ]
+
+
+class _Board:
+    """A drawn board, which occupies no characters of the text layer."""
+
+    def __init__(self, at: int, page: int = 1):
+        self.page = page
+        self.start = self.end = at
+        self.rows = tuple(["........"] * 8)
+        self.bbox = BBox(100.0, 400.0, 200.0, 200.0)
+
+
+class TestANumberSeparatedFromItsMove:
+    """The move number a board or a scanner took away.
+
+    `parse` refuses a move no number announced, and a move number is only
+    recognised by the dot or the move behind it. Take either away and the move
+    is placed as a citation, into a variation — so the main line stops
+    recording where it stands, and the moves that resume it a few lines later
+    are played on the variation, where they are illegal.
+    """
+
+    def test_a_drawn_board_between_the_number_and_its_move(self):
+        # Grivas p.17: `... w 7`, a drawn board, then `Bd2 b4`. The board
+        # occupies no characters, so the prose simply ends on a bare figure.
+        text = "6 a4 Qa5 A dubious move. w 7 Bd2 b4"
+        tokens = tokenize_pages([page_of(text)], diagrams=[_Board(text.index(" Bd2"))])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["6", "7"]
+        assert parse_tokens(tokens).moves[-1].san == "b4"
+
+    def test_a_figure_ending_prose_anywhere_else_is_a_figure(self):
+        # No board, no move behind it: the year stays part of the sentence,
+        # as does every page number in the book.
+        text = "6 a4 Qa5 Played in Budapest 1994 and never since."
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["6"]
+
+    def test_a_figure_before_a_board_with_no_move_after_it_is_a_figure(self):
+        text = "6 a4 Qa5 Diagram 7 and the game went on."
+        at = text.index(" and")
+        tokens = tokenize_pages([page_of(text)], diagrams=[_Board(at)])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["6"]
+
+    def test_the_number_printed_as_letters(self):
+        # `11 ... Bd6` opening a page: the scanner reads `ll`, and the running
+        # head swallows it. What makes the letters a number is the ellipsis,
+        # which announces a black move and can follow nothing else.
+        text = "ATTACKING THE UNCASTLED KING 17 ll ... Bd6 12 Bd3"
+        tokens = tokenize_pages([page_of(text)])
+
+        numbers = [t for t in tokens if t.kind == "move_number"]
+        assert [t.text for t in numbers] == ["11...", "12"]
+        assert numbers[0].raw == "ll ..."
+        assert [t.text for t in tokens if t.kind == "move"] == ["Bd6", "Bd3"]
+
+    def test_a_word_ending_in_l_is_not_a_number(self):
+        # The ellipsis has to follow the letters and nothing else.
+        text = "1 e4 It is all ... e5 that matters"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["1"]
