@@ -61,7 +61,18 @@ _TOKEN_TEMPLATE = r"""
               # all. Accepting a bare number would make a move number of every
               # figure in the prose, so it only counts when a move follows it
               # directly — which is exactly where a number can do no harm.
-            | (?=\s+(?:O-O|0-0|[{pieces}][a-h1-8x]|[a-h][1-8x]))
+              #
+              # The pawn move behind it is read with this book's ranks, the
+              # letters a scanner leaves among them included. Digits alone
+              # cost the number in front of every such move: Grivas page 21
+              # prints `19 e5!! dxe5` as `19 eS!! dxeS`, the number stayed in
+              # the prose ending "...a slow but certain defeat.", and neither
+              # move was read at all — no node, no box, nothing for the reader
+              # to correct. A letter rank needs the move's own guard with it,
+              # or `27 elle` announces a move; a capture cannot take it, the
+              # captured square being spelled out behind the `x`.
+            | (?=\s+(?:O-O|0-0|[{pieces}][a-h1-8x]
+                        |[a-h]x|[a-h][{ranks}](?![A-Za-z0-9'])))
           )
       )
     | (?P<move>

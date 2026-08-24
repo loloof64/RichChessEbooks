@@ -128,6 +128,29 @@ class TestMoveNumbers:
 
         assert [t for t in tokens if t.kind == "move_number"] == []
 
+    def test_a_bare_number_announces_a_move_whose_rank_is_a_letter(self):
+        # Grivas page 21 prints `19 e5!! dxe5`, and the scan reads `19 eS!!
+        # dxeS`. The number is only a number where a move follows it, and
+        # `eS` was not one: it stayed in the prose ending "...a slow but
+        # certain defeat.", so neither move was read at all — no node, no box,
+        # nothing for the reader to correct.
+        text = "doomed to a slow but certain defeat. 19 eS!! dxeS "
+
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["19"]
+        assert [t.text for t in tokens if t.kind == "move"] == ["eS", "dxeS"]
+
+    def test_a_word_after_a_figure_does_not_announce_a_move(self):
+        # The letter ranks are what makes this worth guarding: with `l` a
+        # rank, "elle" and "ell" are shaped like a pawn move, and a figure in
+        # front of any of them would open a score in the middle of a sentence.
+        text = "Il en a joue 27 elle-meme, et 14 ella dans 8 ellipses."
+
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t for t in tokens if t.kind == "move_number"] == []
+
     def test_the_dotted_forms_still_work(self):
         tokens = tokenize_pages([page_of("1.e4 e5 2. Nf3 Nc6 13...Nb4")])
 
