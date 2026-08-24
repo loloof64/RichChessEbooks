@@ -236,6 +236,31 @@ class TestInTheParser:
         # Only the two moves played since the diagram that agreed are in doubt.
         assert result.contradicted == [by_san["Nc6"].id, by_san["Nf3"].id]
 
+    def test_a_correction_clears_what_stands_above_it_too(self):
+        # A correction is an agreement: the book has said where the pieces
+        # are and the line takes them up, so a later disagreement is about
+        # what came after, not about the game's first moves. Without this the
+        # second correcting diagram of a page blamed Grivas-Siebrecht back to
+        # `1 d4 d5 2 c4 c6` — eleven moves played from the initial position,
+        # with the diagram beside them confirming they were right.
+        result = parse_tokens(
+            self.make_tokens(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("diagram", "/".join(rows_of(fen_after("d4", "d5", "c4")))),
+                ("move_number", "2..."), ("move", "dxc4"),
+                ("move_number", "3."), ("move", "e3"),
+                ("diagram", "/".join(rows_of(fen_after("d4", "d5", "c4", "e6")))),
+            ),
+            diagram_table=self.table(),
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert [c["verdict"] for c in result.diagram_checks] == ["corrects", "corrects"]
+        assert result.contradicted == [
+            by_san["e5"].id, by_san["e4"].id,   # the first correction
+            by_san["e3"].id, by_san["dxc4"].id,  # the second, and no further
+        ]
+
     def test_a_diagram_that_agrees_says_so_and_changes_nothing(self):
         result = parse_tokens(
             self.make_tokens(

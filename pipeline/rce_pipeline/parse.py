@@ -559,6 +559,15 @@ def parse_tokens(
                     pending_position, number=number, black_to_move=is_black_only
                 )
                 pending_position = None
+                # Where the book put the pieces back is an agreement, whatever
+                # the verdict that got it there: what follows is played on the
+                # printed board, so a later disagreement is about that and
+                # cannot reach above it. Without this the second correcting
+                # diagram of a game blamed it back to its first move — the
+                # eleven opening moves of Grivas-Siebrecht, `1 d4 d5 2 c4 c6`,
+                # marked wrong by a board a page away, with the diagram beside
+                # them confirming they were right.
+                agreed_at = stack[0].parent_id if stack else None
                 if game is None:
                     start_game(token.page, from_diagram=seeded)
                 else:
