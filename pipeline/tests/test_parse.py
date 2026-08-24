@@ -892,6 +892,105 @@ class TestLostSymbol:
         assert "no piece reaches this square" in last.repair["reason"]
 
 
+class TestABracketAScanInvented:
+    """A scan prints brackets the book never had, and they were believed whole.
+
+    Boussole page 65 comments on 5...h6 with a passage the OCR opens a `(` in
+    the middle of. Nothing closes it on the page, so the score of the game —
+    `6.h3 0-0 7.g4!`, printed bold two lines below — was read inside that
+    bracket, and the first move of it that could not be legal there took the
+    rest of the page with it.
+    """
+
+    def opening(self, *tail: tuple[str, str]) -> list[Token]:
+        played = ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        return tokens + [tok(kind, text) for kind, text in tail]
+
+    def test_the_game_picking_up_again_closes_it(self):
+        # The bracket runs four plies past the game, and then `4.` names the
+        # ply the game is waiting for — which nothing in the bracket can be.
+        result = parse_tokens(
+            self.opening(
+                ("var_open", "("),
+                ("move_number", "3..."), ("move", "Nf6"),
+                ("move_number", "4."), ("move", "Nc3"), ("move", "d6"),
+                ("move_number", "5."), ("move", "d3"),
+                ("move_number", "4."), ("move", "b4"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert by_san["b4"].status == "ok"
+        assert on_the_main_line(result, by_san["b4"])
+        assert by_san["b4"].parent_id == by_san["Bc5"].id
+        assert not on_the_main_line(result, by_san["Nf6"])
+
+    def test_the_bracket_own_line_is_still_left_alone(self):
+        # Its numbering continues inside it, and the game is not taken to be
+        # picking up because a number happens to come round.
+        result = parse_tokens(
+            self.opening(
+                ("var_open", "("),
+                ("move_number", "3..."), ("move", "Nf6"),
+                ("move_number", "4."), ("move", "Nc3"), ("move", "d6"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert by_san["d6"].status == "ok"
+        assert not on_the_main_line(result, by_san["d6"])
+
+
+class TestWhichSideOfTheMoveABracketOpensOn:
+    """`(` branches before the move it follows — unless its number says not.
+
+    "6...h6, and White is already obliged (7.♗xf6 ♕xf6 8.♘d5)": the bracket
+    continues the move it follows instead of replacing it, and branched a move
+    too early every move of it is read for the wrong colour.
+    """
+
+    def opening(self, *tail: tuple[str, str]) -> list[Token]:
+        played = ["d4", "Nf6", "c4", "e6", "Nc3", "Bb4"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        return tokens + [tok(kind, text) for kind, text in tail]
+
+    def test_a_bracket_naming_the_ply_awaited_continues_the_move(self):
+        result = parse_tokens(
+            self.opening(
+                ("var_open", "("),
+                ("move_number", "4."), ("move", "Bg5"), ("move", "h6"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert (by_san["Bg5"].status, by_san["h6"].status) == ("ok", "ok")
+        assert by_san["Bg5"].parent_id == by_san["Bb4"].id
+        assert not on_the_main_line(result, by_san["Bg5"])
+
+    def test_an_alternative_to_the_move_still_replaces_it(self):
+        # `3...` is the move just played, so the bracket is an alternative to
+        # it and branches where it always did.
+        result = parse_tokens(
+            self.opening(
+                ("var_open", "("),
+                ("move_number", "3..."), ("move", "d5"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert by_san["d5"].status == "ok"
+        assert by_san["d5"].parent_id == by_san["Nc3"].id
+
+
 class TestTwoAlternativesCitedTogether:
     """"White can choose between 7 ♘a2 and 7 ♘b1", both at the same juncture.
 

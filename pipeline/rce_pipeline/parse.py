@@ -496,8 +496,6 @@ def parse_tokens(
         Brackets are explicit and are left alone: this only guesses, and only
         where the book gave nothing better.
         """
-        if any(level.from_bracket for level in stack):
-            return
         if declared == _ply_awaited(stack[-1].board):
             return
         nonlocal closed_aside
@@ -514,12 +512,44 @@ def parse_tokens(
             )
             del stack[1:]
             return
+        if any(level.from_bracket for level in stack):
+            # Below a bracket the book was explicit, and the guessing above is
+            # for where it gave nothing. Only the game picking up again is
+            # believed there — a scan invents brackets, and one of them opened
+            # in the middle of a Boussole comment holds the score of the game
+            # hostage for the rest of the page.
+            return
         if declared in main_history:
             board, parent = main_history[declared]
             # Replaces any prose variation in progress rather than nesting:
             # "15 Rhg1!? and 15 Qh3" are two alternatives to the same move, not
             # one inside the other.
             stack[1:] = [_Level(board=board.copy(), parent_id=parent)]
+
+    def _open_the_bracket_on_the_right_side(declared: int) -> None:
+        """A bracket branches before the move it follows — unless it says not.
+
+        `(` opens a variation at the position *before* the move just played,
+        which is what an alternative to that move needs. A bracket whose first
+        number names the ply the game is waiting for is not an alternative to
+        the move, but a continuation of it: "6...h6, and White is already
+        obliged (7.♗xf6 ♕xf6 8.♘d5)". Branched a move too early it is played
+        for the wrong colour, and the whole variation dies on its first move.
+
+        Only before the bracket has read anything, and only where its own
+        board cannot be what the number names.
+        """
+        if len(stack) < 2:
+            return
+        level, parent = stack[-1], stack[-2]
+        if not level.from_bracket or level.last_move_id is not None:
+            return
+        if declared == _ply_awaited(level.board):
+            return
+        if declared != _ply_awaited(parent.board):
+            return
+        level.board = parent.board.copy()
+        level.parent_id = parent.last_move_id or parent.parent_id
 
     def _resume_the_score(declared: int) -> None:
         """End whatever analysis is open: a number in the score's own weight.
@@ -715,6 +745,7 @@ def parse_tokens(
             if stack:
                 last_declared = _ply_of(number, is_black_only)
                 last_licence = 1 if is_black_only else 2
+                _open_the_bracket_on_the_right_side(last_declared)
                 if weighted:
                     _place_by_weight(token.bold, last_declared)
                 else:
