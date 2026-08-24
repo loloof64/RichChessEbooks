@@ -117,6 +117,16 @@ class TestASquareBrokenInTwo:
 
         assert [t.text for t in tokens if t.kind == "move"] == ["Rac1", "Qa5", "Rc1"]
 
+    def test_a_word_carried_over_from_the_line_above_swallows_nothing(self):
+        # Boussole page 65: "pour Ie cloua-\nge 6.♗g5". The `ge` ending the
+        # broken word reads as a square with its file and rank apart, which
+        # takes the number of the move behind it — and the comment's whole
+        # line with it. Laurent found this one on the annotated page.
+        tokens = tokenize_pages([page_of("pour Ie cloua-\nge 6.Bg5, alors ")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["6."]
+        assert [t.text for t in tokens if t.kind == "move"] == ["Bg5"]
+
     def test_the_tail_of_a_word_does_not_swallow_the_number(self):
         # "the move 6.Bg5" ends in a file letter, a space and a rank, so the
         # tolerance would read `e 6` there and eat the number with it —

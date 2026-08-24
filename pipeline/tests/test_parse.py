@@ -814,6 +814,16 @@ class TestLostSymbol:
 
         assert (last.san, last.status) == ("Na6", "uncertain")
 
+    def test_the_square_may_be_wrecked_as_well_as_the_symbol(self):
+        # `♘d5` printed `tL!dS`: the symbol is gone and the scanner has read
+        # the rank as a letter. Nothing spells a legal move then, so the near
+        # -free substitutions the repair path allows are tried against the
+        # legal moves that name a piece — and only the knight fits.
+        result = parse_tokens(self.opening("dS", "l:t"))
+        last = result.moves[-1]
+
+        assert (last.san, last.status) == ("Nd5", "uncertain")
+
     def test_two_pieces_reaching_the_square_are_left_to_the_reader(self):
         # After 1 d4 Nf6 2 c4, black can play both Rg8 and Ng8, and nothing on
         # the page separates them. Guessing would hide the problem; the pair

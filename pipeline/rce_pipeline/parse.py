@@ -1081,6 +1081,27 @@ def _settle_lost_symbol(
             continue
         readings.append((move, san))
 
+    if not readings:
+        # The square may be wrecked as well as the symbol — `♘e5` printed
+        # `tL!eS`, where the scanner reads the rank as a letter. Nothing
+        # spells a legal move then, so the same near-free substitutions the
+        # repair path allows are tried here, against the legal moves that name
+        # a piece: the piece is known to have been printed, and the square is
+        # read from the board like everything else in this function.
+        bare = _CHECK_MARK.sub("", plain)
+        best_cost, repaired = _MAX_REPAIR_COST + 1.0, []
+        for legal in board.legal_moves:
+            legal_san = board.san(legal)
+            if legal_san[0] not in _LOST_SYMBOL_PIECES:
+                continue
+            cost = _confusable_distance(bare, _CHECK_MARK.sub("", legal_san[1:]))
+            if cost < best_cost:
+                best_cost, repaired = cost, [(legal, legal_san)]
+            elif cost == best_cost:
+                repaired.append((legal, legal_san))
+        if best_cost <= _MAX_REPAIR_COST and len(repaired) == 1:
+            readings = repaired
+
     sans = [san for _, san in readings]
     if len(readings) == 1:
         move, san = readings[0]

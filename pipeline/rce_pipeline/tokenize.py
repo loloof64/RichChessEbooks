@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
 
 from .extract import BBox, Page
 from .notation import FIGURINE_TO_LETTER, SAN_PIECE_LETTERS
@@ -85,7 +85,11 @@ _TOKEN_TEMPLATE = r"""
               # word swallows the number that follows it ("the move 6.Bg5"
               # reads as `e 6`), and the citation the number announced is lost
               # with it.
-            | (?<![A-Za-z])[{pieces}]?[a-h]?[1-8]?x?[a-h][ ][{ranks}]
+              # And never where the word carries on from the line above:
+              # `pour Ie cloua-\nge 6.♗g5` reads `ge 6` as a square, which
+              # takes the number of the move behind it — the `6.♗g5` of the
+              # comment on Boussole page 65, and the whole line after it.
+            | (?<![A-Za-z])(?<!-\n)[{pieces}]?[a-h]?[1-8]?x?[a-h][ ][{ranks}]
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}])?
           )
           [+#]?
@@ -315,7 +319,8 @@ def _tokenize_span(
     to_san: dict[int, int],
     lo: int,
     hi: int,
-) -> Iterator[Token]:
+) -> list[Token]:
+    out: list[Token] = []
     cursor = lo
 
     for match in token_re.finditer(text, lo, hi):
@@ -369,6 +374,18 @@ def _tokenize_span(
             # just the square beside it. Taken off the token's start before
             # the prose above is closed, so the two do not both claim it.
             start -= len(lost_symbol)
+            # A wreck can hold a mark the annotation branch has already taken
+            # for a comment on the move: the knight of `lL!g4` is drawn with a
+            # `!` in it. Nothing else can stand inside a wreck — no digit, no
+            # bracket, no letter run the branches above match — so an
+            # annotation is the only token to take back, and if anything else
+            # is there the wreck is not believed at all.
+            while lost_symbol and out and out[-1].end > start:
+                if out[-1].kind != "annotation":
+                    start += len(lost_symbol)
+                    lost_symbol = ""
+                    break
+                cursor = out.pop().start
 
         if number_at is not None:
             # The number stands as its own token, so the move behind it is
@@ -376,8 +393,8 @@ def _tokenize_span(
             if number_at > cursor:
                 prose = _make_text_token(page, text, cursor, number_at)
                 if prose is not None:
-                    yield prose
-            yield Token(
+                    out.append(prose)
+            out.append(Token(
                 kind="move_number",
                 text=text[number_at:start],
                 raw=page.text[number_at:start],
@@ -386,15 +403,15 @@ def _tokenize_span(
                 end=start,
                 bbox=page.bbox_for(number_at, start),
                 bold=_weight_of(page, number_at, start),
-            )
+            ))
             cursor = start
 
         if start > cursor:
             prose = _make_text_token(page, text, cursor, start)
             if prose is not None:
-                yield prose
+                out.append(prose)
 
-        yield Token(
+        out.append(Token(
             kind=kind,
             text=text_out,
             raw=page.text[start:end],
@@ -405,13 +422,14 @@ def _tokenize_span(
             consumed=consumed,
             lost_symbol=lost_symbol,
             bold=_weight_of(page, start, end),
-        )
+        ))
         cursor = end
 
     if cursor < hi:
         prose = _make_text_token(page, text, cursor, hi)
         if prose is not None:
-            yield prose
+            out.append(prose)
+    return out
 
 
 #: A move number run into the move it announces. The separator is lost with
