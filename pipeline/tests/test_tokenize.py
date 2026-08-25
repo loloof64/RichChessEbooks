@@ -76,6 +76,44 @@ class TestTheBooksOwnSpelling:
         assert next(t for t in tokens if t.text == "xg5").lost_piece == "B"
 
 
+class TestARankNoMoveCanCarry:
+    """A digit at the head of a move that names no piece.
+
+    SAN writes a rank only to say which of two pieces moved, so it cannot
+    stand where there is no piece letter to disambiguate. SuperAttaquant's
+    scanner draws the bishop as `2` and the rook as `8`, and `16.2b2` was read
+    as a move to b2 with a rank in front of it that means nothing.
+    """
+
+    def test_the_rank_is_the_wreck_of_the_piece(self):
+        tokens = tokenize_pages([page_of("15.b3 Nbd7 16.2b2 Nxe5")])
+
+        move = next(t for t in tokens if t.text == "b2")
+        assert move.lost_symbol == "2"
+        assert move.raw == "2b2"
+
+    def test_the_number_that_announced_it_keeps_its_own_digits(self):
+        # The digit used to be read as a move number of its own — `16.` fell
+        # into the prose and `2` announced a pawn move to b2.
+        tokens = tokenize_pages([page_of("15.b3 Nbd7 16.2b2 Nxe5")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["15.", "16."]
+
+    def test_the_board_names_the_piece(self):
+        result = parse_tokens(
+            tokenize_pages([page_of("1 d4 d5 2 b3 Nf6 3 2b2 e6")])
+        )
+
+        move = next(m for m in result.moves if m.ply == 5)
+        assert move.san == "Bb2"
+
+    def test_a_move_that_names_its_piece_keeps_its_rank(self):
+        tokens = tokenize_pages([page_of("20 R1e2 Kh8")])
+
+        move = next(t for t in tokens if t.kind == "move" and t.text.startswith("R"))
+        assert (move.text, move.lost_symbol) == ("R1e2", "")
+
+
 class TestALetterWhereARankBelongs:
     def test_a_rank_read_as_a_letter_still_becomes_a_move(self):
         # Grivas prints black's sixth as `6 a4 QaS?!` and Boussole prints

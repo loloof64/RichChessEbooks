@@ -170,6 +170,20 @@ def _build_token_re(piece_letters: str) -> re.Pattern[str]:
 _WRECK_RUN = re.compile(r"[A-Za-z.:\\'|/<>]{1,5}$")
 _WRECK_MARK = re.compile(r"[:\\'<>]|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
 
+#: A rank standing at the head of a move that names no piece — `2b5`, `8h3+`,
+#: `2xh7+`. SAN writes a rank only to say which of two pieces moved, so it can
+#: never stand without the piece letter in front of it, and what is printed
+#: there is a piece symbol the glyph pass failed to restore: this book's
+#: scanner draws the bishop as `2` and the rook as `8`.
+#:
+#: `_WRECK_RUN` refuses digits on purpose — a digit in front of a square is
+#: normally a move number — and this is the one place it cannot be one, since
+#: the move it would announce has no piece to carry the rank. Twenty-three of
+#: them on SuperAttaquant and not one on the five other books.
+_WRECK_AS_A_RANK = re.compile(r"^[1-8](?=x?[a-h][1-8{ranks}])".format(
+    ranks=_LOOKALIKE_RANKS
+))
+
 
 #: A move written from square to square, the long form of it: `b7-b5`,
 #: `Bf1-g2`. Written against SAN letters because `text_out` is translated by
@@ -448,6 +462,13 @@ def _tokenize_span(
             # piece in front of it can only fail.
             if not _NAMES_A_PIECE.match(text_out):
                 lost_symbol = _wreck_before(text, start)
+            # The symbol may also have been read as a character the move
+            # pattern took in: a rank the move has no piece to carry. It is
+            # answered below, once the wreck standing before it has had the
+            # start of the token, because it needs none of it.
+            rank_wreck = _WRECK_AS_A_RANK.match(text_out)
+            if rank_wreck is not None:
+                text_out = text_out[len(rank_wreck.group()) :]
             # A move may begin after the remains of a symbol, and nowhere else
             # that a word is already running. The pattern used to refuse both
             # with one lookbehind, which also refused `liJf6` — a knight whose
@@ -506,6 +527,11 @@ def _tokenize_span(
                 lost_symbol = kept if _WRECK_MARK.search(kept) else ""
                 start -= len(lost_symbol)
                 break
+            # Last, because it is the only part of the wreck that stands
+            # inside the token: the start needs no moving for it, and the
+            # take-back above counts back from the start.
+            if rank_wreck is not None:
+                lost_symbol += rank_wreck.group()
 
         if number_at is not None:
             # The number stands as its own token, so the move behind it is
