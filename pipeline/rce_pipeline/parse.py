@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import chess
 
@@ -79,6 +79,10 @@ _LOST_SYMBOL_CONFIDENCE = 0.5
 #: move it spells is the very mistake that scored `Na6` as `a6`, ok, at full
 #: confidence.
 _LOST_SYMBOL_PIECES = ("K", "Q", "R", "B", "N")
+
+#: A piece letter the glyph pass wrote back, standing inside the wreck around
+#: it. Written against SAN letters: `parse` reads a translated token.
+_RESTORED_PIECE = re.compile(r"[KQRBN]")
 
 #: The characters a SAN disambiguator can be: an origin file or an origin rank.
 _DISAMBIGUATION_CHARS = frozenset("abcdefgh12345678")
@@ -1100,25 +1104,26 @@ def _drop_a_false_disambiguator(
     )
 
 
-def _settle_lost_symbol(
-    board: chess.Board, plain: str, raw: str, wreck: str
-) -> _Resolution:
-    """Name the piece from the position, when the page no longer names it.
+def _piece_named_by(wreck: str) -> str | None:
+    """The piece a wreck spells for itself, when the glyph pass restored it.
 
-    The book printed a piece and the glyph pass failed to restore it, so what
-    is left spells a pawn move — or, where the symbol left no character at
-    all, a capture with nothing in front of it (`xc3+`). Playing that is worse than losing the move:
-    it is legal often enough to be accepted at full confidence, and every move
-    after it is then played on a position the book never reached.
-
-    The board can often answer. Of the five pieces, usually only one can reach
-    the square at all — the bishop on `1 d4 Nf6 2 c4 g6 3 Nc3 i.g7`, where no
-    knight, rook, queen or king has any move to g7. When two can, nothing on
-    the page settles it, so the readings are handed on as `candidates` for the
-    reader to pick between, which is what the ambiguity path exists for.
+    `Q\'e5+`, `K>d2`, `Rf.f7+` on Grivas: the symbol *was* read and its letter
+    written back, and only the ink left standing around it kept the move from
+    beginning on the letter. So the token carries its piece after all — and a
+    letter the page says is worth more than any of the five the board offers.
+    One letter, or the wreck names nothing: two mean the run has reached past
+    the symbol into whatever stood before it.
     """
+    letters = set(_RESTORED_PIECE.findall(wreck))
+    return letters.pop() if len(letters) == 1 else None
+
+
+def _readings_of(
+    board: chess.Board, plain: str, pieces: Sequence[str]
+) -> list[tuple[chess.Move, str]]:
+    """The legal moves `plain` spells in `board`, one per piece that fits."""
     readings: list[tuple[chess.Move, str]] = []
-    for piece in _LOST_SYMBOL_PIECES:
+    for piece in pieces:
         try:
             move = board.parse_san(piece + plain)
         except (ValueError, AssertionError):
@@ -1131,6 +1136,41 @@ def _settle_lost_symbol(
             # there is not what it printed.
             continue
         readings.append((move, san))
+    return readings
+
+
+def _settle_lost_symbol(
+    board: chess.Board, plain: str, raw: str, wreck: str
+) -> _Resolution:
+    """Name the piece from the position, when the page no longer names it.
+
+    The book printed a piece and the glyph pass failed to restore it, so what
+    is left spells a pawn move — or, where the symbol left no character at
+    all, a capture with nothing in front of it (`xc3+`). Playing that is worse than losing the move:
+    it is legal often enough to be accepted at full confidence, and every move
+    after it is then played on a position the book never reached.
+
+    Sometimes the wreck answers for itself: the glyph pass restored the letter
+    and the ink around it is all that kept the move from starting there, which
+    is `_piece_named_by`. Otherwise the board is asked.
+
+    The board can often answer. Of the five pieces, usually only one can reach
+    the square at all — the bishop on `1 d4 Nf6 2 c4 g6 3 Nc3 i.g7`, where no
+    knight, rook, queen or king has any move to g7. When two can, nothing on
+    the page settles it, so the readings are handed on as `candidates` for the
+    reader to pick between, which is what the ambiguity path exists for.
+    """
+    named = _piece_named_by(wreck)
+    readings = _readings_of(board, plain, (named,) if named else _LOST_SYMBOL_PIECES)
+    if named and not readings:
+        # The letter and the board do not meet. Either the classifier misread
+        # the symbol or the line is already somewhere the book never was, and
+        # neither is answered here: the other four pieces are asked, exactly
+        # as they were before the letter was looked at.
+        fallback = _readings_of(board, plain, _LOST_SYMBOL_PIECES)
+        if fallback:
+            named, readings = None, fallback
+    pieces = (named,) if named else _LOST_SYMBOL_PIECES
 
     if not readings:
         # The square may be wrecked as well as the symbol — `♘e5` printed
@@ -1143,7 +1183,7 @@ def _settle_lost_symbol(
         best_cost, repaired = _MAX_REPAIR_COST + 1.0, []
         for legal in board.legal_moves:
             legal_san = board.san(legal)
-            if legal_san[0] not in _LOST_SYMBOL_PIECES:
+            if legal_san[0] not in pieces:
                 continue
             cost = _confusable_distance(bare, _CHECK_MARK.sub("", legal_san[1:]))
             if cost < best_cost:
@@ -1164,11 +1204,15 @@ def _settle_lost_symbol(
             {
                 "raw": raw,
                 "reason": f"read as {san}: "
-                + (f"'{wreck}'" if wreck else "the lost piece")
-                + " is the only piece that fits",
+                + (
+                    f"the {named} inside '{wreck}' names the piece"
+                    if named
+                    else (f"'{wreck}'" if wreck else "the lost piece")
+                    + " is the only piece that fits"
+                ),
             },
             candidates=sans,
-            settled_by="legality",
+            settled_by="the letter left in the wreck" if named else "legality",
         )
 
     printed = f"the piece printed as '{wreck}'" if wreck else "the piece"

@@ -891,6 +891,39 @@ class TestLostSymbol:
         assert last.status == "broken"
         assert "no piece reaches this square" in last.repair["reason"]
 
+    def test_the_letter_left_in_the_wreck_names_the_piece(self):
+        # Grivas prints `♖f.f7+` and `♔>d2`: the symbol *was* read and its
+        # letter written back, and only the ink left around it kept the move
+        # from beginning on the letter. After 1 d4 Nf6 2 c4 both the rook and
+        # the knight reach g8 and the board cannot choose — the page can.
+        result = parse_tokens(self.opening("g8", "R.", plies=3))
+        last = result.moves[-1]
+
+        assert (last.san, last.status) == ("Rg8", "uncertain")
+        assert result.ambiguities[-1]["settled_by"] == "the letter left in the wreck"
+
+    def test_the_same_wreck_with_the_other_letter_names_the_other_piece(self):
+        last = parse_tokens(self.opening("g8", "N>", plies=3)).moves[-1]
+
+        assert (last.san, last.status) == ("Ng8", "uncertain")
+
+    def test_a_letter_no_move_of_that_piece_fits_leaves_it_to_the_board(self):
+        # No queen has any move to g7 here. Either the classifier misread the
+        # symbol or the line is already somewhere the book never was, and
+        # neither is settled here: the five pieces are asked as before, and
+        # only the bishop fits.
+        last = parse_tokens(self.opening("g7", "Q'")).moves[-1]
+
+        assert (last.san, last.status) == ("Bg7", "uncertain")
+
+    def test_two_letters_in_the_wreck_name_nothing(self):
+        # The run has reached past the symbol into whatever stood before it,
+        # so neither letter can be trusted to be the piece.
+        result = parse_tokens(self.opening("g8", "RN.", plies=3))
+
+        assert result.moves[-1].status == "broken"
+        assert sorted(result.ambiguities[-1]["candidates"]) == ["Ng8", "Rg8"]
+
 
 class TestABracketAScanInvented:
     """A scan prints brackets the book never had, and they were believed whole.
