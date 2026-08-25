@@ -92,8 +92,33 @@ MAX_PAGE_SHARE = 0.5
 OPENING_RATIO = 0.08
 
 #: How far into a square the signature looks. The board's own grid lines sit
-#: on the boundary, and a frame the peeling missed sits just outside it.
-INSET = 0.10
+#: on the boundary, and a frame the peeling missed sits just outside it — so
+#: something has to come off, and what the books say is: barely a pixel.
+#:
+#: This was 0.10, a tenth of the square at each edge, and that tenth is where
+#: the tallest pieces are. A knight stands 0.90 to 0.95 of a square high and a
+#: white one is drawn as an outline, so clipping its crown leaves the outline
+#: **open**: `binary_fill_holes` then fills nothing at all and the piece has no
+#: body — SuperAttaquant's white knight had no cluster of its own, and nine of
+#: its eleven boards could not be read. The two costs face opposite ways and
+#: the band between them is narrow: at 0.02 SuperAttaquant decodes one board of
+#: eleven, at 0.005 and 0.01 it decodes ten and Grivas reads all forty-five,
+#: and at 0.00 the grid lines come in and Grivas loses 29 clean moves and
+#: eleven of its boards. Measured 2026-08-25 over the whole corpus.
+INSET = 0.01
+
+#: Where a square's own paper is read off: high enough to be the paper and not
+#: the ink standing on it, low enough not to be the scanner's noise.
+_PAPER_PERCENTILE = 90.0
+
+#: How much darker than its own paper a pixel has to be to be ink. Measured on
+#: SuperAttaquant, whose paper runs at 0.85 and whose white pieces are drawn as
+#: an outline that reaches only 0.60 at its faintest — above the 0.5 a white
+#: page would put it under, which is why that book's queen came out darker than
+#: its pawns and clustered with the black one. Sweeping it: 0.70 decodes seven
+#: of its eleven boards, 0.85 decodes ten, 0.90 five. The hatch of a dark square
+#: comes in with it, and the opening above is what takes that back out.
+_INK_SHARE = 0.85
 
 #: Side of the grid each square is reduced to, twice over: once for the shape
 #: of the body and once for the shading inside it.
@@ -641,7 +666,7 @@ def _signatures(image: Any, region: tuple[int, int, int, int]) -> list[Any] | No
             if cell.size == 0:
                 return None
             body = ndimage.binary_opening(
-                ndimage.binary_fill_holes(cell < 0.5), structure=element
+                ndimage.binary_fill_holes(cell < _ink_below(cell)), structure=element
             )
             squares.append(_signature(cell, body))
             ground = cell[~body]
@@ -652,6 +677,26 @@ def _signatures(image: Any, region: tuple[int, int, int, int]) -> list[Any] | No
     if abs(light - dark) < MIN_SHADE_CONTRAST:
         return None
     return squares
+
+
+def _ink_below(cell: Any) -> float:
+    """The grey this square's ink is darker than, from the square's own paper.
+
+    A fixed threshold reads a book that was typeset, whose paper is white by
+    construction. A scan's is not: SuperAttaquant's runs at 0.85 and drifts
+    across the page with the lamp, and the outline of a white piece there sits
+    between 0.46 and 0.60 — above a threshold of 0.5, so the outline never
+    closes, `binary_fill_holes` fills nothing, and the piece has no body at
+    all. Its queen came out darker than a black pawn and clustered with the
+    black queen; nine of its eleven boards could not be read.
+
+    So the threshold is taken from the square: the paper is what most of a
+    square is, and ink is what stands well below it. The ninetieth percentile
+    rather than the maximum, because a scan's brightest pixels are noise.
+    """
+    import numpy as np
+
+    return float(np.percentile(cell, _PAPER_PERCENTILE)) * _INK_SHARE
 
 
 def _signature(cell: Any, body: Any) -> Any:

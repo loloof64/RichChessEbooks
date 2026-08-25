@@ -73,6 +73,49 @@ def test_a_table_that_leaves_the_book_worse_is_refused():
     assert pipeline._best_table([wrong], tokens, without, strict_numbering=True) == {}
 
 
+def test_a_learned_table_is_asked_only_not_to_break_the_book():
+    """A table the book's own games taught clears a lower bar than a guess.
+
+    Every character of it was named by a position one of the book's own lines
+    reached, so it is not asked to leave the book better than reading nothing
+    — a board only ever takes moves out of `clean`, and a reading with no
+    diagrams wins that comparison by never disagreeing. It is asked not to
+    break the book.
+    """
+    tokens, right = game_and_diagram()
+    without = parse_tokens(tokens)
+    assert pipeline._worth_reading(right, tokens, without, strict_numbering=True)
+
+
+def test_a_learned_table_that_breaks_the_book_is_refused():
+    """Boussole is what this is for: two boards read of seventeen drawn.
+
+    The table those two taught seeds positions the book never printed, and the
+    moves that follow are illegal on them. Here the knights and bishops are
+    exchanged, so the diagram puts a bishop where the game has a knight and
+    `4.Bb5` has no bishop to play — the line dies under the board.
+    """
+    board = chess.Board()
+    for san in ("e4", "e5", "Nf3"):
+        board.push_san(san)
+    tokens = [
+        tok("move_number", "1."), tok("move", "e4"), tok("move", "e5"),
+        tok("move_number", "2."), tok("move", "Nf3"),
+        tok("diagram", rows_of(board)),
+        tok("move_number", "2..."), tok("move", "Nc6"),
+        tok("move_number", "3."), tok("move", "Bb5"), tok("move", "a6"),
+        tok("move_number", "4."), tok("move", "Ba4"), tok("move", "Nf6"),
+    ]
+    right = {char: char for char in set(rows_of(board)) - {"/"}}
+    wrong = dict(right)
+    for one, other in (("N", "B"), ("n", "b")):
+        wrong[one], wrong[other] = right[other], right[one]
+
+    without = parse_tokens(tokens)
+    assert pipeline._worth_reading(right, tokens, without, strict_numbering=True)
+    assert not pipeline._worth_reading(wrong, tokens, without, strict_numbering=True)
+
+
 def shuffling_game() -> tuple[list[Token], dict[str, str]]:
     """Eighty plies of knights walking out and back, and a diagram of the end.
 

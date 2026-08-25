@@ -861,7 +861,13 @@ def parse_tokens(
                 # marked wrong by a board a page away, with the diagram beside
                 # them confirming they were right.
                 agreed_at = stack[0].parent_id if stack else None
-                if game is None:
+                if game is None or not game.position_known:
+                    # A game the book never printed the start of is not a game
+                    # this board belongs to. SuperAttaquant opens eleven of its
+                    # fourteen examples in mid-score, each under a drawn board
+                    # — and read as a correction to whatever was still running,
+                    # the board reseeds a game that stays unscored to the end,
+                    # taking its own example's moves with it.
                     start_game(token.page, from_diagram=seeded)
                 else:
                     # The book has just said where the pieces are, so the line

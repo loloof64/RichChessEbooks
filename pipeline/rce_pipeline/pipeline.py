@@ -332,6 +332,10 @@ def run(
                 ),
                 min_diagrams=2,
             )
+        if table and not _worth_reading(
+            table, tokens, parsed, strict_numbering=strict_numbering
+        ):
+            table = {}
         if not table and reading is not None and reading.twins and reading.empty:
             # No game reached a diagram, so nothing taught the characters what
             # they mean. Ask the boards: `diagrams.settle` returns every table
@@ -410,6 +414,46 @@ def run(
 #: boards are added: two boards leave 96 tables standing, Grivas' thirty leave
 #: 12 and SuperAttaquant's eleven leave 22.
 MAX_TABLES_TRIED = 200
+
+
+def _worth_reading(
+    table: dict[str, str],
+    tokens: list[Any],
+    without: parse.ParseResult,
+    *,
+    strict_numbering: bool,
+) -> bool:
+    """Whether a table the book's own games taught is one it should read with.
+
+    A learned table has the book behind it — every character of it was named
+    by a position one of its own lines reached — so the bar is not the one a
+    guessed table has to clear in `_best_table`. It is not asked to leave the
+    book better; it is asked not to break it.
+
+    And the figure that asks it is not `clean`. A board only ever takes moves
+    *out* of `clean`: where it disagrees with the line, everything between the
+    last agreement and there is marked contradicted, and a reading with no
+    diagrams at all therefore wins by never disagreeing. Grivas' own font —
+    45 boards, learned from its own games — comes out 21 clean moves behind
+    reading nothing, and reading nothing leaves 103 of its moves on games no
+    diagram would place. What both readings can be asked is how many moves
+    stand legal on a line nothing broke, and there Grivas' table is 592
+    against 486.
+
+    Boussole is what this is for. It draws seventeen boards, cannot read
+    fifteen of them, and learns a table from the two it can: they correct
+    lines that were right, and the book falls from 239 clean moves to 184 —
+    legal throughout, and wrong. On this figure it falls too, and the table
+    goes.
+    """
+    def standing(attempt: parse.ParseResult) -> int:
+        tally = attempt.break_diagnosis()
+        return tally["clean"] + tally["contradicted"]
+
+    with_table = parse.parse_tokens(
+        tokens, strict_numbering=strict_numbering, diagram_table=table
+    )
+    return standing(with_table) >= standing(without)
 
 
 def _best_table(

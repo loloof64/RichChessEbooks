@@ -213,6 +213,34 @@ class TestInTheParser:
         assert [m.san for m in result.moves] == ["Rxe8"]
         assert result.break_diagnosis()["unscored"] == 1
 
+    def test_a_board_opens_a_game_the_book_never_placed(self):
+        """SuperAttaquant opens eleven of fourteen examples in mid-score.
+
+        Each stands under a drawn board, and each is a new game — but the
+        example before it is still running, unscored, because the book never
+        printed where *it* began either. Read as a correction to that one, the
+        board reseeds a game whose moves are already unscored and stays
+        unscored to the end, taking its own example's moves down with it.
+        """
+        position = fen_after("d4", "d5", "c4", "e6", "Nc3", "Nf6")
+        result = parse_tokens(
+            self.make_tokens(
+                # An example the book opens in mid-score: no position for it.
+                ("move_number", "24."), ("move", "Rd1"),
+                # And the next one, under the board that says where it starts.
+                ("diagram", "/".join(rows_of(position))),
+                ("move_number", "4."), ("move", "Bg5"), ("move", "Be7"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        assert len(result.games) == 2
+        assert result.games[0].position_known is False
+        opened = result.games[1]
+        assert opened.position_known is True
+        assert opened.initial_fen.startswith(position)
+        assert [m.status for m in result.moves if m.game_id == opened.id] == ["ok", "ok"]
+
     def test_a_diagram_puts_a_line_that_drifted_back_on_the_board(self):
         # The score is read into the wrong branch, and then the book prints
         # where the pieces actually are.
