@@ -317,6 +317,7 @@ def run(
                 tokens,
                 parsed,
                 strict_numbering=strict_numbering,
+                weight_in_doubt=bool(marked),
             )
         if table:
             parsed = parse.parse_tokens(
@@ -391,12 +392,26 @@ def _best_table(
     without: parse.ParseResult,
     *,
     strict_numbering: bool,
+    weight_in_doubt: bool = False,
 ) -> dict[str, str]:
     """The one of `candidates` that leaves the book reading best, or none.
 
     Legality alone cannot separate a knight from a bishop, nor say which
     colour a book fills: a position with the two colours exchanged is still a
     position. The moves can, and reading them is what settles it.
+
+    **Each table is weighed at the weight the book would ship it in.** Where
+    the score's weight was measured off the ink, whether to read it is decided
+    after the diagrams by exactly this kind of comparison — so a table judged
+    on the weighted reading alone is judged on a reading the book may be about
+    to throw away. On Grivas it was: twelve tables came in between 26 and 29
+    weighted, four of them tied at the top, and the one the tie handed the
+    book was worth **55** clean moves against the **425** of its neighbour once
+    the weight was dropped. The two decisions are one decision.
+
+    A confirmation breaks what is left of the tie, ahead of the count of boards
+    read: the board this table decoded is a position the line itself reached,
+    and a wrong table decodes boards no line ever reaches.
 
     **Reading no diagram is one of the candidates**, and `without` is it — the
     parse the book already got before any table was tried. A table that leaves
@@ -407,21 +422,28 @@ def _best_table(
     the best of them took the book from 133 clean moves to 118 — legal
     throughout, and wrong. Refusing it costs the book nothing it had.
     """
-    def score(attempt: parse.ParseResult) -> tuple[int, int]:
-        read = sum(
-            1
-            for check in attempt.diagram_checks
-            if check["verdict"] not in ("unread", "unreadable")
-        )
-        return attempt.break_diagnosis()["clean"], read
+    def score(attempt: parse.ParseResult) -> tuple[int, int, int]:
+        verdicts = Counter(check["verdict"] for check in attempt.diagram_checks)
+        read = sum(n for verdict, n in verdicts.items()
+                   if verdict not in ("unread", "unreadable"))
+        return attempt.break_diagnosis()["clean"], verdicts["confirms"], read
+
+    def best_reading(table: dict[str, str] | None) -> tuple[int, int, int]:
+        """This table at the weight the book would ship it in."""
+        attempts = [parse.parse_tokens(
+            tokens, strict_numbering=strict_numbering, diagram_table=table
+        )]
+        if weight_in_doubt:
+            attempts.append(parse.parse_tokens(
+                tokens, strict_numbering=strict_numbering, diagram_table=table,
+                weighted=False,
+            ))
+        return max(score(attempt) for attempt in attempts)
 
     best: dict[str, str] = {}
-    best_score = score(without)
+    best_score = best_reading(None) if weight_in_doubt else score(without)
     for table in candidates[:MAX_TABLES_TRIED]:
-        attempt = parse.parse_tokens(
-            tokens, strict_numbering=strict_numbering, diagram_table=table
-        )
-        this = score(attempt)
+        this = best_reading(table)
         if this > best_score:
             best, best_score = table, this
     return best
