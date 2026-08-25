@@ -218,13 +218,40 @@ def _wreck_before_a_named_piece(text: str, start: int) -> str:
     return stump if _WRECK_MARK.search(stump + text[start]) else ""
 
 
-def _wreck_before(text: str, start: int) -> str:
-    """The remains of a piece symbol printed just before `start`, if any."""
+def _wreck_before(text: str, start: int, spellings: dict[str, str]) -> str:
+    """The remains of a piece symbol printed just before `start`, if any.
+
+    What usually marks it is a mark no word carries — see `_WRECK_MARK`. But
+    a scanner may read a symbol as one ordinary letter and nothing else:
+    SuperAttaquant's queen comes out `W`, ninety times over, and `Wf3+` is
+    then a token the pattern refuses outright because a word is running into
+    it. The book has said what that letter is, in the ink under every symbol
+    the glyph pass *did* restore, so the spelling table answers for the mark:
+    a run the book has been seen spelling a piece is that piece's wreck.
+
+    Only the spelled ending is given back, never the whole run; and the ink
+    of a symbol begins where the word does, so a letter may not stand in
+    front of it. Without that last clause the `n` this book spells its queen
+    with is found inside "positional" and the word ends in a move to a1.
+
+    A spelling of nothing but dots is refused whatever the book has been seen
+    doing with it: a dot in front of a move is how every book in the corpus
+    announces a black one, and reading `21 ...f5` as a bishop move costs the
+    move and the number with it.
+    """
     run = _WRECK_RUN.search(text, 0, start)
     if run is None:
         return ""
     found = run.group()
-    return found if _WRECK_MARK.search(found) else ""
+    if _WRECK_MARK.search(found):
+        return found
+    for cut in range(len(found)):
+        spelled = found[cut:]
+        if spelled.strip(".") and spelled in spellings and (
+            cut == 0 or not found[cut - 1].isalpha()
+        ):
+            return spelled
+    return ""
 
 
 def _piece_spelled(wreck: str, spellings: dict[str, str]) -> str:
@@ -461,7 +488,7 @@ def _tokenize_span(
             # that spells its bishop out, and asking the board for a second
             # piece in front of it can only fail.
             if not _NAMES_A_PIECE.match(text_out):
-                lost_symbol = _wreck_before(text, start)
+                lost_symbol = _wreck_before(text, start, spellings)
             # The symbol may also have been read as a character the move
             # pattern took in: a rank the move has no piece to carry. It is
             # answered below, once the wreck standing before it has had the

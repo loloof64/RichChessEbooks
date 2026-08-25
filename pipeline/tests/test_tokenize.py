@@ -114,6 +114,41 @@ class TestARankNoMoveCanCarry:
         assert (move.text, move.lost_symbol) == ("R1e2", "")
 
 
+class TestASpellingWithNoMarkInIt:
+    """A symbol a scanner read as one ordinary letter and nothing else.
+
+    `_WRECK_MARK` knows a wreck by the punctuation in it, and there is none in
+    SuperAttaquant's queen: it comes out `W`, ninety times over the twelve
+    pages. The book's own spelling table is what says so.
+    """
+
+    def test_a_letter_the_book_spells_is_a_wreck(self):
+        tokens = tokenize_pages([page_of("29.Kh1 Wf3+ 30.Kg1")], spellings={"W": "Q"})
+
+        move = next(t for t in tokens if t.text == "f3+")
+        assert (move.lost_symbol, move.lost_piece) == ("W", "Q")
+
+    def test_without_the_spelling_the_move_is_not_read_at_all(self):
+        tokens = tokenize_pages([page_of("29.Kh1 Wf3+ 30.Kg1")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Kh1", "Kg1"]
+
+    def test_a_word_may_not_stand_in_front_of_the_ink(self):
+        # A symbol's ink begins where the word does. Grivas spells a queen
+        # `n`, which stands inside "positional" — and the word then ended in
+        # a move to a1, taking the citation beside it down.
+        tokens = tokenize_pages([page_of("a positional edge")], spellings={"n": "Q"})
+
+        assert [t.text for t in tokens if t.kind == "move"] == []
+
+    def test_a_spelling_of_nothing_but_dots_is_refused(self):
+        # Whatever the book has been seen doing with it: a dot in front of a
+        # move is how every book in the corpus announces a black one.
+        tokens = tokenize_pages([page_of("21 ...f5 22 e4")], spellings={".": "B"})
+
+        assert next(t for t in tokens if t.text == "f5").lost_symbol == ""
+
+
 class TestALetterWhereARankBelongs:
     def test_a_rank_read_as_a_letter_still_becomes_a_move(self):
         # Grivas prints black's sixth as `6 a4 QaS?!` and Boussole prints
