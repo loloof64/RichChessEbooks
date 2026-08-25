@@ -430,6 +430,17 @@ def parse_tokens(
     #: carries no plain move and a page of pure analysis no bold one.
     if weighted is None:
         weighted = weight_marks_the_line(tokens)
+    #: Whether the moves carry a weight of their own, and not only the numbers.
+    #: A typeset book gives both, free, from the span. A scan gives what
+    #: `weight.mark` could measure, and that is the **numbers only**: a
+    #: figurine is a dense drawing and the moves carrying one overlap between
+    #: the weights, so nothing is read from them. Reading the rule below on a
+    #: book like that makes analysis of the whole game score at a stroke —
+    #: which is why both scans of the corpus refused their own ink until this
+    #: was asked.
+    moves_carry_the_weight = any(
+        token.bold for token in tokens if token.kind == "move"
+    )
     # Keyed by (game_id, parent_id): every game has its own root, so a bare
     # `None` parent would otherwise be shared across games and make the second
     # game's first move look like a variation of the first game's.
@@ -864,6 +875,7 @@ def parse_tokens(
 
         if (
             weighted
+            and moves_carry_the_weight
             and not token.bold
             and len(stack) == 1
             and not any(other.from_bracket for other in stack)

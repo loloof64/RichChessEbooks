@@ -59,8 +59,18 @@ class TestSplit:
         assert _split([n / 200 for n in range(60)]) is None
 
     def test_two_groups_that_touch_are_refused(self):
-        # Boussole: a split can always be found, and it separates nothing.
+        # A split can always be found; this one separates nothing.
         assert _split([0.02] * 30 + [0.03] * 30) is None
+
+    def test_a_tail_of_bad_boxes_does_not_hide_two_weights(self):
+        # Boussole, and the reason it was written down as marking its score in
+        # no way the ink could show. Its two weights are plain to the eye and a
+        # tenth of its boxes run over a neighbouring letter or a diagram's
+        # edge, landing between the two groups. Read at the extremes those
+        # strays fill the band; read at the quartiles the groups still stand
+        # apart.
+        strays = [0.05, 0.06, 0.07, 0.08, 0.09, 0.10]
+        assert _split([0.00] * 30 + strays + [0.20] * 30) is not None
 
     def test_a_weight_that_erodes_away_entirely_is_the_cleanest_split(self):
         # Nothing left of the lighter group at all. The ceiling is zero, which
