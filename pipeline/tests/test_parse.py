@@ -13,6 +13,7 @@ from rce_pipeline.extract import BBox
 from rce_pipeline.parse import (
     _ambiguous_candidates,
     _confusable_distance,
+    _number_stripped_of_a_lost_move,
     parse_tokens,
     weight_marks_the_line,
 )
@@ -1292,6 +1293,53 @@ class TestTheWeightOfTheType:
         by_san = {m.san: m for m in result.moves}
         assert by_san["c5"].parent_id == by_san["e4"].id
         assert by_san["Nf3"].parent_id == by_san["e5"].id
+
+
+class TestANumberAScanWeldedALostMoveOnto:
+    """"18.exd5 f5 19.d6" comes off the page as `exd5` and then **519**."""
+
+    def test_the_digits_come_off_where_the_game_is_waiting(self):
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                # "3.Bb5 a6 4.Ba4" with `a6` destroyed and its rank welded on.
+                ("move_number", "3."), ("move", "Bb5"),
+                ("move_number", "64."), ("move", "Ba4"),
+            )
+        )
+
+        # One game, not two: an absurd number opens one where the book has
+        # none, and every move under it is then unscored.
+        assert len(result.games) == 1
+        assert [m.san for m in result.moves] == ["e4", "e5", "Nf3", "Nc6", "Bb5", "Ba4"]
+
+    def test_the_helper_takes_the_digits_the_count_names(self):
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6", "Bb5"):
+            board.push_san(san)
+
+        # The game awaits Black's third; "64." is White's fourth with the rank
+        # of the black move it destroyed welded on.
+        assert _number_stripped_of_a_lost_move(64, False, board) == 4
+        # And a page number names nothing the count is waiting for.
+        assert _number_stripped_of_a_lost_move(170, False, board) is None
+
+    def test_a_page_number_in_the_score_is_left_alone(self):
+        """Tactics prints 170 to 181 where the score can reach them.
+
+        Stripped to 70 and 81 those would move a line that was right, so the
+        digits only come off where what is left is the ply the game awaits.
+        """
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "170."), ("move", "Nf3"),
+            )
+        )
+
+        assert [m.san for m in result.moves] == ["e4", "e5", "Nf3"]
+        assert result.moves[-1].ply == 3
 
 
 class TestAMarkTheInkMissed:

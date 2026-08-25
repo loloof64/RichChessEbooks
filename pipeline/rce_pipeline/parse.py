@@ -417,6 +417,41 @@ def _ply_of(number: int, is_black: bool) -> int:
     return 2 * (number - 1) + (1 if is_black else 0)
 
 
+#: A move number above which the book is not numbering a move. Games do run
+#: past a hundred moves and are still numbered normally; what stands above this
+#: is a page number the layer put in the score's way, or a move number a scan
+#: welded something onto.
+_NUMBER_CEILING = 120
+
+
+def _number_stripped_of_a_lost_move(
+    number: int, is_black: bool, board: chess.Board
+) -> int | None:
+    """The number under a digit the scan welded to the front of it.
+
+    "18.exd5 f5 19.d6!" comes off SuperAttaquant's page as `exd5` and then the
+    move number **519** — the `f` gone and the `5` of Black's move standing in
+    front of the number that follows it. Ten of that book's numbers are of this
+    shape (`228`, `418`, `322`, `621`, `818`), and each one takes the rest of
+    its game: the ply it names is nowhere and every move below is read on a
+    board that has stopped following the page.
+
+    What settles it is the game's own count, and nothing else may: Tactics'
+    twelve pages each print their page number where the score can reach it —
+    170 to 181 — and stripping *those* to 70 and 81 would move a line that was
+    right. So the digits come off only where what is left is the ply the game
+    is waiting for, or the one after it: the move the welding destroyed is the
+    ply in between.
+    """
+    text = str(number)
+    awaited = _ply_awaited(board)
+    for cut in range(1, len(text)):
+        candidate = int(text[cut:] or 0)
+        if candidate and _ply_of(candidate, is_black) in (awaited, awaited + 1):
+            return candidate
+    return None
+
+
 def _ply_awaited(board: chess.Board) -> int:
     """The half-move this position is waiting for."""
     return 2 * (board.fullmove_number - 1) + (0 if board.turn == chess.WHITE else 1)
@@ -831,6 +866,10 @@ def parse_tokens(
         if token.kind == "move_number":
             number = int(re.match(r"\d+", token.text).group())
             is_black_only = "..." in token.text
+            if number > _NUMBER_CEILING and stack:
+                number = _number_stripped_of_a_lost_move(
+                    number, is_black_only, stack[0].board
+                ) or number
             seeded = None
             if pending_position is not None:
                 # The diagram gave the placement and this number gives the rest
