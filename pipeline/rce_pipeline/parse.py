@@ -359,6 +359,12 @@ class _Level:
     #: True when a `(` opened this level. Brackets are explicit and are trusted
     #: over the numbering heuristic below, which only guesses.
     from_bracket: bool = False
+    #: Position and parent before each half-move played at *this* depth,
+    #: keyed by ply — the same record `main_history` keeps for the game, kept
+    #: by an aside for itself. A book cites two alternative variations at one
+    #: number, and the second names a ply the first has passed and the game
+    #: has not reached.
+    history: dict[int, tuple[chess.Board, str | None]] = field(default_factory=dict)
     #: True once a move at this depth could not be read: the board no longer
     #: follows the book, so what the same number still announces is read for
     #: its box and nothing else. Cleared by the next number, which is where
@@ -839,8 +845,8 @@ def parse_tokens(
             level = stack[-1]
 
         board_before = level.board.copy()
-        if len(stack) == 1 and not level.board_lost:
-            main_history.setdefault(
+        if not level.board_lost:
+            (main_history if len(stack) == 1 else level.history).setdefault(
                 _ply_awaited(board_before), (board_before.copy(), level.parent_id)
             )
         if level.board_lost:
@@ -868,8 +874,16 @@ def parse_tokens(
             ):
                 # Nothing to lose: the move is dead where it stands. The
                 # number that announced it may still say where it belongs.
+                # The aside's own record as well as the game's, and the
+                # game's wins where both answer. A book cites two alternative
+                # variations in one breath — "7 Bxf6 Qxf6 8 Nd5 Qd8 and
+                # 7 Bh4 g5 8 Bg3" — and the second's number is one the first
+                # has passed and the game has not reached, so nothing but the
+                # aside itself knows the position it names.
                 placed = _place_a_citation(
-                    main_history, last_declared, last_licence, token, stack
+                    main_history if len(stack) == 1
+                    else {**stack[-1].history, **main_history},
+                    last_declared, last_licence, token, stack,
                 )
                 if placed is None:
                     placed = _place_beside_a_citation(

@@ -1272,3 +1272,50 @@ class TestTheWeightOfTheType:
         by_san = {m.san: m for m in result.moves}
         assert by_san["c5"].parent_id == by_san["e4"].id
         assert by_san["Nf3"].parent_id == by_san["e5"].id
+
+
+class TestTwoAlternativeVariationsAtOneNumber:
+    """A book cites two lines in one breath, both branching at the same move.
+
+    Laurent, reading Boussole page 65: *"7 ♗xf6 ♕xf6 8 ♘d5 ♕d8 et 7 ♗h4 g5
+    8 ♗g3 ♗g4 sont deux variantes alternatives"*. The second one's number is
+    one the **first has passed** and the game has not reached, so neither the
+    game's record nor the position answers it, and it was played as the
+    continuation of the first — where its own first move is illegal.
+
+    The aside keeps the same record of itself the game keeps, and a move
+    already broken is offered it.
+    """
+
+    def line(self, *pairs: tuple[str, str]) -> list[Token]:
+        return [tok(kind, text) for kind, text in pairs]
+
+    def tokens(self, second: str) -> list[Token]:
+        # 1 e4 e5 2 Nf3 Nc6, and beside it the gambit: 2 d4 exd4 3 c3 dxc3
+        # 4 Nxc3, four plies further on than the game itself.
+        return self.line(
+            ("move_number", "1"), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2"), ("move", "Nf3"), ("move", "Nc6"),
+            ("text", "Or the gambit:"),
+            ("move_number", "2"), ("move", "d4"), ("move", "exd4"),
+            ("move_number", "3"), ("move", "c3"), ("move", "dxc3"),
+            ("move_number", "4"), ("move", "Nxc3"),
+            ("text", "and equally:"),
+            ("move_number", "4"), ("move", second),
+        )
+
+    def test_the_second_alternative_branches_where_the_first_did(self):
+        # `4 Bc4` on the board the aside reached is White moving with Black to
+        # play. On the board the aside printed at its own fourth move it is
+        # the alternative the book meant.
+        last = parse_tokens(self.tokens("Bc4")).moves[-1]
+
+        assert (last.san, last.status) == ("Bc4", "ok")
+
+    def test_a_move_legal_where_it_stands_is_left_alone(self):
+        # Only a move already dead is offered another board: the aside is
+        # waiting for Black's fourth and `Bc5` is Black's fourth.
+        last = parse_tokens(self.tokens("Bc5")).moves[-1]
+
+        assert (last.san, last.status) == ("Bc5", "ok")
+        assert last.ply == 8
