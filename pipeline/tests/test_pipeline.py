@@ -77,19 +77,26 @@ def shuffling_game() -> tuple[list[Token], dict[str, str]]:
     """Eighty plies of knights walking out and back, and a diagram of the end.
 
     Long enough for `weight_marks_the_line` to have an opinion, and marked the
-    way a scan's ink marks a book it is wrong about: a tenth of the numbers
-    bold, not one of the moves. Read at that weight the whole score is taken
-    for analysis and 18 moves stand clean; read flat, all 80 do.
+    way a scan's ink marks a book the measurement was wrong about: four numbers
+    in ten and every second move, neither of them the score. Two moves stand
+    clean at that weight; read flat, all eighty do.
+
+    Both halves of the marking matter. A number alone can no longer cripple a
+    book, because a bold number resuming the score at the ply the aside beneath
+    it has reached takes that aside back: the whole score comes home from one
+    mark in ten. It is the moves' own marks that no number repairs — a plain
+    move standing on the main line with no number to place it is analysis, and
+    against marks like these the score is broken up at every miss.
     """
     board = chess.Board()
     walk = ("Nf3", "Nf6", "Ng1", "Ng8")
     tokens: list[Token] = []
     for number in range(1, 41):
-        tokens.append(tok("move_number", f"{number}.", bold=number % 10 == 0))
+        tokens.append(tok("move_number", f"{number}.", bold=number % 10 in (1, 2, 3, 4)))
         for half in range(2):
             san = walk[((number - 1) * 2 + half) % 4]
             board.push_san(san)
-            tokens.append(tok("move", san))
+            tokens.append(tok("move", san, bold=half == 1))
     tokens.append(tok("diagram", rows_of(board)))
     return tokens, {char: char for char in set(rows_of(board)) - {"/"}}
 
@@ -101,7 +108,7 @@ def test_a_table_is_weighed_at_the_weight_the_book_would_ship_it_in():
     diagrams, by a comparison of exactly this kind — so a table judged on the
     weighted reading alone is judged on a reading the book may be about to
     throw away. Here the weighted reading is the one it throws away: it leaves
-    18 moves clean where reading the book flat leaves 80, and against a
+    two moves clean where reading the book flat leaves 80, and against a
     crippled reading a table with the knights and bishops exchanged looks like
     a gain. Weighed at both weights, it is refused.
     """
@@ -111,7 +118,7 @@ def test_a_table_is_weighed_at_the_weight_the_book_would_ship_it_in():
         wrong[one], wrong[other] = right[other], right[one]
     without = parse_tokens(tokens)
 
-    assert without.break_diagnosis()["clean"] == 18
+    assert without.break_diagnosis()["clean"] == 2
     assert parse_tokens(tokens, weighted=False).break_diagnosis()["clean"] == 80
 
     assert pipeline._best_table(

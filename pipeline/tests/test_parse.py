@@ -81,16 +81,36 @@ class TestMainLine:
         )
         assert result.moves[0].uci == "e2e4"
 
-    def test_black_only_numbering_admits_a_single_move(self):
+    def test_a_licence_is_spent_on_prose_and_not_on_the_move_beside_it(self):
+        """What ends a number's licence is prose, not the count of the moves.
+
+        A scan destroys the numbers of the score as readily as anything else —
+        "par 1" for "par 18." — and the move that lost its number is still
+        printed where it always was, hard against the move in front of it.
+        Refused for want of a licence it is dropped with its box, and the
+        reader cannot even correct it. Read there it costs nothing that the
+        licence was for: what the licence keeps out is the commentary naming a
+        square, and prose is what stands in front of that.
+        """
         result = parse_tokens(
             moves(
                 ("move_number", "1."), ("move", "e4"), ("move", "e5"),
-                ("move_number", "2."), ("move", "Nf3"),
-                ("move_number", "2..."), ("move", "Nc6"), ("move", "Bc4"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                ("move", "Bc4"),
             )
         )
 
-        # "2..." announces one move; the next needs a new number.
+        assert sans(result) == ["e4", "e5", "Nf3", "Nc6", "Bc4"]
+
+    def test_a_word_after_the_licence_is_spent_is_still_refused(self):
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                ("text", "White develops with"), ("move", "Bc4"),
+            )
+        )
+
         assert sans(result) == ["e4", "e5", "Nf3", "Nc6"]
         assert result.skipped[-1]["text"] == "Bc4"
         assert result.skipped[-1]["reason"] == "no move number in context"
@@ -1272,6 +1292,110 @@ class TestTheWeightOfTheType:
         by_san = {m.san: m for m in result.moves}
         assert by_san["c5"].parent_id == by_san["e4"].id
         assert by_san["Nf3"].parent_id == by_san["e5"].id
+
+
+class TestAMarkTheInkMissed:
+    """The weight is a measurement, and a measurement misses.
+
+    On a scan there is no weight in the text layer and `weight.mark` reads it
+    off the ink: eroded twice, a bold stem keeps its core and a hairline does
+    not. The marks are good and they are not perfect — a number the OCR half
+    ate, the dots of `17...`, a box running over its neighbour. Before this,
+    one number of the score coming out plain cost the rest of the page: the
+    score went into an aside and only a bold number could bring it back.
+    """
+
+    def test_the_number_that_resumes_the_score_takes_the_aside_back(self):
+        # `2.` came out plain, so `Nf3 Nc6` was read as analysis beside a game
+        # standing still at its first move. `3.`, in the score's own weight,
+        # names White's third — a ply the game has not reached and the aside
+        # has, exactly.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", False), ("move", "Nf3", False), ("move", "Nc6", False),
+                ("move_number", "3.", True), ("move", "Bb5", True), ("move", "a6", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert all(on_the_main_line(result, by_san[san]) for san in
+                   ("e4", "e5", "Nf3", "Nc6", "Bb5", "a6"))
+        assert all(m.status == "ok" for m in result.moves)
+
+    def test_a_citation_of_analysis_still_to_come_is_not_taken_back(self):
+        # The aside ends exactly where the score's own number picks up, and it
+        # is still not the score: its number named White's fifth while the game
+        # was waiting for White's second, so it is analysis of a move still to
+        # come. Where such a line ends says nothing about the game.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "5.", False), ("move", "Nc3", False), ("move", "Nf6", False),
+                ("move_number", "3.", True), ("move", "Bc4", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert not on_the_main_line(result, by_san["Nc3"])
+        # Nothing brought the game up to White's third, so `Bc4` is played
+        # where the game stood and the book's own numbering says it is adrift.
+        assert by_san["Bc4"].parent_id == by_san["e5"].id
+
+    def test_the_analysis_the_weight_diverts_is_still_diverted(self):
+        # The rule only ever fires where the game is already behind the book.
+        # Here it is not: the score resumes at the ply it was waiting for, so
+        # the citation printed there stays a citation.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True),
+                ("move_number", "2...", False), ("move", "d6", False),
+                ("move_number", "2...", True), ("move", "Nc6", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert on_the_main_line(result, by_san["Nc6"])
+        assert not on_the_main_line(result, by_san["d6"])
+
+    def test_the_aside_whose_number_stood_nearest_the_game_is_the_one_taken(self):
+        # `2.` plain (the score, its mark missed) and `5.` plain (a citation of
+        # what is coming) both end where `3.` picks up. The number that named
+        # the ply the game was waiting for is the score.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "5.", False), ("move", "Nc3", False), ("move", "Nf6", False),
+                ("move_number", "2.", False), ("move", "Nf3", False), ("move", "Nc6", False),
+                ("move_number", "3.", True), ("move", "Bb5", True),
+            ),
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert on_the_main_line(result, by_san["Nf3"])
+        assert not on_the_main_line(result, by_san["Nc3"])
+        assert by_san["Bb5"].parent_id == by_san["Nc6"].id
+
+    def test_an_aside_taken_back_carries_its_positions_to_the_diagrams(self):
+        """A diagram below is read against the line, so the line has to be whole."""
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", False), ("move", "Nf3", False), ("move", "Nc6", False),
+                ("move_number", "3.", True), ("move", "Bb5", True),
+            ),
+            weighted=True,
+        )
+
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6", "Bb5"):
+            board.push_san(san)
+        assert result.main_lines[result.games[0].id][-1] == board.board_fen()
 
 
 class TestTwoAlternativeVariationsAtOneNumber:

@@ -102,6 +102,15 @@ _MARKED_SHARE = 0.10
 _MARKED_MINIMUM = 40
 
 
+#: How far from the score's own count the number that opened an aside may
+#: stand before the aside can no longer be that score. Zero is the ordinary
+#: case — the number named the ply the game was waiting for — and one is the
+#: game that has itself lost a move to a number the scan destroyed, which is
+#: Boussole page 66. Beyond that a number is citing analysis of what is still
+#: to come, and where such a citation ends says nothing about the game.
+_ASIDE_REACH = 1
+
+
 def weight_marks_the_line(tokens: Iterable[Token]) -> bool:
     """Whether this book sets its game score in a different weight from its analysis.
 
@@ -374,6 +383,18 @@ class _Level:
     #: its box and nothing else. Cleared by the next number, which is where
     #: the book itself starts the line again.
     board_lost: bool = False
+    #: The move this level hung from when it opened, and the ply the number
+    #: that opened it named. An aside the score turns out to have run into is
+    #: taken back onto the game, and these two say which aside that can be:
+    #: one that branched at the game's own tip, and whose number named the ply
+    #: the game itself was waiting for.
+    opened_at: str | None = None
+    opened_ply: int | None = None
+    #: Every position played at this depth, in order — what `main_lines` keeps
+    #: for the game, kept by an aside for itself, so that an aside taken back
+    #: brings its positions with it and the diagrams can still be read against
+    #: the line.
+    line: list[str] = field(default_factory=list)
 
 
 #: The last word of a comment, when the comment really ends in one: letters
@@ -499,6 +520,7 @@ def parse_tokens(
         result.games.append(game)
         result.main_lines[game.id] = [chess.Board(opening_fen).board_fen()]
         stack = [_Level(board=chess.Board(opening_fen), parent_id=None)]
+        asides.clear()
         pending_title = None
         line_sound = True
         agreed_at = None
@@ -598,6 +620,57 @@ def parse_tokens(
         level.board = parent.board.copy()
         level.parent_id = parent.last_move_id or parent.parent_id
 
+    def _take_the_score_back(declared: int) -> bool:
+        """Take back an aside the score ran into when a mark went missing.
+
+        A weight mark is a measurement, and a measurement misses. Where the
+        score's own number came out plain — the ink of `17...` eroding away,
+        the box of a number the OCR half-destroyed — `_place_by_weight` reads
+        what follows as analysis and copies the game's board to play it on.
+        The game then stands still while the book goes on, and every number
+        below is answered on a position two, four, ten plies behind the page.
+        One missed mark used to cost the rest of the page.
+
+        The number now printed in the score's own weight is what says so, and
+        says it exactly: it names a ply the game has not reached, and one of
+        the asides opened since has. That aside is the score. It branched at
+        the game's own tip and its number named the ply the game was waiting
+        for, which is what separates it from a citation of analysis further
+        on; where two of them could answer, the one whose number stood nearest
+        the game's own count is taken, and a tie is refused rather than
+        guessed.
+
+        Nothing is replayed: the aside was a copy of the game's board and its
+        moves already hang from the game's last move, so taking it back is
+        taking its level for the game's own.
+        """
+        if declared == _ply_awaited(stack[0].board):
+            return False
+        tip, awaited = stack[0].parent_id, _ply_awaited(stack[0].board)
+        found = [
+            level
+            for level in asides + stack[1:2]
+            if level.last_move_id is not None
+            and level.opened_at == tip
+            and level.opened_ply is not None
+            and _ply_awaited(level.board) == declared
+        ]
+        nearest = min((abs(level.opened_ply - awaited) for level in found), default=99)
+        if nearest > _ASIDE_REACH:
+            return False
+        found = [level for level in found if abs(level.opened_ply - awaited) == nearest]
+        if len(found) != 1:
+            return False
+        nonlocal closed_aside
+        taken = found[0]
+        main_history.update(taken.history)
+        result.main_lines.setdefault(game.id, []).extend(taken.line)
+        stack[0] = taken
+        closed_aside = None
+        del stack[1:]
+        asides.clear()
+        return True
+
     def _resume_the_score(declared: int) -> None:
         """End whatever analysis is open: a number in the score's own weight.
 
@@ -610,6 +683,8 @@ def parse_tokens(
         if len(stack) < 2 or any(level.from_bracket for level in stack):
             return
         nonlocal closed_aside
+        if _take_the_score_back(declared):
+            return
         # A prose variation has no closing bracket: the end of one is only
         # ever visible as the game picking up again.
         board_before = stack[-1].board_before_last
@@ -653,12 +728,26 @@ def parse_tokens(
         # reached — analysis of a move still to come — there is no such
         # position, and the current one is the closest the book has printed.
         board, parent = main_history.get(declared) or (stack[0].board, stack[0].parent_id)
-        stack[1:] = [_Level(board=board.copy(), parent_id=parent)]
+        # Kept rather than dropped: a mark the ink measurement missed sends the
+        # score down here, and the number that resumes it says which of these
+        # was the game. See `_take_the_score_back`.
+        asides.extend(stack[1:])
+        stack[1:] = [_Level(
+            board=board.copy(), parent_id=parent, opened_at=parent, opened_ply=declared
+        )]
 
+    #: Asides `_place_by_weight` has opened since the score was last resumed.
+    asides: list[_Level] = []
     last_declared: int | None = None
     last_licence = 2
     adrift: set[str] = set()
+    #: The kind of the token before this one. A move printed hard against the
+    #: move in front of it is read even where the licence is spent: what the
+    #: licence keeps out is the commentary naming a square, and prose is what
+    #: stands in front of that.
+    last_kind: str | None = None
     for token in tokens:
+        kind_before, last_kind = last_kind, token.kind
         if token.kind == "text":
             level = stack[-1] if stack else None
             if level is not None and level.last_move_id is not None:
@@ -866,7 +955,15 @@ def parse_tokens(
             continue
 
         level = stack[-1]
-        if strict_numbering and level.moves_allowed <= 0:
+        if strict_numbering and level.moves_allowed <= 0 and kind_before != "move":
+            # A number licenses the moves printed beside it, and a scan
+            # destroys the numbers of the score as readily as anything else —
+            # "par 1" for "par 18.", `8.` swallowed by the move in front of
+            # it. The move that lost its number is still printed hard against
+            # the move before it, and refused here it is dropped with its box,
+            # so the reader cannot even correct it. What the licence is for is
+            # the commentary naming a square, and prose stands in front of
+            # that; `_ends_in_a_word` is what ends a licence.
             result.skipped.append({**token.to_json(), "reason": "no move number in context"})
             continue
         if token.bbox is None:
@@ -994,6 +1091,9 @@ def parse_tokens(
         if move is not None:
             level.board.push(move)
             node.fen = level.board.fen()
+            # The level's own record, which an aside taken back onto the game
+            # carries with it; `main_lines` is the game's, and only the game's.
+            level.line.append(level.board.board_fen())
             if len(stack) == 1:
                 result.main_lines.setdefault(game.id, []).append(level.board.board_fen())
 
