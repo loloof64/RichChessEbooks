@@ -556,12 +556,24 @@ def _rules(ink: Any, smear: int, smallest: int) -> list[tuple[int, int, int, int
             run.append((index, span[0], span[1]))
             continue
         if run:
-            # The rule's own reach is the longest stretch any one of its rows
-            # holds, not what all of them agree on: a rule drifting across a
-            # tilted page has each row starting a pixel later than the last,
-            # and what they agree on is the part in the middle.
-            widest = max(run, key=lambda r: r[2] - r[1])
-            rules.append((run[0][0], run[-1][0], widest[1], widest[2]))
+            # The rule's own reach is what its rows cover **between them**,
+            # not what they agree on and not the most any one of them holds.
+            # A rule drifting across a tilted page has each row starting a
+            # pixel later than the last, so what they agree on is the part in
+            # the middle — and where the drift is more than the smear covers,
+            # no single row holds the whole rule either. SuperAttaquant page
+            # 199 tilts a board through nineteen rows over its own width: the
+            # widest row gave 554 pixels of a 617-pixel rule, the corner fell
+            # outside the side rule's column, and the page's two boards were
+            # not found at all.
+            #
+            # Only a row whose run touches what is already spanned may widen
+            # it, so a second board's rule on the same rows stays its own.
+            first, last = run[0][1], run[0][2]
+            for _index, begins, ends in run[1:]:
+                if begins <= last and ends >= first:
+                    first, last = min(first, begins), max(last, ends)
+            rules.append((run[0][0], run[-1][0], first, last))
             run = []
     return rules
 

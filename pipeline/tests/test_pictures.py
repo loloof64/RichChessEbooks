@@ -301,6 +301,34 @@ def test_a_tilted_scan_is_still_found(tmp_path):
     assert len(pictures.find(path, extract.extract_pages(path))) == 3
 
 
+def test_a_scan_tilted_further_than_the_smear_is_still_found(tmp_path):
+    """SuperAttaquant's pages are not all a degree out: two of them carry
+    boards tilted through nineteen rows over their own width, where the smear
+    covers eight. No single row then holds the whole of the top rule — the
+    widest gave 554 pixels of 617 — the corner fell outside the side rule's
+    column, and the four pages' boards were not found at all."""
+    path = scan(tmp_path, [OPENING, MIDDLE, ENDGAME], tilt=1.8)
+    assert len(pictures.find(path, extract.extract_pages(path))) == 3
+
+
+def test_a_rule_reaches_as_far_as_its_rows_reach_between_them(tmp_path):
+    ink = np.zeros((12, 300), dtype=bool)
+    for step in range(6):  # one rule, drifting down as it crosses
+        ink[step, 250 - step * 50 : 300 - step * 50] = True
+
+    assert pictures._rules(ink, 1, 40) == [(0, 5, 0, 300)]
+
+
+def test_a_second_rule_on_the_same_rows_stays_its_own(tmp_path):
+    # Two boards side by side share their rows, and page 199 prints exactly
+    # that. What widens a rule has to touch it.
+    ink = np.zeros((4, 300), dtype=bool)
+    ink[0:2, 0:100] = True
+    ink[1:3, 200:300] = True
+
+    assert pictures._rules(ink, 1, 40) == [(0, 2, 0, 100)]
+
+
 def test_a_page_already_read_is_not_read_again(tmp_path):
     """A diagram font draws a framed board when the page is rendered, so the
     search of the last resort finds it a second time — 45 diagrams on Markos
