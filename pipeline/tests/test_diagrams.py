@@ -184,6 +184,35 @@ class TestInTheParser:
         assert opened.initial_fen.startswith(position)
         assert [m.status for m in result.moves if m.game_id == opened.id] == ["ok", "ok"]
 
+    def test_a_board_that_is_not_a_position_seeds_nothing(self):
+        """A drawn board decodes into a board the book never printed.
+
+        `pictures` reads a drawn board by clustering its squares, and where
+        the clustering merges two pieces — SuperAttaquant's white knight has
+        no cluster of its own — the table still decodes: into a position with
+        the wrong pieces on it. Seeded, the game is worse than unplaced. Every
+        move after it is illegal, and `position_known` tells the app and the
+        measurement to believe a position that never existed. Both of the two
+        boards SuperAttaquant decodes over its twelve pages put a king in
+        check, on the side the printed number says is not to move.
+        """
+        # White to move, and Black's king stands in check from the rook: a
+        # position no game reached.
+        impossible = "4k3/4R3/8/8/8/8/8/4K3"
+        result = parse_tokens(
+            self.make_tokens(
+                ("diagram", "/".join(impossible.split("/"))),
+                ("move_number", "24."), ("move", "Rxe8"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        assert result.games[0].position_known is False
+        assert result.games[0].initial_fen == chess.STARTING_FEN
+        # The move is still read, with its box, so the reader can correct it.
+        assert [m.san for m in result.moves] == ["Rxe8"]
+        assert result.break_diagnosis()["unscored"] == 1
+
     def test_a_diagram_puts_a_line_that_drifted_back_on_the_board(self):
         # The score is read into the wrong branch, and then the book prints
         # where the pieces actually are.

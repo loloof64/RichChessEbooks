@@ -831,6 +831,7 @@ def parse_tokens(
         if token.kind == "move_number":
             number = int(re.match(r"\d+", token.text).group())
             is_black_only = "..." in token.text
+            seeded = None
             if pending_position is not None:
                 # The diagram gave the placement and this number gives the rest
                 # of the position: whose move it is, and which move it is.
@@ -838,6 +839,19 @@ def parse_tokens(
                     pending_position, number=number, black_to_move=is_black_only
                 )
                 pending_position = None
+                if not chess.Board(seeded).is_valid():
+                    # The board decoded, and it is not a position: the side the
+                    # number does *not* name stands in check, or a side holds
+                    # pieces nobody could have. A board a book draws is read by
+                    # clustering its squares, and where the clustering merges
+                    # two pieces the table still decodes — into a board the
+                    # book never printed. Seeding a game on one of those is
+                    # worse than leaving the game unplaced: every move after it
+                    # is illegal and the reader is shown a position that never
+                    # existed. SuperAttaquant reads eleven boards over its
+                    # twelve pages, decodes two, and both put a king in check.
+                    seeded = None
+            if seeded is not None:
                 # Where the book put the pieces back is an agreement, whatever
                 # the verdict that got it there: what follows is played on the
                 # printed board, so a later disagreement is about that and
