@@ -221,6 +221,11 @@ def run(
             ),
         )
         _write(write_artefacts, work_dir, "glyphs", [g.to_json() for g in recovered])
+        # What the book has been seen spelling each piece, and then the symbols
+        # the layer's boxes put one group to the right of that ink. Learned
+        # before the correction and used to make it: the book's habit and the
+        # classifier's reading have to agree before a symbol is moved.
+        pages = [glyphs.unshift_symbols(page, glyphs.spellings(pages)) for page in pages]
         # The pages are different documents now — figurines where the layer had
         # the scanner's guesses — so what they are is settled again from them.
         report = notation.detect_notation(pages)

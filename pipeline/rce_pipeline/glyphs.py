@@ -37,6 +37,7 @@ The result is written back as figurines
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import os
 import pickle
@@ -47,6 +48,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 from .extract import GLYPH_FONT, BBox, Char, Page
+from .notation import FIGURINE_TO_LETTER
 from .scan import (
     DEFAULT_DPI,
     LineImage,
@@ -397,7 +399,6 @@ def spellings(pages: Sequence[Page]) -> dict[str, str]:
     Keyed by the ink as :func:`~rce_pipeline.tokenize.normalise` leaves it,
     because that is the alphabet the wreck is read in.
     """
-    from .notation import FIGURINE_TO_LETTER
     from .tokenize import normalise
 
     votes: dict[str, Counter[str]] = defaultdict(Counter)
@@ -413,6 +414,123 @@ def spellings(pages: Sequence[Page]) -> dict[str, str]:
         if total >= _MIN_SPELLINGS and said >= _SPELLING_MAJORITY * total:
             table[ink] = piece
     return table
+
+
+#: What a symbol may be found standing over when it landed too far right: the
+#: characters of the move beside it, never the ink of another symbol.
+_MOVE_CHARS = frozenset("abcdefgh12345678x")
+
+#: How much of the move may stand between the symbol's ink and the symbol: a
+#: file, or a file and a rank. More than that and the run before is not this
+#: symbol's ink but something else entirely.
+_MAX_BETWEEN = 2
+
+
+def unshift_symbols(page: Page, spellings: dict[str, str]) -> Page:
+    """Put back a symbol that was written one group to the right of its ink.
+
+    Tesseract does not box characters: it boxes a word and divides that box
+    evenly among the characters it read. A layer that read three characters
+    where a symbol is printed — `ltJ` for a knight — therefore puts the boxes
+    half a letter out, and `_covered_range` picks the wrong one. The symbol is
+    written over the **square** instead of over its own remains: Boussole page
+    65 prints `12.♗xd5 ♘a5?` and the layer comes out `12.i.♗d5 ltJ♘5?`, with
+    the bishop standing on the `x` it destroyed and the knight on the `a`.
+
+    Neither move is then read at all — `♘5` is not a square — and on that page
+    it costs Black's twelfth, after which the line is a half-move behind the
+    book for the rest of the game.
+
+    What makes it recoverable is that **a piece symbol is never printed twice
+    in a row**: ink shaped like a symbol immediately before a symbol *is* that
+    symbol's ink. `spellings` says which ink, in this book, and it must name
+    the piece the classifier read — the classifier and the book's own habit
+    agreeing is what licenses the repair, and it is why the run is taken as
+    the longest **taught** spelling rather than as everything that looks like
+    wreckage: `.i.g♗` is the bishop of `.i.` with the file `g` behind it, and
+    swallowing that `g` would lose the square instead of saving it.
+
+    The symbol keeps its own box, which is the measured ink; what it ate is
+    given back with the box of the ink it was found on.
+    """
+    if not spellings:
+        return page
+    from .tokenize import normalise
+
+    text = normalise(page.text)
+    edits: list[tuple[int, int, list[Char]]] = []
+    for index, char in enumerate(page.chars):
+        piece = FIGURINE_TO_LETTER.get(char.char)
+        if piece is None or not char.consumed:
+            continue
+        if not set(char.consumed) <= _MOVE_CHARS:
+            continue
+        found = _ink_before(text, index, piece, spellings)
+        if found is None:
+            continue
+        start, between = found
+        given_back = [
+            Char(char=ch, bbox=page.chars[start].bbox, font=page.chars[start].font,
+                 size=page.chars[start].size, bold=char.bold)
+            for ch in char.consumed
+        ]
+        edits.append((
+            start,
+            index + 1,
+            [dataclasses.replace(char, consumed=text[start:index])]
+            + list(page.chars[index - between : index])
+            + given_back,
+        ))
+
+    if not edits:
+        return page
+    chars = list(page.chars)
+    for start, end, replacement in reversed(edits):
+        chars[start:end] = replacement
+    return Page(
+        number=page.number,
+        width=page.width,
+        height=page.height,
+        text="".join(char.char for char in chars),
+        chars=chars,
+    )
+
+
+def _ink_before(
+    text: str, index: int, piece: str, spellings: dict[str, str]
+) -> tuple[int, int] | None:
+    """Where this symbol's own ink begins, and how much of the move follows it.
+
+    Returns `None` unless the book has been seen spelling **this** piece that
+    way. Longest spelling first, and only the move's own characters may stand
+    between it and the symbol.
+    """
+    for between in range(_MAX_BETWEEN + 1):
+        end = index - between
+        if between and text[end] not in _MOVE_CHARS:
+            break
+        for length in range(min(end, _MAX_SPELLING), 0, -1):
+            if spellings.get(text[end - length : end]) != piece:
+                continue
+            start = end - length
+            # A spelling is learned from the boxes the layer drew, and those
+            # run over the space and the move number's dot beside the symbol
+            # — the book spells its knight `ltJ`, ` ltJ` and `.ltJ` all at
+            # once. Only the ink may be taken away: swallowing the dot of
+            # `12.` welds the number to the move and loses both.
+            while start < end and (
+                text[start] == " "
+                or (text[start] == "." and start and text[start - 1].isdigit())
+            ):
+                start += 1
+            if start < end:
+                return start, between
+    return None
+
+
+#: The longest ink a spelling is looked for in. `_WRECK_RUN` in `tokenize`
+#: bounds the same thing from the other side.
+_MAX_SPELLING = 5
 
 
 def placement_score(pages: Sequence[Page]) -> tuple[int, int]:

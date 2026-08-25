@@ -22,6 +22,7 @@ from rce_pipeline.glyphs import (
     placement_score,
     repair_page,
     spellings,
+    unshift_symbols,
 )
 from rce_pipeline.tokenize import tokenize_pages
 
@@ -160,6 +161,53 @@ class TestSpellings:
         # is looked up, and it is not the identity: the Grivas book's `...`
         # is three bullets.
         assert spellings(self.repaired(*[("\u2022i.", "B")] * 3)) == {".i.": "B"}
+
+
+class TestUnshiftSymbols:
+    """A symbol written one group to the right of its own ink.
+
+    Tesseract boxes a word and divides that box evenly among the characters it
+    read, so a layer that read `ltJ` where a knight is printed puts the boxes
+    half a letter out and the symbol lands on the **square** instead. Boussole
+    page 65 prints `12.♗xd5 ♘a5?` and the layer comes out `12.i.♗d5 ltJ♘5?`:
+    neither move is a move any more, and the game reads a half-move behind the
+    book from there to the end of the page.
+    """
+
+    def shifted(self, text: str, piece: str, at: int, spellings_: dict) -> str:
+        """`text` with `piece` written over the character at `at`."""
+        page_ = page(text)
+        repaired = repair_page(
+            page_, [glyph(piece, 20.0 + at * CHAR_WIDTH, CHAR_WIDTH)]
+        )
+        return unshift_symbols(repaired, spellings_).text
+
+    def test_the_symbol_goes_back_onto_its_own_ink(self):
+        # `12.i.Bd5` for `12.♗xd5`: the bishop landed on the `x` it destroyed.
+        assert self.shifted("12.i.xd5", "B", 5, {"i.": "B"}) == "12.♗xd5"
+
+    def test_what_stands_between_the_ink_and_the_symbol_is_the_move(self):
+        # `8.i.g♗` for `8.♗g2`: the symbol landed on the rank, and the file
+        # stands between it and its ink. Swallowing that `g` would lose the
+        # square instead of saving it.
+        assert self.shifted("8.i.g2", "B", 5, {"i.": "B"}) == "8.♗g2"
+
+    def test_a_spelling_naming_another_piece_is_not_this_symbol_s_ink(self):
+        assert self.shifted("12.i.xd5", "N", 5, {"i.": "B"}) == "12.i.♘d5"
+
+    def test_ink_the_book_never_taught_is_left_alone(self):
+        assert self.shifted("12.i.xd5", "B", 5, {"ltJ": "N"}) == "12.i.♗d5"
+
+    def test_the_move_number_keeps_its_dot(self):
+        # The book spells its bishop `.i.` as well as `i.`, because the boxes
+        # it was learned from ran over the number's dot. Taking that dot away
+        # welds the number to the move and loses both.
+        assert self.shifted("12.i.xd5", "B", 5, {".i.": "B", "i.": "B"}) == "12.♗xd5"
+
+    def test_a_symbol_that_ate_no_move_is_left_where_it_is(self):
+        # It covered the tail of its own ink, which is not the move and is not
+        # worth moving anything for.
+        assert self.shifted("12.<it>f7", "K", 5, {"<it": "K"}) == "12.<i♔f7"
 
 
 class TestBrokenFontLeftovers:
