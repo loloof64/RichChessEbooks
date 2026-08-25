@@ -274,6 +274,22 @@ def run(
         # each piece, and the same spellings stand where it failed.
         spellings=glyphs.spellings(pages) if recovered else None,
     )
+    if recovered:
+        # A scan's boxes are the OCR's own and drift inside a word; a typeset
+        # book's come from the type itself and are exact. Done before the
+        # weight is measured, which reads the boxes it moves.
+        try:
+            from . import boxes as tap_zones
+
+            tap_zones.snap(pdf_path, pages, tokens)
+        except ImportError:  # pragma: no cover - numpy is an optional install
+            warnings.warn(
+                "step 3c skipped: moving a scan's tap zones onto its ink needs "
+                "numpy (pip install 'rce-pipeline[pictures]'). The boxes stay "
+                "as the text layer drew them.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
     marked = 0
     if not parse.weight_marks_the_line(tokens):
         # A scan's text layer is the OCR's own: one subsetted face for the
