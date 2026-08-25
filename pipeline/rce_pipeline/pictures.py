@@ -151,7 +151,15 @@ MAX_KINDS = 13
 #: Beyond it the square keeps a character of its own, which no diagram teaches
 #: and `diagrams.decode` therefore refuses — the board is dropped rather than
 #: guessed at, which is the same bargain the diagram font path makes.
-STRAY_DISTANCE = 0.12
+#:
+#: Raised from 0.12 once `SCAN_DPI` made the clusters right: they are tight now
+#: (the widest member of any of SuperAttaquant's thirteen sits at 0.085, where
+#: the loosest used to sit at 0.092 with the piece in the wrong cluster), so a
+#: stray absorbed goes into a cluster that means something. It buys that book a
+#: board and a placed game. **0.20 is measured and worse** — three more boards
+#: read and three clean moves lost, which is a stray landing in the wrong one of
+#: thirteen right clusters.
+STRAY_DISTANCE = 0.16
 
 #: Where the invented characters start. The private use area is used because
 #: the alternative — ordinary letters — would collide with a book that also
@@ -180,10 +188,21 @@ SQUARE_TOLERANCE = 0.25
 #: always reach 1 — while the inkiest rank of a position is 0.44.
 FRAME_INK = 0.5
 
-#: What a scanned page is rendered at to be searched for a board. 200 gives
-#: about 50 pixels to a square on the two scanned books, which is twice what
-#: the signature needs and a quarter of the pixels a page renders at 400.
-SCAN_DPI = 200
+#: What a scanned page is rendered at to be searched for a board.
+#:
+#: This was 200, and 200 was **below what the books store**: SuperAttaquant
+#: keeps its pages at 360 dpi and Boussole at 600, so rendering at 200
+#: downsampled them — and what downsampling does to a printed halftone is
+#: alias it. The screen SuperAttaquant prints its dark squares in is 2 pixels
+#: of stroke and 4 of gap at 200, indistinguishable in width from the 3-pixel
+#: outline of a white piece, and its phase shifts with wherever the square
+#: happens to fall. That is what had the same piece signing as two things.
+#: At 300 the screen comes out 3 and 6 against an outline of 3 to 4, and the
+#: book's thirteen clusters land on the thirteen things a board carries: page
+#: 198's board, typed out by eye, comes back a perfect bijection where at 200
+#: its bishop was two clusters and its queens one. Costs a scan about twice
+#: the pixels and the corpus about ninety seconds.
+SCAN_DPI = 300
 
 #: How dark a pixel of a scan has to be to be ink. Higher than the 0.5 a drawn
 #: picture is read at: a scanned rule comes out grey, and SuperAttaquant's
