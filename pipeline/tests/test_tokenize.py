@@ -490,3 +490,31 @@ class TestTwoMovesRunTogether:
                  if t.kind == "move"]
 
         assert [t.text for t in moves] == ["e4"]
+
+
+class TestABracketNothingCloses:
+    """A scan prints a `(` the book never had, and `parse` trusts a bracket.
+
+    Boussole page 65 opens one in the middle of the word "obliges"; nothing
+    closes it, and everything below — the game's own score included — is read
+    as one enormous variation, with every rule of the numbering suspended
+    inside it.
+    """
+
+    def kinds(self, text: str) -> list[str]:
+        return [t.kind for t in tokenize_pages([page_of(text)])
+                if t.kind in ("var_open", "var_close")]
+
+    def test_an_open_nothing_closes_is_dropped(self):
+        assert self.kinds("1.e4 (t de renoncer par 2.Nf3 e5 1-0") == []
+
+    def test_a_bracket_the_book_closed_is_kept(self):
+        assert self.kinds("1.e4 (1.d4 d5) e5 1-0") == ["var_open", "var_close"]
+
+    def test_a_game_is_as_far_as_a_bracket_reaches(self):
+        # The stray `)` of the second game must not pair with the invented `(`
+        # of the first: balancing the whole book instead of each game lets the
+        # invention survive. The stray `)` itself is left where it is — it
+        # closes nothing, and `parse` ignores one that arrives at the top of
+        # the stack.
+        assert self.kinds("1.e4 (t de renoncer 1-0 1.d4 d5) 0-1") == ["var_close"]

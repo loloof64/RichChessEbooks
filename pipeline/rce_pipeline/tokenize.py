@@ -324,40 +324,7 @@ def tokenize_pages(
         tokens.extend(_tokenize_page(
             page, token_re, to_san, blocks.get(page.number, []), spellings or {}
         ))
-    return tokens
-
-
-def _tokenize_page(
-    page: Page,
-    token_re: re.Pattern[str],
-    to_san: dict[int, int],
-    diagrams: list[Any],
-    spellings: dict[str, str],
-) -> list[Token]:
-    """The page's tokens, the diagram blocks standing whole between them."""
-    text = normalise(page.text)
-    tokens: list[Token] = []
-    cursor = 0
-    for diagram in sorted(diagrams, key=lambda d: d.start):
-        tokens.extend(_tokenize_span(
-            page, text, token_re, to_san, cursor, diagram.start, spellings
-        ))
-        tokens.append(
-            Token(
-                kind="diagram",
-                text="/".join(diagram.rows),
-                raw=page.text[diagram.start : diagram.end],
-                page=page.number,
-                start=diagram.start,
-                end=diagram.end,
-                bbox=diagram.bbox or page.bbox_for(diagram.start, diagram.end),
-            )
-        )
-        cursor = diagram.end
-    tokens.extend(_tokenize_span(
-        page, text, token_re, to_san, cursor, len(text), spellings
-    ))
-    return _free_a_number_a_board_stranded(tokens, page, text)
+    return _drop_a_bracket_nothing_closes(tokens)
 
 
 def _tokenize_page(
