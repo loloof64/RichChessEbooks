@@ -359,6 +359,47 @@ def decode(rows: tuple[str, ...], table: dict[str, str]) -> str | None:
     return "/".join(ranks)
 
 
+def name_the_strays(
+    table: dict[str, str],
+    boards: Sequence[Sequence[str]],
+    neighbours: dict[str, list[str]],
+) -> dict[str, str]:
+    """The same table, with the squares no cluster explained read off the board.
+
+    A stray is one square of one board — SuperAttaquant has seven of them over
+    thirteen boards, one each — and one is enough for :func:`decode` to refuse
+    the whole board, which is the difference between a game the reader can play
+    through and a game with no position under any of its moves.
+
+    Two things know what such a square is and neither is enough alone. The
+    **distance** says which of the believed characters its picture is most
+    like, and it is the picture that went wrong, so its first answer is not
+    always right. **Legality** says which pieces can stand there at all, and on
+    six of those seven boards it leaves nine or eleven of the thirteen
+    standing — though on the seventh it leaves exactly one, a white king, which
+    is the piece a board cannot do without. Asked in that order — the nearest
+    character that leaves a position anybody could have reached — they answer
+    together.
+
+    A stray that no character can make legal keeps its own, and its board is
+    refused as before: a board guessed at is worse than a board dropped.
+    """
+    named = dict(table)
+    for stray, ranked in neighbours.items():
+        rows = next((b for b in boards if any(stray in row for row in b)), None)
+        if rows is None:
+            continue
+        for other in ranked:
+            kind = named.get(other)
+            if kind is None:
+                continue
+            trial = {**named, stray: kind}
+            if _stands(rows, trial):
+                named[stray] = kind
+                break
+    return named
+
+
 def initial_fen(board_fen: str, *, number: int, black_to_move: bool) -> str:
     """A complete FEN for a diagram, from the move number printed under it.
 

@@ -353,6 +353,33 @@ def run(
                 strict_numbering=strict_numbering,
                 weight_in_doubt=bool(marked),
             )
+        if table and reading is not None and reading.neighbours:
+            # A board with one square no cluster explained is refused whole,
+            # and that is seven of SuperAttaquant's thirteen. The square is
+            # read by the nearest character legality allows there — and the
+            # book says whether to keep the reading, as it says of a table.
+            # Grivas has three such boards and reading them costs it seven
+            # clean moves; SuperAttaquant has seven and reading them is worth
+            # four, four placed games and 137 moves that had no position.
+            named = diagrams.name_the_strays(
+                table, [d.rows for d in drawn], reading.neighbours
+            )
+            if named != table:
+                as_read = parse.parse_tokens(
+                    tokens, strict_numbering=strict_numbering, diagram_table=table
+                )
+                as_named = parse.parse_tokens(
+                    tokens, strict_numbering=strict_numbering, diagram_table=named
+                )
+                # What a square read off the board is *for* is the game with no
+                # position under it. Where the games are placed already, such a
+                # board can only disagree with a line that was right — Grivas
+                # has three of them and reading them costs it seven clean moves
+                # while placing nothing. So the test is the moves that gain a
+                # position, and nothing else.
+                if (as_named.break_diagnosis()["unscored"]
+                        < as_read.break_diagnosis()["unscored"]):
+                    table = named
         if table:
             parsed = parse.parse_tokens(
                 tokens, strict_numbering=strict_numbering, diagram_table=table

@@ -387,6 +387,44 @@ MIDDLEGAME = "r1bq1rk1/pp2ppbp/2np1np1/8/2P1P3/2N1BP2/PP2N1PP/R2QKB1R"
 ENDGAME = "8/5pk1/6p1/8/8/6P1/5PK1/8"
 
 
+def test_a_stray_square_is_named_by_the_nearest_piece_that_can_stand_there():
+    """One square no cluster explained is enough to refuse a whole board.
+
+    SuperAttaquant has seven of them over thirteen boards, one each, and each
+    one is a game left with no position under any of its moves. The distance
+    says which believed character the square's picture is most like and
+    legality says which pieces can stand there; asked in that order they
+    answer together.
+    """
+    board = chess.Board()
+    table = dict(FONT)
+    # The white king's square comes off the clustering as a character of its
+    # own — and the king is the one thing a position cannot do without.
+    # The character itself is known from the book's other boards; it is this
+    # one square that came out on its own.
+    stray = "\ue0ff"
+    rows = [row.replace("K", stray) for row in rows_of(board.board_fen())]
+
+    # By distance the square is most like a queen; legality will not have it.
+    named = diagrams.name_the_strays(table, [rows], {stray: ["Q", "K", "R"]})
+
+    assert named[stray] == "K"
+    assert diagrams.decode(tuple(rows), named) == board.board_fen()
+
+
+def test_a_stray_no_piece_can_explain_keeps_its_own_character():
+    board = chess.Board()
+    table = dict(FONT)
+    stray = "\ue0ff"
+    rows = [row.replace("K", stray) for row in rows_of(board.board_fen())]
+
+    # Nothing but a king leaves this a position, and no king is offered.
+    named = diagrams.name_the_strays(table, [rows], {stray: ["Q", "R"]})
+
+    assert stray not in named
+    assert diagrams.decode(tuple(rows), named) is None
+
+
 def test_the_boards_name_the_characters_when_no_game_can():
     """A book of puzzles never plays a move up to a diagram, so `learn` is
     handed nothing. The positions themselves still say a great deal."""

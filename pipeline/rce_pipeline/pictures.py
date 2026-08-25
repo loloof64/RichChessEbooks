@@ -57,7 +57,7 @@ handoff.
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Container, Iterator, Sequence
 
 from .diagrams import SIDE, Diagram
@@ -286,6 +286,11 @@ class Reading:
     #: The character an empty square came out as — the commonest of all, since
     #: a position is at least half empty.
     empty: str | None
+    #: For each character no cluster explains, the believed characters it
+    #: stands nearest, closest first. A stray is one square of one board and
+    #: `diagrams.name_the_strays` reads it by taking the nearest of these that
+    #: leaves a position anybody could have reached.
+    neighbours: dict[str, list[str]] = field(default_factory=dict)
 
 
 def find(
@@ -317,6 +322,7 @@ def read(
 
     squares = [square for _, sqs in boards for square in sqs]
     labels = _cluster(squares)
+    neighbours = _neighbours(squares, labels)
     found: list[Diagram] = []
     cursor = 0
     for page, bbox, offset in (meta for meta, _ in boards):
@@ -326,7 +332,40 @@ def read(
         found.append(Board(page=page, rows=rows, bbox=bbox, offset=offset).as_diagram())
     found.sort(key=lambda d: (d.page, d.start))
     empty, twins = _twins(squares, labels)
-    return Reading(diagrams=found, twins=twins, empty=empty)
+    return Reading(diagrams=found, twins=twins, empty=empty, neighbours=neighbours)
+
+
+def _neighbours(squares: Sequence[Any], labels: Sequence[int]) -> dict[str, list[str]]:
+    """For each stray, the believed characters it stands nearest.
+
+    A stray is a square no cluster explains, and one of them is enough for
+    `diagrams.decode` to refuse a whole board — which on SuperAttaquant is
+    seven boards of thirteen, each of them with exactly one such square. The
+    distance says which piece it is most like and legality says which it can
+    be; neither is enough on its own, and together they are.
+    """
+    import numpy as np
+
+    counts = Counter(labels)
+    believed = sorted(label for label, n in counts.items() if n >= MIN_SUPPORT)
+    if not believed:
+        return {}
+    centroids = {
+        label: np.asarray(
+            [square for square, at in zip(squares, labels) if at == label]
+        ).mean(axis=0)
+        for label in believed
+    }
+    out: dict[str, list[str]] = {}
+    for square, label in zip(squares, labels):
+        if label in centroids or chr(_FIRST_CHAR + label) in out:
+            continue
+        ranked = sorted(
+            believed,
+            key=lambda other: float(np.abs(centroids[other] - square).mean()),
+        )
+        out[chr(_FIRST_CHAR + label)] = [chr(_FIRST_CHAR + other) for other in ranked]
+    return out
 
 
 def _twins(squares: Sequence[Any], labels: Sequence[int]) -> tuple[str | None, list[tuple[str, str]]]:
