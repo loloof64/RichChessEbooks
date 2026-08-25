@@ -1375,3 +1375,46 @@ class TestTheGameGoesOnPastItsResult:
 
         assert len(result.games) == 2
         assert not result.games[1].position_known
+
+
+class TestAnAsideThatCaughtTheGameUp:
+    """A one-move citation, and then the game's own number waiting behind it.
+
+    Boussole page 65: "13.a3! ... et les Blancs menacent 14.b4. 13...♗b6
+    14.♘h4". The citation branches at the game's own position and plays one
+    ply, so the aside and the game are both waiting for Black's thirteenth,
+    and the aside took it — and with it every move to the end of the page,
+    thirty of them, read beside the game instead of as the game.
+
+    What separates them is the aside's own numbering, which never goes
+    backwards: the book cited White's fourteenth and is now printing Black's
+    thirteenth.
+    """
+
+    def tokens(self) -> list[Token]:
+        played = ["e4", "e5", "Nf3", "Nc6", "Bb5"]
+        out: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                out.append(tok("move_number", str(index // 2 + 1)))
+            out.append(tok("move", san))
+        return out + [
+            tok("text", "White threatens"),
+            tok("move_number", "4."), tok("move", "Bc4"),
+            tok("move_number", "3..."), tok("move", "a6"),
+            tok("move_number", "4."), tok("move", "Ba4"),
+        ]
+
+    def test_the_game_takes_the_number_back(self):
+        result = parse_tokens(self.tokens())
+        main = [m for m in result.moves if m.variation_index == 0]
+
+        assert [m.san for m in main] == [
+            "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4",
+        ]
+        assert [m.san for m in result.moves if m.variation_index] == ["Bc4"]
+
+    def test_the_citation_is_still_beside_the_game(self):
+        cited = next(m for m in parse_tokens(self.tokens()).moves if m.san == "Bc4")
+
+        assert (cited.variation_index, cited.status) == (1, "ok")

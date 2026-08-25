@@ -359,6 +359,10 @@ class _Level:
     #: True when a `(` opened this level. Brackets are explicit and are trusted
     #: over the numbering heuristic below, which only guesses.
     from_bracket: bool = False
+    #: The ply of the last number read into this level. An aside never goes
+    #: backwards in its own numbering, so a number behind this one is not this
+    #: aside carrying on.
+    declared_at: int | None = None
     #: Position and parent before each half-move played at *this* depth,
     #: keyed by ply — the same record `main_history` keeps for the game, kept
     #: by an aside for itself. A book cites two alternative variations at one
@@ -514,11 +518,25 @@ def parse_tokens(
         Brackets are explicit and are left alone: this only guesses, and only
         where the book gave nothing better.
         """
-        if declared == _ply_awaited(stack[-1].board):
+        # An aside catches the game up as soon as it has read as many plies as
+        # the game has, and both are then waiting for the same number: "les
+        # Blancs menacent 14.b4", one move on Boussole page 65, and `13...♗b6`
+        # is what the game and the aside are both waiting for. What separates
+        # them is the aside's own numbering, which never goes backwards — the
+        # book cited White's fourteenth and is now printing Black's thirteenth.
+        went_back = (
+            stack[-1].declared_at is not None and declared < stack[-1].declared_at
+        )
+        resumes = (
+            len(stack) > 1
+            and declared == _ply_awaited(stack[0].board)
+            and (went_back or declared != _ply_awaited(stack[-1].board))
+        )
+        if not resumes and declared == _ply_awaited(stack[-1].board):
             return
         nonlocal closed_aside
         closed_aside = None
-        if len(stack) > 1 and declared == _ply_awaited(stack[0].board):
+        if resumes:
             # The main line resumes. A prose variation has no closing bracket,
             # so its end is only ever visible as the game picking up again.
             board_before = stack[-1].board_before_last
@@ -778,6 +796,7 @@ def parse_tokens(
                     _place_by_weight(token.bold, last_declared)
                 else:
                     _place_by_number(last_declared)
+                stack[-1].declared_at = last_declared
                 if len(stack) == 1 and game is not None and game.position_known:
                     # Once the placement has had its say: a number that opened
                     # an aside was a citation, and says nothing about the main
@@ -888,26 +907,27 @@ def parse_tokens(
                 board_before, token.text, token.consumed, token.lost_symbol,
                 token.lost_piece,
             )
-            if resolution.status == "broken" and not any(
-                other.from_bracket for other in stack
-            ):
+            if resolution.status == "broken":
                 # Nothing to lose: the move is dead where it stands. The
                 # number that announced it may still say where it belongs.
-                # The aside's own record as well as the game's, and the
-                # game's wins where both answer. A book cites two alternative
-                # variations in one breath — "7 Bxf6 Qxf6 8 Nd5 Qd8 and
-                # 7 Bh4 g5 8 Bg3" — and the second's number is one the first
-                # has passed and the game has not reached, so nothing but the
-                # aside itself knows the position it names.
-                placed = _place_a_citation(
-                    main_history if len(stack) == 1
-                    else {**stack[-1].history, **main_history},
-                    last_declared, last_licence, token, stack,
-                )
-                if placed is None:
-                    placed = _place_beside_a_citation(
-                        closed_aside, last_declared, last_licence, token, stack
+                # The line's own record as well as the game's, and the game's
+                # wins where both answer. A book cites two alternative
+                # variations in one breath — "7 ♗xf6 ♕xf6 8 ♘d5 ♕d8, puisque
+                # 7 ♗h4? g5 8 ♗g3 ♗g4" — and the second's number is one the
+                # first has passed and the game has not reached, so nothing
+                # but the line itself knows the position it names.
+                if not any(other.from_bracket for other in stack):
+                    placed = _place_a_citation(
+                        main_history if len(stack) == 1
+                        else {**stack[-1].history, **main_history},
+                        last_declared, last_licence, token, stack,
                     )
+                    if placed is None:
+                        placed = _place_beside_a_citation(
+                            closed_aside, last_declared, last_licence, token, stack
+                        )
+                else:
+                    placed = None
                 if placed is not None:
                     level = stack[-1]
                     board_before = level.board.copy()
@@ -1420,7 +1440,8 @@ def _place_a_citation(
     # Replaces any aside in progress rather than nesting, as `_place_by_number`
     # does, and carries the licence the number gave: a citation announced by
     # `5...` is one move and one by `5.` is two.
-    stack[1:] = [_Level(board=board.copy(), parent_id=parent, moves_allowed=licence)]
+    stack[1:] = [_Level(board=board.copy(), parent_id=parent, moves_allowed=licence,
+                        declared_at=declared)]
     return trial
 
 
@@ -1456,7 +1477,8 @@ def _place_beside_a_citation(
     trial = _resolve(board, token.text, token.consumed, token.lost_symbol, token.lost_piece)
     if trial.status == "broken":
         return None
-    stack[1:] = [_Level(board=board.copy(), parent_id=parent, moves_allowed=licence)]
+    stack[1:] = [_Level(board=board.copy(), parent_id=parent, moves_allowed=licence,
+                        declared_at=declared)]
     return trial
 
 
