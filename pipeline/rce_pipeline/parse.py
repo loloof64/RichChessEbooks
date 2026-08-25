@@ -447,6 +447,12 @@ def parse_tokens(
     #: Whether the last thing read was a result. What follows one is commentary
     #: until a first move opens the next game.
     finished = False
+    #: The game a result has just closed, and the line it closed on. A book
+    #: often plays on past the result — "Black resigned due to 27...♔xe7
+    #: 28 ♕f6+ ♔d7 29 ♕xc6+" — and those half-moves are the game's own, as
+    #: Laurent put it, "comme si elle avait vraiment été jouée avant
+    #: l'abandon". Read as a new game they have no starting position at all.
+    over: tuple[Game, _Level, int | None] | None = None
     game: Game | None = None
     stack: list[_Level] = []
     #: Position and parent before each half-move of the game's main line,
@@ -464,6 +470,7 @@ def parse_tokens(
 
     def start_game(page: int, from_diagram: str | None = None, position_known: bool = True) -> None:
         nonlocal game, game_counter, stack, pending_title, line_sound, agreed_at, finished
+        nonlocal over
         game_counter += 1
         opening_fen = from_diagram or initial_fen
         game = Game(
@@ -481,6 +488,7 @@ def parse_tokens(
         line_sound = True
         agreed_at = None
         finished = False
+        over = None
         main_history.clear()
 
     def _place_by_number(declared: int) -> None:
@@ -733,6 +741,16 @@ def parse_tokens(
                     line_sound = True
                 stack[-1].moves_allowed = 1 if is_black_only else 2
                 continue
+            if game is None and over is not None and _ply_of(number, is_black_only) in (
+                _ply_awaited(over[1].board),
+                (over[2] + 1) if over[2] is not None else None,
+            ):
+                # The number carries on the numbering of the game the result
+                # closed, so this is that game still: the moves the loser
+                # resigned in the face of. Opened as a game of its own they
+                # start from a position the book never printed and none of
+                # them is scored at all.
+                game, stack, over = over[0], [over[1]], None
             if weighted and token.bold and stack:
                 _resume_the_score(_ply_of(number, is_black_only))
             opens_a_game = game is None or (
@@ -803,6 +821,7 @@ def parse_tokens(
             continue
 
         if token.kind == "result":
+            over = (game, stack[0], last_declared) if game is not None and stack else None
             game = None
             finished = True
             stack = []

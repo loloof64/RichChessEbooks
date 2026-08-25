@@ -1319,3 +1319,59 @@ class TestTwoAlternativeVariationsAtOneNumber:
 
         assert (last.san, last.status) == ("Bc5", "ok")
         assert last.ply == 8
+
+
+class TestTheGameGoesOnPastItsResult:
+    """A book plays out the moves the loser resigned in the face of.
+
+    Grivas page 17 ends `27 ♗xe7 1-0` and then prints "Black resigned due to
+    27...♔xe7 28 ♕f6+ ♔d7 29 ♕xc6+". Laurent: *"en dépit du résultat 1-0 plus
+    haut, tu peux interpréter cette ligne, car il s'agit bien de la ligne
+    principale comme si elle avait vraiment été jouée avant l'abandon"*.
+
+    A result closed the game and emptied the stack, so those half-moves opened
+    a game of their own — one starting at move 27 from a position the book
+    never printed, every move of it broken and none of it scored. What says
+    otherwise is the number: it carries on the numbering of the game that just
+    ended.
+    """
+
+    def game(self, *after: tuple[str, str]) -> list[Token]:
+        played = ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Bxc6"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        tokens.append(tok("result", "1-0"))
+        tokens += [tok(kind, text) for kind, text in after]
+        return tokens
+
+    def test_the_line_after_the_result_is_the_game_that_just_ended(self):
+        result = parse_tokens(self.game(
+            ("text", "Black resigned in view of"),
+            ("move_number", "4..."), ("move", "dxc6"),
+            ("move_number", "5"), ("move", "Nxe5"),
+        ))
+
+        assert len(result.games) == 1
+        assert [m.san for m in result.moves[-2:]] == ["dxc6", "Nxe5"]
+        assert [m.status for m in result.moves[-2:]] == ["ok", "ok"]
+
+    def test_a_number_that_starts_over_starts_a_game(self):
+        result = parse_tokens(self.game(
+            ("move_number", "1"), ("move", "d4"), ("move", "d5"),
+        ))
+
+        assert len(result.games) == 2
+        assert result.games[1].position_known
+
+    def test_a_number_neither_continuing_nor_starting_still_opens_nothing_known(self):
+        # Analysis quoted after a result and belonging to no game the book
+        # printed. It is read and kept for its box; none of it is scored.
+        result = parse_tokens(self.game(
+            ("move_number", "18..."), ("move", "Rf6"),
+        ))
+
+        assert len(result.games) == 2
+        assert not result.games[1].position_known
