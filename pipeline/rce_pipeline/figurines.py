@@ -108,6 +108,50 @@ def _sample(pages: list[Page]) -> list[Page]:
     return sorted(ranked[:_SAMPLE_PAGES], key=lambda page: page.number)
 
 
+#: What a scanner puts where a move's file letter belongs. A file letter is
+#: always followed by the rank digit, which is what makes these safe to put
+#: back: `£` is a pound sign anywhere else in a book and an `f` only here.
+#: Measured over the corpus: 21 of them on SuperAttaquant and 7 on Boussole
+#: (`ltJ£6` for a knight to f6, `10.£4`, `20.¢3`), and not one on the four
+#: books that were typeset.
+_MISREAD_FILES = {"£": "f", "¢": "c"}
+
+
+def restore_file_letters(pages: list[Page]) -> list[Page]:
+    """Put back the file letters this book's scanner read as something else.
+
+    The damage one of these does is out of all proportion to its size. The
+    tokeniser cannot read `£5` as a move, so the move is lost; and the space
+    beside it goes with it, so `18.exd5 £5 19.d6` arrives as `exd5` and then a
+    move number of **519**. That number names no ply, so it opens a game the
+    book never began and every move under it is unscored — 64 of them on
+    SuperAttaquant page 198 alone.
+
+    Rewritten on the page rather than repaired in the parser, for the reason
+    :func:`rewrite` gives: one character takes the place of one character, in
+    its own box, and nothing downstream need know the book was ever different.
+    """
+    wanted = _MISREAD_FILES
+    out = []
+    for page in pages:
+        text = page.text
+        at = [
+            index for index, char in enumerate(text)
+            if char in wanted and index + 1 < len(text) and text[index + 1] in "12345678"
+        ]
+        if not at:
+            out.append(page)
+            continue
+        chars = list(page.chars)
+        letters = list(text)
+        for index in at:
+            letters[index] = wanted[text[index]]
+            if index < len(chars):
+                chars[index] = dataclasses.replace(chars[index], char=letters[index])
+        out.append(dataclasses.replace(page, text="".join(letters), chars=chars))
+    return out
+
+
 def rewrite(pages: list[Page], mapping: dict[str, str]) -> list[Page]:
     """The same pages with every symbol replaced by its Unicode figurine.
 

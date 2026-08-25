@@ -443,7 +443,34 @@ def settle(
         # not happen, and on one whose boards each carry a character no twin
         # covers is all it can say. A table nothing supports is not a table.
         return []
-    return [table for score, table in ranked if score == best]
+    standing = [table for score, table in ranked if score == best]
+    seen = Counter(char for rows in positions for row in rows for char in row)
+    return sorted(standing, key=lambda table: _how_many_of_each(table, seen, len(positions)))
+
+
+#: How many of a piece a middlegame board carries, on average. Rooks are the
+#: pieces a game keeps longest and bishops the ones it spends, and that is the
+#: whole of what this is for: legality cannot tell a rook from a bishop — swap
+#: them and every position is still a position — and neither can the moves,
+#: where the book prints too few of them to reach one. What can is the count.
+#: On SuperAttaquant's thirteen boards the two characters this names rooks
+#: stand on every board, 25 and 23 times; the two it names bishops stand on ten
+#: and eleven, 14 and 16 times. The right table and the one with the rooks and
+#: bishops exchanged read the book equally well — 13 clean moves each — and
+#: this is what separates them.
+_HOW_MANY = {"k": 1.0, "q": 0.7, "r": 1.8, "b": 1.2, "n": 1.2, "p": 6.5}
+
+
+def _how_many_of_each(table: dict[str, str], seen: Counter, boards: int) -> float:
+    """How far this table's pieces stand from the number a board carries."""
+    held = Counter()
+    for char, kind in table.items():
+        if kind != ".":
+            held[kind.lower()] += seen.get(char, 0)
+    return sum(
+        abs(held[kind] / max(boards, 1) / 2 - expected)
+        for kind, expected in _HOW_MANY.items()
+    )
 
 
 def _stands(rows: Sequence[str], table: dict[str, str]) -> bool:

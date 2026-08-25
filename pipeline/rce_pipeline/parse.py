@@ -15,6 +15,7 @@ noise into an `uncertain` move with a usable FEN, instead of a hole in the line.
 from __future__ import annotations
 
 import re
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Sequence
 
@@ -424,9 +425,77 @@ def _ply_of(number: int, is_black: bool) -> int:
 _NUMBER_CEILING = 120
 
 
+def _the_line_after(tokens: Sequence[Token], at: int, most: int = 6) -> list[str]:
+    """The run of moves printed after this point, as far as the score runs.
+
+    Move numbers and the annotations that decorate a move are read across;
+    prose, a bracket or a result end the run, because past one of those the
+    moves are no longer this line's.
+    """
+    out: list[str] = []
+    for token in tokens[at:]:
+        if token.kind == "move":
+            out.append(token.text)
+            if len(out) == most:
+                break
+        elif token.kind not in ("annotation", "move_number"):
+            break
+    return out
+
+
+#: How many of the moves printed after an eaten ply have to play, in order,
+#: before the move that was eaten is believed. Two is not enough — a black move
+#: to the fifth rank rarely stops White pushing a pawn — and the line runs on
+#: past the break for as long as the book keeps printing it.
+_EATEN_LOOKAHEAD = 3
+
+
+def _move_of_the_eaten_ply(
+    board: chess.Board, rank: int, line: Sequence[str]
+) -> str | None:
+    """The move the welded number destroyed, named by the board.
+
+    All the number kept of it is the rank it ended on — the `5` of `f5` in
+    `519`. That names a dozen legal moves and one of them is the book's, and
+    what tells them apart is the score itself: it goes on, so the right move is
+    the one the moves printed after it can be played from. One move of that is
+    not enough (`18.exd5 ? 19.d6` — the pawn pushes whatever Black did), so the
+    line is followed as far as the book prints it, and the move that carries it
+    furthest wins.
+
+    Where two carry it equally far the move is **not** put back. A wrong move
+    here would be worse than a missing one: it is played, it is legal, and
+    every position below it is one the book never printed — which is the way
+    `clean` lies, and this pipeline counts that as the failure it is.
+    """
+    if len(line) < _EATEN_LOOKAHEAD:
+        return None
+    wanted = rank - 1
+    best, carried = [], 0
+    for move in board.legal_moves:
+        if chess.square_rank(move.to_square) != wanted:
+            continue
+        after = board.copy(stack=False)
+        after.push(move)
+        reached = 0
+        for text in line:
+            try:
+                after.push_san(_TRAILING_ANNOTATION.sub("", text.strip()))
+            except ValueError:
+                break
+            reached += 1
+        if reached > carried:
+            best, carried = [move], reached
+        elif reached == carried:
+            best.append(move)
+    if carried < _EATEN_LOOKAHEAD or len(best) != 1:
+        return None
+    return board.san(best[0])
+
+
 def _number_stripped_of_a_lost_move(
     number: int, is_black: bool, board: chess.Board
-) -> int | None:
+) -> tuple[int | None, int | None]:
     """The number under a digit the scan welded to the front of it.
 
     "18.exd5 f5 19.d6!" comes off SuperAttaquant's page as `exd5` and then the
@@ -441,15 +510,22 @@ def _number_stripped_of_a_lost_move(
     170 to 181 — and stripping *those* to 70 and 81 would move a line that was
     right. So the digits come off only where what is left is the ply the game
     is waiting for, or the one after it: the move the welding destroyed is the
-    ply in between.
+    ply in between. Where that is what happened the rank the number kept comes
+    back with it, and `_move_of_the_eaten_ply` asks the board which move it was.
     """
     text = str(number)
     awaited = _ply_awaited(board)
     for cut in range(1, len(text)):
         candidate = int(text[cut:] or 0)
-        if candidate and _ply_of(candidate, is_black) in (awaited, awaited + 1):
-            return candidate
-    return None
+        if not candidate:
+            continue
+        named = _ply_of(candidate, is_black)
+        if named == awaited:
+            return candidate, None
+        if named == awaited + 1:
+            eaten = int(text[cut - 1])
+            return candidate, (eaten if 1 <= eaten <= 8 else None)
+    return None, None
 
 
 def _ply_awaited(board: chess.Board) -> int:
@@ -781,7 +857,10 @@ def parse_tokens(
     #: licence keeps out is the commentary naming a square, and prose is what
     #: stands in front of that.
     last_kind: str | None = None
-    for token in tokens:
+    at = 0
+    while at < len(tokens):
+        token = tokens[at]
+        at += 1
         kind_before, last_kind = last_kind, token.kind
         if token.kind == "text":
             level = stack[-1] if stack else None
@@ -867,9 +946,24 @@ def parse_tokens(
             number = int(re.match(r"\d+", token.text).group())
             is_black_only = "..." in token.text
             if number > _NUMBER_CEILING and stack:
-                number = _number_stripped_of_a_lost_move(
-                    number, is_black_only, stack[0].board
-                ) or number
+                stripped, eaten = _number_stripped_of_a_lost_move(
+                    number, is_black_only, stack[-1].board
+                )
+                if stripped is not None:
+                    number = stripped
+                    if eaten is not None and not stack[-1].board_lost:
+                        # The digit the number kept is the rank of the move it
+                        # destroyed, and the board says which move that was.
+                        put_back = _move_of_the_eaten_ply(
+                            stack[-1].board, eaten, _the_line_after(tokens, at)
+                        )
+                        if put_back is not None:
+                            tokens.insert(at, dataclasses.replace(
+                                token, kind="move", text=put_back, raw=token.text,
+                                consumed="", lost_symbol="", lost_piece="",
+                            ))
+                            stack[-1].moves_allowed = max(stack[-1].moves_allowed, 1)
+                            last_kind = "move_number"
             seeded = None
             if pending_position is not None:
                 # The diagram gave the placement and this number gives the rest

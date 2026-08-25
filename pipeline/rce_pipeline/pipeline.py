@@ -198,6 +198,10 @@ def run(
     # knight — is turned into the Unicode book it would otherwise have been,
     # before anything downstream looks at it. Costs nothing on a book that does
     # not: with no candidate character there is nothing to settle.
+    # Before anything reads a move: a file letter the scanner turned into a
+    # currency sign takes its move down and the number beside it as well.
+    pages = figurines.restore_file_letters(pages)
+
     symbols = figurines.candidates(pages)
     read_as = figurines.settle(pages, symbols) if symbols else {}
     if read_as:

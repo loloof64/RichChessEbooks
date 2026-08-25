@@ -1320,10 +1320,10 @@ class TestANumberAScanWeldedALostMoveOnto:
             board.push_san(san)
 
         # The game awaits Black's third; "64." is White's fourth with the rank
-        # of the black move it destroyed welded on.
-        assert _number_stripped_of_a_lost_move(64, False, board) == 4
+        # of the black move it destroyed welded on — and it kept that rank.
+        assert _number_stripped_of_a_lost_move(64, False, board) == (4, 6)
         # And a page number names nothing the count is waiting for.
-        assert _number_stripped_of_a_lost_move(170, False, board) is None
+        assert _number_stripped_of_a_lost_move(170, False, board) == (None, None)
 
     def test_a_page_number_in_the_score_is_left_alone(self):
         """Tactics prints 170 to 181 where the score can reach them.
