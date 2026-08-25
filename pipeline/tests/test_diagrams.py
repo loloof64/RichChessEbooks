@@ -241,6 +241,41 @@ class TestInTheParser:
         assert opened.initial_fen.startswith(position)
         assert [m.status for m in result.moves if m.game_id == opened.id] == ["ok", "ok"]
 
+    def test_the_board_is_believed_over_a_number_that_lost_its_ellipsis(self):
+        """`24` for `24...`: a scan loses an ellipsis as readily as anything.
+
+        The number under a board says whose move it is. Where the move printed
+        after it cannot be played by the side the number named and can be
+        played by the other, the board is believed — and only there, so the
+        rule can take nothing away from a reading that worked.
+        """
+        position = fen_after("d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5")
+        result = parse_tokens(
+            self.make_tokens(
+                ("diagram", "/".join(rows_of(position))),
+                # The book printed "4...", and the scan kept "4."
+                ("move_number", "4."), ("move", "Be7"), ("move", "e3"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        assert result.games[0].position_known is True
+        assert " b " in result.games[0].initial_fen
+        assert [m.status for m in result.moves] == ["ok", "ok"]
+
+    def test_a_number_the_board_agrees_with_is_left_alone(self):
+        position = fen_after("d4", "d5", "c4", "e6", "Nc3", "Nf6")
+        result = parse_tokens(
+            self.make_tokens(
+                ("diagram", "/".join(rows_of(position))),
+                ("move_number", "4."), ("move", "Bg5"), ("move", "Be7"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        assert " w " in result.games[0].initial_fen
+        assert [m.status for m in result.moves] == ["ok", "ok"]
+
     def test_a_diagram_puts_a_line_that_drifted_back_on_the_board(self):
         # The score is read into the wrong branch, and then the book prints
         # where the pieces actually are.

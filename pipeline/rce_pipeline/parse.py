@@ -425,6 +425,15 @@ def _ply_of(number: int, is_black: bool) -> int:
 _NUMBER_CEILING = 120
 
 
+def _plays(fen: str, text: str) -> bool:
+    """Whether this move can be played on this position, annotations and all."""
+    try:
+        chess.Board(fen).push_san(_TRAILING_ANNOTATION.sub("", text.strip()))
+    except ValueError:
+        return False
+    return True
+
+
 def _the_line_after(tokens: Sequence[Token], at: int, most: int = 6) -> list[str]:
     """The run of moves printed after this point, as far as the score runs.
 
@@ -971,6 +980,21 @@ def parse_tokens(
                 seeded = diagrams.initial_fen(
                     pending_position, number=number, black_to_move=is_black_only
                 )
+                line = _the_line_after(tokens, at)
+                if line and not _plays(seeded, line[0]):
+                    # The number under a board says whose move it is, and a
+                    # scan loses an ellipsis as readily as anything else: `24`
+                    # for `24...`. Where the move printed after it cannot be
+                    # played by the side the number named and can be played by
+                    # the other, the board is believed over the number. Only
+                    # there — the reading is already broken when this fires,
+                    # so it can take nothing away. Two of SuperAttaquant's
+                    # seeded games open on such a number.
+                    other = diagrams.initial_fen(
+                        pending_position, number=number, black_to_move=not is_black_only
+                    )
+                    if _plays(other, line[0]):
+                        seeded, is_black_only = other, not is_black_only
                 pending_position = None
                 if not chess.Board(seeded).is_valid():
                     # The board decoded, and it is not a position: the side the
