@@ -103,7 +103,16 @@ _TOKEN_TEMPLATE = r"""
           # `de l'échiquier` is shaped exactly like `Re1` and every article in
           # the book becomes a move. 27 of them over two scans, and not one
           # real move in the corpus is followed by one.
-          (?![A-Za-z0-9'])
+          #
+          # Unless what runs into it is the next move. A restored symbol gives
+          # back one character where the scan had three, and the space beside
+          # it goes with them: Boussole page 65 prints `16 ♗a2 ♗c7` and the
+          # layer has `16♗a2♗c7`, where neither move is read at all — White's
+          # sixteenth and Black's are both lost, and the game is two plies
+          # behind the page from there to the end. A piece letter with a
+          # square behind it is a move and is nothing else; prose that begins
+          # a word with a capital does not carry on with a file and a rank.
+          (?:(?![A-Za-z0-9'])|(?=[{pieces}]x?[a-h][{ranks}]))
       )
     | (?P<annotation>[!?]{{1,2}}|[±∓⩲⩱∞⟳→↑↓⇆=]|\+[-=]|-\+)
     """
@@ -351,6 +360,90 @@ def _tokenize_page(
     return _free_a_number_a_board_stranded(tokens, page, text)
 
 
+def _tokenize_page(
+    page: Page,
+    token_re: re.Pattern[str],
+    to_san: dict[int, int],
+    diagrams: list[Any],
+    spellings: dict[str, str],
+) -> list[Token]:
+    """The page's tokens, the diagram blocks standing whole between them."""
+    text = normalise(page.text)
+    tokens: list[Token] = []
+    cursor = 0
+    for diagram in sorted(diagrams, key=lambda d: d.start):
+        tokens.extend(_tokenize_span(
+            page, text, token_re, to_san, cursor, diagram.start, spellings
+        ))
+        tokens.append(
+            Token(
+                kind="diagram",
+                text="/".join(diagram.rows),
+                raw=page.text[diagram.start : diagram.end],
+                page=page.number,
+                start=diagram.start,
+                end=diagram.end,
+                bbox=diagram.bbox or page.bbox_for(diagram.start, diagram.end),
+            )
+        )
+        cursor = diagram.end
+    tokens.extend(_tokenize_span(
+        page, text, token_re, to_san, cursor, len(text), spellings
+    ))
+    return _free_a_number_a_board_stranded(tokens, page, text)
+
+
+def _drop_a_bracket_nothing_closes(tokens: list[Token]) -> list[Token]:
+    """A parenthesis with no partner in the whole run was never printed.
+
+    A scan invents them: Boussole page 65 opens one in the middle of the word
+    "obliges" and nothing closes it, so everything below — the game's own
+    score included — is read as one enormous variation. `parse` trusts a
+    bracket over every rule it has, on the ground that the book was explicit
+    there; that ground is gone when the book never wrote it. The two
+    alternative variations at the top of that page's second column are read as
+    two alternatives once it goes, which is what they are.
+
+    Balanced over the **whole run** and not page by page, because a book
+    really does open a variation on one page and close it on the next: doing
+    this a page at a time takes three of Boussole's pages away entirely.
+
+    Only the unmatched ones go. A bracket that is merely misplaced still says
+    a variation is here somewhere.
+    """
+    opens: list[int] = []
+    unmatched: set[int] = set()
+    for index, token in enumerate(tokens):
+        if token.kind == "var_open":
+            opens.append(index)
+        elif token.kind == "var_close":
+            if opens:
+                opens.pop()
+            # An unmatched `)` is left alone: it closes nothing, and `parse`
+            # already ignores one that arrives at the top of the stack.
+        elif token.kind == "result":
+            # A game is as far as a bracket ever reaches. Balancing the whole
+            # book instead lets a stray `)` pages away pair with an invented
+            # `(` and the invention survives; balancing a page at a time
+            # breaks the variation a book opens on one page and closes on the
+            # next, and costs Boussole three pages.
+            unmatched.update(opens)
+            opens.clear()
+    # And an unmatched `(` only where it opens on prose. A variation begins
+    # with a move or with the number announcing one, always; a bracket that
+    # opens on a word is not one however the rest of the page balances, and
+    # requiring both signs is what keeps three of Boussole's pages, where a
+    # stray parenthesis stands in front of a line of play that is real.
+    unmatched.update(
+        index for index in opens
+        if index + 1 >= len(tokens)
+        or tokens[index + 1].kind not in ("move", "move_number")
+    )
+    if not unmatched:
+        return tokens
+    return [t for i, t in enumerate(tokens) if i not in unmatched]
+
+
 def _tokenize_span(
     page: Page,
     text: str,
@@ -413,7 +506,14 @@ def _tokenize_span(
                     # token takes it in without reading anything into it.
                     stump = _wreck_before_a_named_piece(text, start)
                     if not stump:
-                        continue
+                        # Or the move before it, run into it by the same lost
+                        # space: `16♗a2♗c7`. What stands behind is not a word
+                        # but a move already read, so there is no word here to
+                        # refuse. Black's sixteenth was dropped for want of
+                        # this, and the game read two plies behind the page
+                        # for the rest of Boussole page 65.
+                        if not (out and out[-1].kind == "move" and out[-1].end == start):
+                            continue
                     start -= len(stump)
             # The wreck is the piece as the book printed it, so the token
             # starts there: the reader's tap zone has to cover the symbol, not

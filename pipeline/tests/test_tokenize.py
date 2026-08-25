@@ -457,3 +457,36 @@ class TestANumberSeparatedFromItsMove:
         tokens = tokenize_pages([page_of(text)])
 
         assert [t.text for t in tokens if t.kind == "move_number"] == ["1"]
+
+
+class TestTwoMovesRunTogether:
+    """A restored symbol takes the space beside it, and welds two moves.
+
+    `16 ♗a2 ♗c7` arrives as `16♗a2♗c7`: the pattern refuses the first move
+    because the second runs into it, and then refuses the second because a
+    word is already running. Neither is read, and Boussole page 65 loses
+    White's sixteenth and Black's — after which the game is two plies behind
+    the page to the end of the game.
+    """
+
+    def test_both_moves_are_read(self):
+        moves = [t for t in tokenize_pages([page_of("15.Qf3 c6 16Ba2Bc7 17.Nf5")])
+                 if t.kind == "move"]
+
+        assert [t.text for t in moves] == ["Qf3", "c6", "Ba2", "Bc7", "Nf5"]
+
+    def test_the_number_welded_in_front_still_stands_on_its_own(self):
+        numbers = [t for t in tokenize_pages([page_of("15.Qf3 c6 16Ba2Bc7")])
+                   if t.kind == "move_number"]
+
+        assert [t.text for t in numbers] == ["15.", "16"]
+
+    def test_only_a_move_may_run_into_a_move(self):
+        # The lookahead this relaxes is what stops a move from being read out
+        # of the middle of a word, and it is only given up for a piece letter
+        # with a square behind it. A capital that begins anything else still
+        # refuses the move in front of it.
+        moves = [t for t in tokenize_pages([page_of("1.e4 Ra1Zurich 1993")])
+                 if t.kind == "move"]
+
+        assert [t.text for t in moves] == ["e4"]
