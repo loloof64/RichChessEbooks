@@ -87,6 +87,35 @@ class TestRepair:
         assert move.text == "Nd2"
         assert move.consumed == "Db"
 
+    def test_it_puts_back_the_file_it_reached_past_its_own_ink(self):
+        # SuperAttaquant prints `20.♗b5!!` and its scanner reads the bishop as
+        # `2`. The glyph's box is twice a letter's, so the range ends one
+        # character late and takes the `b` — leaving `♗5`, which is not a move
+        # at all. The game died on it with sixty-two moves under it.
+        repaired = repair_page(page("20.2b5!"), [glyph("B", 35.0, 2 * CHAR_WIDTH)])
+
+        assert repaired.text == "20.♗b5!"
+
+    def test_the_file_it_gives_back_is_no_longer_part_of_the_ink(self):
+        repaired = repair_page(page("20.2b5!"), [glyph("B", 35.0, 2 * CHAR_WIDTH)])
+
+        assert next(c for c in repaired.chars if c.char == "♗").consumed == "2"
+
+    def test_the_file_keeps_the_box_it_was_printed_in(self):
+        # It is the reader's tap zone as much as the symbol is, and the box the
+        # layer gave it is the only measurement of where it stands.
+        repaired = repair_page(page("20.2b5!"), [glyph("B", 35.0, 2 * CHAR_WIDTH)])
+
+        assert next(c for c in repaired.chars if c.char == "b").bbox.x == 40.0
+
+    def test_a_whole_square_behind_the_symbol_settles_nothing(self):
+        # `1.♘bd2` scanned `1.Dbd2` loses the same way, and there is no telling
+        # from the page: `♘d2` is a move, so the range may have taken a
+        # disambiguating letter or nothing at all. Only a bare rank proves it.
+        repaired = repair_page(page("1.Dbd2"), [glyph("N", 30.0, 2 * CHAR_WIDTH)])
+
+        assert repaired.text == "1.♘d2"
+
     def test_symbol_carries_its_own_box_and_font(self):
         repaired = repair_page(page("1.Dxe4"), [glyph("Q", 30.0, 2 * CHAR_WIDTH)])
         written = next(char for char in repaired.chars if char.char == "♕")

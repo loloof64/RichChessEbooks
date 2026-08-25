@@ -316,6 +316,36 @@ def recover_pieces(
     return repair_pages(pages, found), found
 
 
+#: The move's own square, in file and rank.
+_FILES = frozenset("abcdefgh")
+_RANKS = frozenset("12345678")
+
+
+def _file_the_symbol_swallowed(page: Page, start: int, end: int) -> Char | None:
+    """The file letter a glyph's box reached past its own ink to take.
+
+    A symbol is twice a letter's width and `_covered_range` divides a word's
+    box evenly, so the range can end one character late: SuperAttaquant prints
+    `20.♗b5!!` and the pass writes `20.♗5!!` — not a move at all, and the game
+    died on it with sixty-two moves under it.
+
+    What says so with certainty is what follows the symbol: a bare rank. A
+    move goes to a square and names both halves of it, so a piece with a lone
+    rank behind it has lost the file, and the last letter of the ink the
+    symbol covered is that file. Where a whole square follows, the range may
+    still have swallowed a *disambiguating* letter (`♘bd2` -> `♘d2`) and
+    nothing on the page can tell — the reading is a move either way.
+    """
+    if end <= start or page.chars[end - 1].char not in _FILES:
+        return None
+    after = page.chars[end : end + 2]
+    if not after or after[0].char not in _RANKS:
+        return None
+    if len(after) > 1 and after[1].char in _FILES:
+        return None
+    return page.chars[end - 1]
+
+
 def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
     """Write the recognised glyphs into a copy of `page`.
 
@@ -330,37 +360,45 @@ def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
     of a previous :func:`~rce_pipeline.scan.segment_lines` pass, in particular
     — no longer applies to it. Segment first, repair after.
     """
-    edits: list[tuple[int, int, Char]] = []
+    edits: list[tuple[int, int, list[Char]]] = []
     for glyph in glyphs:
         if glyph.page != page.number:
             continue
         start, end = _covered_range(page, glyph.bbox)
+        # A symbol is twice a letter's width, so the range can reach one
+        # character too far and take the move's own file with it. Where it
+        # did, the letter is put back and is no longer part of the ink.
+        swallowed = _file_the_symbol_swallowed(page, start, end)
+        ink = page.chars[start : end - 1 if swallowed else end]
         edits.append(
             (
                 start,
                 end,
-                Char(
-                    char=glyph.figurine,
-                    bbox=glyph.bbox,
-                    font=GLYPH_FONT,
-                    size=round(glyph.bbox.h, 2),
-                    # What the figurine covers is mostly the scanner's guess at
-                    # the symbol, which is worthless — but a symbol is twice a
-                    # letter's width, so the range can also swallow the
-                    # disambiguating letter beside it (`♘bd2` -> `♘d2`). Kept
-                    # because this is the last place it exists.
-                    consumed="".join(c.char for c in page.chars[start:end]),
-                    # A recovered symbol is set in whatever weight the
-                    # characters it covers were.
-                    bold=any(c.bold for c in page.chars[start:end]),
-                ),
+                [
+                    Char(
+                        char=glyph.figurine,
+                        bbox=glyph.bbox,
+                        font=GLYPH_FONT,
+                        size=round(glyph.bbox.h, 2),
+                        # What the figurine covers is mostly the scanner's
+                        # guess at the symbol, which is worthless — but the
+                        # range can also swallow the disambiguating letter
+                        # beside it (`♘bd2` -> `♘d2`), which nothing here can
+                        # see. Kept because this is the last place it exists.
+                        consumed="".join(c.char for c in ink),
+                        # A recovered symbol is set in whatever weight the
+                        # characters it covers were.
+                        bold=any(c.bold for c in ink),
+                    ),
+                ]
+                + ([swallowed] if swallowed else []),
             )
         )
 
     chars = list(page.chars)
     # Applied right to left so that an earlier edit's indices stay valid.
-    for start, end, char in sorted(edits, key=lambda edit: -edit[0]):
-        chars[start:end] = [char]
+    for start, end, written in sorted(edits, key=lambda edit: -edit[0]):
+        chars[start:end] = written
 
     return Page(
         number=page.number,
