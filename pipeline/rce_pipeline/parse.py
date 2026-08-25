@@ -953,7 +953,9 @@ def parse_tokens(
 
         if token.kind == "move_number":
             number = int(re.match(r"\d+", token.text).group())
-            is_black_only = "..." in token.text
+            # Two dots or three: a scan loses one as readily as it loses
+            # anything, and only a black number carries more than one.
+            is_black_only = token.text.count(".") > 1
             if number > _NUMBER_CEILING and stack:
                 stripped, eaten = _number_stripped_of_a_lost_move(
                     number, is_black_only, stack[-1].board

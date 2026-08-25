@@ -55,8 +55,16 @@ _TOKEN_TEMPLATE = r"""
           (?<![A-Za-z\d])
           \d(?:[ ]?\d){{0,2}}
           (?:
-              # The usual form, and the `12...` that announces a black move.
-              \s*\.(?:\s*\.\s*\.)?
+              # The usual form, and the `12...` that announces a black move
+              # — which a scan prints with two dots as readily as three.
+              # Nineteen of SuperAttaquant's black numbers lost a dot and
+              # fifteen of Boussole's; read as white's, each one throws the
+              # rest of its line a ply out of step with the page. A white
+              # number is one dot and only one, so nothing else is at stake.
+              # The two-dot form is tight, where the three-dot one tolerates
+              # spaces: `9. .i.xg5` opens with a move number and the wreck of
+              # a bishop, and a loose second dot eats the wreck.
+              \s*\.(?:\s*\.\s*\.|\.)?
               # Batsford, Gambit and Informator print `12 Nb1` with no dot at
               # all. Accepting a bare number would make a move number of every
               # figure in the prose, so it only counts when a move follows it

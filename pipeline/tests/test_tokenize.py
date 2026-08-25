@@ -76,6 +76,31 @@ class TestTheBooksOwnSpelling:
         assert next(t for t in tokens if t.text == "xg5").lost_piece == "B"
 
 
+class TestANumberThatLostADot:
+    """`21..♕xb5` — a scan loses one dot of an ellipsis as readily as it
+    loses anything else. Nineteen of SuperAttaquant's black numbers and
+    fifteen of Boussole's, and each one throws the rest of its line a ply out
+    of step with the page: `21...♕xb5` read as White's twenty-first."""
+
+    def test_two_dots_announce_a_black_move(self):
+        tokens = tokenize_pages([page_of("20 Bb5 axb5 21 axb5 21..Qxb5")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"][-1] == "21.."
+
+    def test_the_side_it_names_is_black(self):
+        result = parse_tokens(tokenize_pages([page_of("1 e4 e5 2 Nf3 2..Nc6")]))
+
+        move = result.moves[-1]
+        assert (move.san, move.variation_index) == ("Nc6", 0)
+
+    def test_the_second_dot_may_not_stand_off(self):
+        # `9. .i.xg5` is a move number and then the wreck of a bishop. A loose
+        # second dot eats the wreck, and the board is left guessing the piece.
+        tokens = tokenize_pages([page_of("8.g5 hxg5 9. .i.xg5 Re8")])
+
+        assert next(t for t in tokens if t.text == "xg5").lost_symbol == ".i."
+
+
 class TestARankNoMoveCanCarry:
     """A digit at the head of a move that names no piece.
 
