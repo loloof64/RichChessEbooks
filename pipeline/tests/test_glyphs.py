@@ -21,6 +21,7 @@ from rce_pipeline.glyphs import (
     find_glyphs,
     placement_score,
     repair_page,
+    spellings,
 )
 from rce_pipeline.tokenize import tokenize_pages
 
@@ -118,6 +119,47 @@ class TestRepair:
         )
 
         assert repaired.text == "1.♘e4 ♖e4"
+
+
+class TestSpellings:
+    """How this book's scanner spells each piece, from the symbols restored.
+
+    Every symbol written back over a page keeps the ink it covered, so a book
+    that needed the glyph pass has spelled its own pieces several hundred
+    times over with the answer beside each one. The same spellings stand where
+    the pass failed, which is where the parser was left asking the board.
+    """
+
+    def repaired(self, *inks: tuple[str, str]) -> list[Page]:
+        """One page per (ink, piece), the symbol written over the ink."""
+        return [
+            repair_page(page(f"1.{ink}e4"), [glyph(piece, 30.0, len(ink) * CHAR_WIDTH)])
+            for ink, piece in inks
+        ]
+
+    def test_the_ink_under_a_symbol_is_how_the_book_spells_it(self):
+        # Boussole prints `ltJ` where a knight stands, sixty times over.
+        assert spellings(self.repaired(*[("ltJ", "N")] * 3)) == {"ltJ": "N"}
+
+    def test_a_spelling_seen_twice_is_not_believed(self):
+        # Two occurrences are a coincidence away from being one.
+        assert spellings(self.repaired(*[("ltJ", "N")] * 2)) == {}
+
+    def test_a_spelling_the_book_uses_for_two_pieces_is_dropped(self):
+        # Grivas spells 11 queens and 10 kings `'ili`. Nothing there names a
+        # piece, and guessing the majority would name one in nine wrongly.
+        seen = [("'ili", "Q")] * 3 + [("'ili", "K")] * 3
+        assert spellings(self.repaired(*seen)) == {}
+
+    def test_the_odd_misreading_does_not_unseat_a_spelling(self):
+        seen = [("ltJ", "N")] * 9 + [("ltJ", "B")]
+        assert spellings(self.repaired(*seen)) == {"ltJ": "N"}
+
+    def test_the_ink_is_keyed_as_the_tokeniser_reads_it(self):
+        # `normalise` is what the wreck will have been through by the time it
+        # is looked up, and it is not the identity: the Grivas book's `...`
+        # is three bullets.
+        assert spellings(self.repaired(*[("\u2022i.", "B")] * 3)) == {".i.": "B"}
 
 
 class TestBrokenFontLeftovers:

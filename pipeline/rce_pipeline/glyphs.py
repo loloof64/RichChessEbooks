@@ -42,6 +42,7 @@ import os
 import pickle
 import re
 import zipfile
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
@@ -366,6 +367,52 @@ def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
         text="".join(char.char for char in chars),
         chars=chars,
     )
+
+
+#: How many times a spelling must have been seen before it is believed, and
+#: how much of that vote the winning piece must hold. A book's OCR spells a
+#: symbol the same way over and over — Boussole prints `ltJ` for a knight 60
+#: times and never anything else — so what these keep out is the run of ink
+#: that happens to look like two different pieces on two occasions.
+_MIN_SPELLINGS = 3
+_SPELLING_MAJORITY = 0.8
+
+
+def spellings(pages: Sequence[Page]) -> dict[str, str]:
+    """How this book's scanner spells each piece, from the symbols it restored.
+
+    Every symbol written back over the page covers the ink the OCR made of it,
+    and that ink is kept on the character (`Char.consumed`). So the book has
+    already been made to spell each of its pieces several hundred times over,
+    with the answer beside it: `ltJ` is a knight, `i.` a bishop, `:` a rook,
+    `<it` a king, `'ii` a queen — the whole table Boussole needs, learned from
+    the book itself and with no legality asked anywhere.
+
+    That is worth having because the same spellings turn up where the glyph
+    pass **failed**: a symbol it could not restore leaves exactly this ink
+    standing in front of the square, and the parser was left asking the board
+    which of the five pieces could reach it. Two can, often enough, and the
+    move dies with the rest of the line under it.
+
+    Keyed by the ink as :func:`~rce_pipeline.tokenize.normalise` leaves it,
+    because that is the alphabet the wreck is read in.
+    """
+    from .notation import FIGURINE_TO_LETTER
+    from .tokenize import normalise
+
+    votes: dict[str, Counter[str]] = defaultdict(Counter)
+    for page in pages:
+        for char in page.chars:
+            piece = FIGURINE_TO_LETTER.get(char.char)
+            if piece is not None and char.consumed:
+                votes[normalise(char.consumed)][piece] += 1
+    table = {}
+    for ink, counts in votes.items():
+        piece, said = counts.most_common(1)[0]
+        total = sum(counts.values())
+        if total >= _MIN_SPELLINGS and said >= _SPELLING_MAJORITY * total:
+            table[ink] = piece
+    return table
 
 
 def placement_score(pages: Sequence[Page]) -> tuple[int, int]:

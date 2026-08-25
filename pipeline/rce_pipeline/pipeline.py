@@ -262,7 +262,12 @@ def run(
     boards = sorted(printed + drawn, key=lambda d: (d.page, d.start))
 
     tokens = tokenize.tokenize_pages(
-        pages, piece_letters=report.piece_letters, diagrams=boards
+        pages,
+        piece_letters=report.piece_letters,
+        diagrams=boards,
+        # What the glyph pass restored teaches how this book's scanner spells
+        # each piece, and the same spellings stand where it failed.
+        spellings=glyphs.spellings(pages) if recovered else None,
     )
     marked = 0
     if not parse.weight_marks_the_line(tokens):

@@ -29,6 +29,52 @@ class TestTheWreckOfASymbol:
         move = next(t for t in tokens if t.kind == "move" and t.text == "h1")
         assert move.lost_symbol == "fi>"
 
+    def test_it_gives_the_move_number_back_its_dot(self):
+        # `9.i.xg5` on Boussole page 65. The run reaches back over the number's
+        # dot, and a wreck overlapping the token before it used to be dropped
+        # whole — so the bishop was lost, `xg5` was read as a piece the board
+        # had to guess, and it could not: fifteen moves of the game went with
+        # it. What is left after the number has its own back is still a wreck.
+        tokens = tokenize_pages([page_of("8.g5 hxg5 9.i.xg5 Re8")])
+
+        move = next(t for t in tokens if t.text == "xg5")
+        number = next(t for t in tokens if t.kind == "move_number" and t.text == "9.")
+        assert move.lost_symbol == "i."
+        assert number.end == move.start
+
+    def test_nothing_is_left_of_a_wreck_that_was_only_the_number(self):
+        tokens = tokenize_pages([page_of("8.g5 hxg5 9.xg5 Re8")])
+
+        assert next(t for t in tokens if t.text == "xg5").lost_symbol == ""
+
+
+class TestTheBooksOwnSpelling:
+    """The piece a wreck is, where the book has been seen spelling it so.
+
+    `glyphs.spellings` learns the table from the symbols the glyph pass did
+    restore; here it is only looked up.
+    """
+
+    def test_the_spelling_names_the_piece(self):
+        tokens = tokenize_pages([page_of("9.i.xg5 Re8")], spellings={"i.": "B"})
+
+        assert next(t for t in tokens if t.text == "xg5").lost_piece == "B"
+
+    def test_a_spelling_the_book_never_taught_names_nothing(self):
+        tokens = tokenize_pages([page_of("9.i.xg5 Re8")], spellings={"ltJ": "N"})
+
+        assert next(t for t in tokens if t.text == "xg5").lost_piece == ""
+
+    def test_the_longest_ending_the_book_taught_is_the_one_read(self):
+        # The wreck runs back over whatever stood before the symbol, so the
+        # book's spelling is at the end of it — and the longest ending wins,
+        # a book that spells both `.i.` and `.` having meant the first.
+        tokens = tokenize_pages(
+            [page_of("9. .i.xg5 Re8")], spellings={".i.": "B", ".": "R"}
+        )
+
+        assert next(t for t in tokens if t.text == "xg5").lost_piece == "B"
+
 
 class TestALetterWhereARankBelongs:
     def test_a_rank_read_as_a_letter_still_becomes_a_move(self):

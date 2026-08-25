@@ -860,7 +860,8 @@ def parse_tokens(
             )
         elif game.position_known:
             resolution = _resolve(
-                board_before, token.text, token.consumed, token.lost_symbol
+                board_before, token.text, token.consumed, token.lost_symbol,
+                token.lost_piece,
             )
             if resolution.status == "broken" and not any(
                 other.from_bracket for other in stack
@@ -979,7 +980,11 @@ class _Resolution:
 
 
 def _resolve(
-    board: chess.Board, raw: str, consumed: str = "", lost_symbol: str = ""
+    board: chess.Board,
+    raw: str,
+    consumed: str = "",
+    lost_symbol: str = "",
+    lost_piece: str = "",
 ) -> _Resolution:
     """Read `raw` as a move in `board`, repairing it if needed.
 
@@ -987,8 +992,10 @@ def _resolve(
     and is only ever consulted for an ambiguous move; see `_settle_ambiguity`.
 
     `lost_symbol` is the wreck of a piece symbol printed before the token and
-    never restored. It changes what the token can mean rather than how well it
-    is trusted, so it is answered first; see `_settle_lost_symbol`.
+    never restored, and `lost_piece` the piece the book's own spelling of its
+    symbols makes of that wreck. They change what the token can mean rather
+    than how well it is trusted, so they are answered first; see
+    `_settle_lost_symbol`.
     """
     candidate = _TRAILING_ANNOTATION.sub("", raw.strip())
     # Castling printed with zeros is a typographic variant, not a scanning
@@ -996,7 +1003,7 @@ def _resolve(
     plain = candidate.replace("0-0-0", "O-O-O").replace("0-0", "O-O")
 
     if lost_symbol:
-        return _settle_lost_symbol(board, plain, raw, lost_symbol)
+        return _settle_lost_symbol(board, plain, raw, lost_symbol, lost_piece)
 
     if plain.startswith("x"):
         # A capture whose piece left no character at all — not even a wreck
@@ -1140,7 +1147,7 @@ def _readings_of(
 
 
 def _settle_lost_symbol(
-    board: chess.Board, plain: str, raw: str, wreck: str
+    board: chess.Board, plain: str, raw: str, wreck: str, spelled: str = ""
 ) -> _Resolution:
     """Name the piece from the position, when the page no longer names it.
 
@@ -1150,9 +1157,13 @@ def _settle_lost_symbol(
     it is legal often enough to be accepted at full confidence, and every move
     after it is then played on a position the book never reached.
 
-    Sometimes the wreck answers for itself: the glyph pass restored the letter
-    and the ink around it is all that kept the move from starting there, which
-    is `_piece_named_by`. Otherwise the board is asked.
+    Two things are asked before the board, and both are the page rather than
+    the position. The wreck sometimes answers for itself, the glyph pass
+    having restored the letter with only the ink around it keeping the move
+    from starting there (`_piece_named_by`). And the book has spelled its
+    pieces for us several hundred times over, in the ink under every symbol
+    that pass *did* restore: `glyphs.spellings` learns that table and
+    `tokenize` reads this wreck off it.
 
     The board can often answer. Of the five pieces, usually only one can reach
     the square at all — the bishop on `1 d4 Nf6 2 c4 g6 3 Nc3 i.g7`, where no
@@ -1160,13 +1171,13 @@ def _settle_lost_symbol(
     the page settles it, so the readings are handed on as `candidates` for the
     reader to pick between, which is what the ambiguity path exists for.
     """
-    named = _piece_named_by(wreck)
+    named = _piece_named_by(wreck) or spelled
     readings = _readings_of(board, plain, (named,) if named else _LOST_SYMBOL_PIECES)
     if named and not readings:
-        # The letter and the board do not meet. Either the classifier misread
-        # the symbol or the line is already somewhere the book never was, and
-        # neither is answered here: the other four pieces are asked, exactly
-        # as they were before the letter was looked at.
+        # The page and the board do not meet. Either the symbol was misread
+        # or the line is already somewhere the book never was, and neither is
+        # answered here: the other four pieces are asked, exactly as they were
+        # before the page was looked at.
         fallback = _readings_of(board, plain, _LOST_SYMBOL_PIECES)
         if fallback:
             named, readings = None, fallback
@@ -1206,13 +1217,19 @@ def _settle_lost_symbol(
                 "reason": f"read as {san}: "
                 + (
                     f"the {named} inside '{wreck}' names the piece"
+                    if _piece_named_by(wreck)
+                    else f"the book spells its {named} '{wreck}'"
                     if named
                     else (f"'{wreck}'" if wreck else "the lost piece")
                     + " is the only piece that fits"
                 ),
             },
             candidates=sans,
-            settled_by="the letter left in the wreck" if named else "legality",
+            settled_by=(
+                "the letter left in the wreck"
+                if _piece_named_by(wreck)
+                else "the book's own spelling" if named else "legality"
+            ),
         )
 
     printed = f"the piece printed as '{wreck}'" if wreck else "the piece"
@@ -1359,7 +1376,7 @@ def _place_a_citation(
         if entry is None:
             continue
         board, parent = entry
-        trial = _resolve(board, token.text, token.consumed, token.lost_symbol)
+        trial = _resolve(board, token.text, token.consumed, token.lost_symbol, token.lost_piece)
         if trial.status != "broken":
             found.append((offset, board, parent, trial))
     exact = [item for item in found if item[0] == 0]
@@ -1403,7 +1420,7 @@ def _place_beside_a_citation(
     board, parent = closed_aside
     if _ply_awaited(board) != declared:
         return None
-    trial = _resolve(board, token.text, token.consumed, token.lost_symbol)
+    trial = _resolve(board, token.text, token.consumed, token.lost_symbol, token.lost_piece)
     if trial.status == "broken":
         return None
     stack[1:] = [_Level(board=board.copy(), parent_id=parent, moves_allowed=licence)]

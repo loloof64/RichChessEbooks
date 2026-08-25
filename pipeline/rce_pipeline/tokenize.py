@@ -204,6 +204,20 @@ def _wreck_before(text: str, start: int) -> str:
     return found if _WRECK_MARK.search(found) else ""
 
 
+def _piece_spelled(wreck: str, spellings: dict[str, str]) -> str:
+    """The piece this book spells that way, if it has been seen spelling it.
+
+    The longest ending of the wreck the book has taught, because the wreck
+    runs back over whatever stood before the symbol: `..ltJ` is the knight of
+    `.ltJ` with a move number's dot in front of it.
+    """
+    for cut in range(len(wreck)):
+        piece = spellings.get(wreck[cut:])
+        if piece is not None:
+            return piece
+    return ""
+
+
 #: Prose shorter than this, or made only of punctuation, is dropped rather than
 #: attached to a move as a comment.
 _MIN_COMMENT_LENGTH = 3
@@ -227,6 +241,10 @@ class Token:
     #: never restored, as in `i.g7`. Its presence says the book named a piece
     #: here, so `parse` must not read the token as the pawn move it spells.
     lost_symbol: str = ""
+    #: Which piece that wreck is, where the book's own spelling of its symbols
+    #: says so — `glyphs.spellings`, learned from the symbols the glyph pass
+    #: did restore. Empty when the book taught no spelling for this ink.
+    lost_piece: str = ""
     #: Printed in a heavier weight than the body text. Books that typeset the
     #: game score bold and the analysis around it plain mark, character by
     #: character, the one thing `parse` otherwise has to guess: which line a
@@ -245,6 +263,8 @@ class Token:
             payload["consumed"] = self.consumed
         if self.lost_symbol:
             payload["lost_symbol"] = self.lost_symbol
+        if self.lost_piece:
+            payload["lost_piece"] = self.lost_piece
         if self.bold:
             payload["bold"] = True
         return payload
@@ -260,6 +280,7 @@ def tokenize_pages(
     *,
     piece_letters: str = SAN_PIECE_LETTERS,
     diagrams: list[Any] | None = None,
+    spellings: dict[str, str] | None = None,
 ) -> list[Token]:
     """Tokenise every page in order, concatenating the results.
 
@@ -291,7 +312,9 @@ def tokenize_pages(
 
     tokens: list[Token] = []
     for page in pages:
-        tokens.extend(_tokenize_page(page, token_re, to_san, blocks.get(page.number, [])))
+        tokens.extend(_tokenize_page(
+            page, token_re, to_san, blocks.get(page.number, []), spellings or {}
+        ))
     return tokens
 
 
@@ -300,13 +323,16 @@ def _tokenize_page(
     token_re: re.Pattern[str],
     to_san: dict[int, int],
     diagrams: list[Any],
+    spellings: dict[str, str],
 ) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
     text = normalise(page.text)
     tokens: list[Token] = []
     cursor = 0
     for diagram in sorted(diagrams, key=lambda d: d.start):
-        tokens.extend(_tokenize_span(page, text, token_re, to_san, cursor, diagram.start))
+        tokens.extend(_tokenize_span(
+            page, text, token_re, to_san, cursor, diagram.start, spellings
+        ))
         tokens.append(
             Token(
                 kind="diagram",
@@ -319,7 +345,9 @@ def _tokenize_page(
             )
         )
         cursor = diagram.end
-    tokens.extend(_tokenize_span(page, text, token_re, to_san, cursor, len(text)))
+    tokens.extend(_tokenize_span(
+        page, text, token_re, to_san, cursor, len(text), spellings
+    ))
     return _free_a_number_a_board_stranded(tokens, page, text)
 
 
@@ -330,6 +358,7 @@ def _tokenize_span(
     to_san: dict[int, int],
     lo: int,
     hi: int,
+    spellings: dict[str, str],
 ) -> list[Token]:
     out: list[Token] = []
     cursor = lo
@@ -397,12 +426,19 @@ def _tokenize_span(
             # bracket, no letter run the branches above match — so an
             # annotation is the only token to take back, and if anything else
             # is there the wreck is not believed at all.
+            # Anything else it may not take, but what is left of it once that
+            # token has its own back may still be a wreck: `9.i.xg5` runs
+            # back over the move number's dot, gives it up, and the `i.` that
+            # remains is the bishop the book printed.
             while lost_symbol and out and out[-1].end > start:
-                if out[-1].kind != "annotation":
-                    start += len(lost_symbol)
-                    lost_symbol = ""
-                    break
-                cursor = out.pop().start
+                if out[-1].kind == "annotation":
+                    cursor = out.pop().start
+                    continue
+                start += len(lost_symbol)
+                kept = text[out[-1].end : start]
+                lost_symbol = kept if _WRECK_MARK.search(kept) else ""
+                start -= len(lost_symbol)
+                break
 
         if number_at is not None:
             # The number stands as its own token, so the move behind it is
@@ -438,6 +474,7 @@ def _tokenize_span(
             bbox=page.bbox_for(start, end),
             consumed=consumed,
             lost_symbol=lost_symbol,
+            lost_piece=_piece_spelled(lost_symbol, spellings) if lost_symbol else "",
             bold=_weight_of(page, start, end),
         ))
         cursor = end

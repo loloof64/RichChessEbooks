@@ -23,12 +23,12 @@ BOX = BBox(72.0, 640.0, 18.0, 10.0)
 
 def tok(
     kind: str, text: str, page: int = 1, consumed: str = "", lost_symbol: str = "",
-    bold: bool = False,
+    bold: bool = False, lost_piece: str = "",
 ) -> Token:
     return Token(
         kind=kind, text=text, raw=text, page=page,
         start=0, end=len(text), bbox=BOX, consumed=consumed,
-        lost_symbol=lost_symbol, bold=bold,
+        lost_symbol=lost_symbol, bold=bold, lost_piece=lost_piece,
     )
 
 
@@ -779,7 +779,9 @@ class TestLostSymbol:
     reached. The board is asked instead.
     """
 
-    def opening(self, square: str, wreck: str, plies: int = 5) -> list[Token]:
+    def opening(
+        self, square: str, wreck: str, plies: int = 5, spelled: str = ""
+    ) -> list[Token]:
         # 1 d4 Nf6 2 c4 g6 3 Nc3, the first five plies of page 3 of the Grivas
         # book, whose sixth is printed `i.g7` and was read as a pawn move.
         played = ["d4", "Nf6", "c4", "g6", "Nc3"][:plies]
@@ -790,7 +792,7 @@ class TestLostSymbol:
             tokens.append(tok("move", san))
         if len(played) % 2 == 0:
             tokens.append(tok("move_number", str(len(played) // 2 + 1)))
-        tokens.append(tok("move", square, lost_symbol=wreck))
+        tokens.append(tok("move", square, lost_symbol=wreck, lost_piece=spelled))
         return tokens
 
     def test_the_board_names_the_piece_when_only_one_can_reach(self):
@@ -913,6 +915,30 @@ class TestLostSymbol:
         # neither is settled here: the five pieces are asked as before, and
         # only the bishop fits.
         last = parse_tokens(self.opening("g7", "Q'")).moves[-1]
+
+        assert (last.san, last.status) == ("Bg7", "uncertain")
+
+    def test_the_books_own_spelling_names_the_piece(self):
+        # Boussole page 65 prints `9.i.xg5`, and both the bishop and the
+        # knight take on g5. The book has spelled its bishop `i.` thirty-nine
+        # times under a symbol the glyph pass did restore, and the parser was
+        # asking the board instead: the move died, and fifteen under it.
+        result = parse_tokens(self.opening("g8", "l:t", plies=3, spelled="R"))
+        last = result.moves[-1]
+
+        assert (last.san, last.status) == ("Rg8", "uncertain")
+        assert last.repair["reason"] == "read as Rg8: the book spells its R 'l:t'"
+        assert result.ambiguities[-1]["settled_by"] == "the book's own spelling"
+
+    def test_the_letter_in_the_wreck_comes_before_the_spelling(self):
+        # The classifier read *this* symbol and wrote its letter back. A
+        # spelling is a vote over the ones it read elsewhere.
+        last = parse_tokens(self.opening("g8", "N>", plies=3, spelled="R")).moves[-1]
+
+        assert last.san == "Ng8"
+
+    def test_a_spelling_no_move_of_that_piece_fits_leaves_it_to_the_board(self):
+        last = parse_tokens(self.opening("g7", "i.", spelled="Q")).moves[-1]
 
         assert (last.san, last.status) == ("Bg7", "uncertain")
 
