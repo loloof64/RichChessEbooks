@@ -72,7 +72,7 @@ class TestTheInkOfAWord:
 
     def test_the_word_before_is_not_this_word(self):
         # The search reaches past the layer's word on both sides, and the ink
-        # of the word before sits inside that reach. Without the gap test
+        # of the word before sits inside that reach. Without the overlap test
         # every box on the page moves a character to the left.
         page = page_of("8.g5")
         found = _ink_of(sheet((10.0, 16.0), (22.0, 40.0)), page, 0, 4, PAGE_HEIGHT, 2.0)
@@ -88,6 +88,19 @@ class TestTheInkOfAWord:
 
         assert found is not None
         assert (found[2], found[3]) == (20.0, 18.0)
+
+    def test_two_printed_words_the_layer_reports_as_one(self):
+        # A scan that loses the space prints `8.g5 hxg5` as one word of nine
+        # characters. The gap between them is a space wide and belongs to the
+        # word all the same: measuring only the half the middle falls in gives
+        # a scale of about a half, and every box inside is squeezed to match.
+        page = page_of("8.g5hxg5!")
+        found = _ink_of(
+            sheet((20.0, 40.0), (46.0, 72.0)), page, 0, 9, PAGE_HEIGHT, 2.0
+        )
+
+        assert found is not None
+        assert (found[2], found[3]) == (20.0, 52.0)
 
     def test_a_word_with_no_ink_at_all_is_left_alone(self):
         page = page_of("8.g5")

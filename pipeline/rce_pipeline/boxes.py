@@ -44,13 +44,10 @@ _MARGIN = 0.25
 #: of the scan, not a letter.
 _MIN_COLUMN = 1
 
-#: The widest run of white, in points, that may stand inside one word. The
-#: gaps between the letters of a word are a fraction of a point and the space
-#: between two words is three, so this separates them — which it has to: the
-#: search reaches past the word on both sides, and without it the tail of the
-#: word before is taken for the start of this one and every box moves a
-#: character to the left.
-_MAX_GAP = 1.6
+#: The least a run of ink must share with the layer's word to be part of it,
+#: in points. A run standing under the word is the word's; one that merely
+#: touches its edge is the word beside it, reached by the margin.
+_MIN_OVERLAP = 0.5
 
 #: The ink found must look like the word the layer drew. The error being
 #: corrected is a fifth of the width — Boussole's layer spreads `8.g5` over
@@ -124,8 +121,18 @@ def _ink_of(
 ) -> tuple[float, float, float, float] | None:
     """This word's ink as `(layer_x0, layer_w, ink_x0, ink_w)`, or None.
 
+    The word's ink is **every** run of dark columns standing under the word
+    the layer drew, from the first to the last — not the one run its middle
+    happens to fall in. What the layer calls a word is not always what the
+    book printed as one: a scanner that loses the space in `17.gxf6! ♗xf6`
+    reports twelve characters with no break, and reading only the run under
+    the middle measures 33 points of a word the layer spreads over 58. That
+    is a scale of 0.57, inside any tolerance wide enough for the drift being
+    corrected, and it drags every box in the word two characters left and
+    shrinks it by half.
+
     None wherever the ink cannot be told from the layer with confidence: no
-    dark column at all, or a run so unlike the layer's word that it is
+    dark column at all, or a span so unlike the layer's word that it is
     something else — a rule, the edge of a diagram, the next word entirely.
     """
     import numpy as np
@@ -150,30 +157,25 @@ def _ink_of(
     if band.size == 0:
         return None
     columns = (band < INK).sum(axis=0) >= _MIN_COLUMN
-    # The run of ink the word's own middle stands in, and not whatever else
-    # the margin caught: outwards from the centre, across the gaps a word
-    # holds and never across the space beside it.
-    middle = int(((layer_x0 + layer_x1) / 2) * zoom) - left
-    middle = max(0, min(len(columns) - 1, middle))
-    gap = max(1, int(_MAX_GAP * zoom))
-    if not columns[middle]:
-        near = np.flatnonzero(columns)
-        if near.size == 0:
-            return None
-        middle = int(near[np.argmin(np.abs(near - middle))])
-    first = last = middle
-    while first > 0 and columns[max(0, first - gap) : first].any():
-        first = int(np.flatnonzero(columns[max(0, first - gap) : first])[0]) + max(0, first - gap)
-    while last < len(columns) - 1 and columns[last + 1 : last + 1 + gap].any():
-        window = np.flatnonzero(columns[last + 1 : last + 1 + gap])
-        last = last + 1 + int(window[-1])
-    ink_x0 = left + first
-    ink_x1 = left + last + 1
-    ink_width = (ink_x1 - ink_x0) / zoom
+    # Every run the margin caught, and then only those the layer's own word
+    # stands over: what the margin reaches on either side is the word beside
+    # this one, and taking it would move every box in the word towards it.
+    edges = np.flatnonzero(np.diff(np.concatenate(([False], columns, [False]))))
+    runs = edges.reshape(-1, 2)
+    if runs.size == 0:
+        return None
+    starts = (left + runs[:, 0]) / zoom
+    ends = (left + runs[:, 1]) / zoom
+    overlap = np.minimum(ends, layer_x1) - np.maximum(starts, layer_x0)
+    under = overlap >= _MIN_OVERLAP
+    if not under.any():
+        return None
+    ink_x0 = float(starts[under].min())
+    ink_width = float(ends[under].max()) - ink_x0
     scale = ink_width / (layer_x1 - layer_x0)
     if not _MIN_SCALE <= scale <= _MAX_SCALE:
         return None
-    return layer_x0, layer_x1 - layer_x0, ink_x0 / zoom, ink_width
+    return layer_x0, layer_x1 - layer_x0, ink_x0, ink_width
 
 
 def _remapped(
