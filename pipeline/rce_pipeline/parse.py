@@ -680,10 +680,34 @@ def parse_tokens(
         went_back = (
             stack[-1].declared_at is not None and declared < stack[-1].declared_at
         )
+        # And where the aside lost the move its own number announced, the ply
+        # after it is the aside carrying on and not the score picking up. The
+        # test above is a board's disagreement with a number, and a move that
+        # was never read makes that disagreement out of nothing: the aside
+        # stands where its number left it, so the next ply is one away from it
+        # whichever line the book is printing. SuperAttaquant page 198 cites
+        # `21...♕b7 22.c6 ♖xa1!`, whose first move reaches the layer as a bare
+        # `b7` — the queen's symbol destroyed and the move illegal. Its own
+        # `22.` was the only evidence `resumes` had, the citation was played
+        # as the game score, and the game's `22.♖xa8 ♕c6 23.♖fa1` was diverted
+        # into an aside in its place; 54 moves died under that inversion.
+        #
+        # Only the ply straight after the aside's own number, which is the
+        # citation continuing itself. Any wider and a score that really does
+        # resume over a broken aside is held out of its own line: Boussole
+        # loses two clean moves to the wider form and none to this one.
+        lost_its_move = (
+            stack[-1].declared_at is not None
+            and _ply_awaited(stack[-1].board) == stack[-1].declared_at
+            and declared == stack[-1].declared_at + 1
+        )
         resumes = (
             len(stack) > 1
             and declared == _ply_awaited(stack[0].board)
-            and (went_back or declared != _ply_awaited(stack[-1].board))
+            and (
+                went_back
+                or (declared != _ply_awaited(stack[-1].board) and not lost_its_move)
+            )
         )
         if not resumes and declared == _ply_awaited(stack[-1].board):
             return

@@ -1590,3 +1590,53 @@ class TestAnAsideThatCaughtTheGameUp:
         cited = next(m for m in parse_tokens(self.tokens()).moves if m.san == "Bc4")
 
         assert (cited.variation_index, cited.status) == (1, "ok")
+
+
+class TestAnAsideThatLostItsFirstMove:
+    """A citation whose opening move never read, and its own next number.
+
+    SuperAttaquant page 198 prints "...auraient mieux fait de penser a donner
+    leur Dame, par 21...♕b7 22.c6 ♖xa1!" — a citation of a move the game has
+    already gone past. The queen's symbol is destroyed in the scan, so `♕b7`
+    arrives as a bare `b7`, is illegal for Black there and is never played.
+    The aside is then standing exactly where its own number left it, and
+    `22.`, the citation's own second number, disagrees with that board for no
+    other reason.
+
+    Read as the game resuming, the whole citation is played as the score and
+    the game's own `22.♖xa8 ♕c6 23.♖fa1` is diverted beside it; 54 moves died
+    under the inversion. The aside carrying on one ply from its own number is
+    what says otherwise.
+    """
+
+    def tokens(self) -> list[Token]:
+        played = ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6"]
+        out: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                out.append(tok("move_number", str(index // 2 + 1)))
+            out.append(tok("move", san))
+        return out + [
+            tok("text", "Black would have done better with"),
+            # Black's third, a ply the game has passed, and illegal besides:
+            # the pawn it names is already there. The aside reads nothing and
+            # stays on the ply its own number gave it.
+            tok("move_number", "3..."), tok("move", "b7"),
+            tok("move_number", "4."), tok("move", "Bc4"),
+            # And here the game really does resume.
+            tok("move_number", "4."), tok("move", "Ba4"),
+        ]
+
+    def test_the_citation_does_not_take_the_score(self):
+        result = parse_tokens(self.tokens())
+        main = [m for m in result.moves if m.variation_index == 0]
+
+        assert [m.san for m in main] == [
+            "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4",
+        ]
+
+    def test_the_citation_stays_beside_the_game(self):
+        result = parse_tokens(self.tokens())
+        cited = [m for m in result.moves if m.san in ("b7", "Bc4")]
+
+        assert [m.variation_index for m in cited] == [1, 1]
