@@ -645,3 +645,32 @@ class TestAFileTheScannerReadAsADigit:
 
         move = next(t for t in tokens if t.text == "B25+")
         assert move.bbox is not None and move.raw == "B25+"
+
+
+class TestAFileThatLeftNoCharacter:
+    """`28.♔g1` off the same scan as `28.♔1`.
+
+    The piece and the rank are all the page still has. That is a shape prose
+    makes as well, so the move number in front of it is the whole licence for
+    reading it: there, and only there, a move is due.
+    """
+
+    def test_a_piece_and_a_rank_a_number_announced_are_a_move(self):
+        tokens = tokenize_pages([page_of("27.Qf3 Rd8 28.K1 Rd2+")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "Qf3", "Rd8", "K1", "Rd2+",
+        ]
+
+    def test_the_same_shape_in_prose_is_not_a_move(self):
+        # Nothing announces it, and a piece and a rank is a fragment of
+        # anything: an exercise number, a diagram's caption, a bare rank the
+        # scanner left behind a symbol it destroyed.
+        tokens = tokenize_pages([page_of("le Cavalier N4 et la Tour R3 sont")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == []
+
+    def test_the_check_mark_stays_on_the_move(self):
+        tokens = tokenize_pages([page_of("30.B3+ Kh8")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["B3+", "Kh8"]

@@ -117,6 +117,13 @@ _TOKEN_TEMPLATE = r"""
               # `glyphs._file_the_symbol_swallowed`'s: there the letter is
               # still on the page, inside the ink the symbol covered.
             | (?<![A-Za-z\d])[{pieces}][1-8][{ranks}]
+              # And the same move with the file gone altogether: `28.♔g1`
+              # arrives as `28.♔1`, the letter having left no character at
+              # all. A piece and a rank is a fragment of anything — it is the
+              # shape a bare rank makes in prose — so it is read **only where
+              # a move number stands in front of it**, where the page has
+              # already said that a move is due and nothing else can be.
+            | (?<![A-Za-z\d])[{pieces}][{ranks}]
           )
           [+#]?
           # Never an apostrophe: with `l` read as a rank, the French elision
@@ -203,6 +210,25 @@ _WRECK_MARK = re.compile(r"[:\\'<>]|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
 _WRECK_AS_A_RANK = re.compile(r"^[1-8](?=x?[a-h][1-8{ranks}])".format(
     ranks=_LOOKALIKE_RANKS
 ))
+
+
+#: A piece and a rank and nothing else — `♔1`, `♗7`, `♖3` — the move whose
+#: file letter came off the scan as no character at all. Written against SAN
+#: letters: it is read from `text_out`, which is translated by then.
+_A_PIECE_AND_A_RANK = re.compile(r"^[KQRBN][1-8][+#]?$")
+
+
+def _announced_by_a_number(out: list["Token"], text: str, cursor: int, start: int) -> bool:
+    """Whether a move number stands between `cursor` and `start`, and nothing else.
+
+    The page says a move is due there, which is the whole licence for reading
+    a token that would otherwise be a fragment of prose. The number is usually
+    a token of its own by now; on a scan that lost the space beside a symbol
+    it is still welded to what follows, and `_WELDED_NUMBER` finds it there.
+    """
+    if out and out[-1].kind == "move_number" and not text[out[-1].end : start].strip():
+        return True
+    return _WELDED_NUMBER.search(text, cursor, start) is not None
 
 
 #: A move written from square to square, the long form of it: `b7-b5`,
@@ -495,6 +521,11 @@ def _tokenize_span(
         number_at: int | None = None
         if kind == "move":
             text_out = text_out.translate(to_san)
+            # A piece and a rank is a move only where a number announces one.
+            if _A_PIECE_AND_A_RANK.match(text_out) and not _announced_by_a_number(
+                out, text, cursor, start
+            ):
+                continue
             journey = _SQUARE_TO_SQUARE.match(text_out)
             if journey is not None:
                 # Where the piece ends is the move; where it starts is where

@@ -1680,3 +1680,10 @@ class TestAFileTheScannerReadAsADigit:
         last = parse_tokens(self.opening("B13+")).moves[-1]
 
         assert last.status == "broken"
+
+    def test_a_file_that_left_no_character_is_read_the_same_way(self):
+        # `28.♔g1` off the scan as `28.♔1`: the digit standing for the file is
+        # gone as well, and the piece and the rank are read exactly as above.
+        last = parse_tokens(self.opening("B3")).moves[-1]
+
+        assert (last.san, last.status) == ("Bd3", "uncertain")

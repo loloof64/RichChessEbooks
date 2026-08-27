@@ -89,7 +89,13 @@ _RESTORED_PIECE = re.compile(r"[KQRBN]")
 #: piece and two digits, so the first of them is the wreck of the file letter;
 #: the rank is what survived. `tokenize` emits these so the reader gets a box
 #: on the move whichever way it settles.
-_FILE_READ_AS_A_DIGIT = re.compile(r"^([KQRBN])[1-8]([1-8])$")
+#:
+#: The digit is optional because the file sometimes leaves no character at
+#: all: `28.♔g1` arrives as `28.♔1`. That reads the same way — the piece and
+#: the rank are what the page still says, and the board is asked for the
+#: file — but it is a shape prose makes too, so `tokenize` only emits it
+#: where a move number announces the move.
+_FILE_READ_AS_A_DIGIT = re.compile(r"^([KQRBN])[1-8]?([1-8])$")
 
 #: The characters a SAN disambiguator can be: an origin file or an origin rank.
 _DISAMBIGUATION_CHARS = frozenset("abcdefgh12345678")
