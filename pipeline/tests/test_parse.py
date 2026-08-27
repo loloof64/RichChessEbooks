@@ -1640,3 +1640,43 @@ class TestAnAsideThatLostItsFirstMove:
         cited = [m for m in result.moves if m.san in ("b7", "Bc4")]
 
         assert [m.variation_index for m in cited] == [1, 1]
+
+
+class TestAFileTheScannerReadAsADigit:
+    """`♗g5+` off the scan as `♗25+`: no notation writes a piece and two digits.
+
+    The rank survives and the piece survives, and the file is the wreck. This
+    scan wrecks it differently every time — `♘d5` as `♘45`, `♗f4` as `♗41` —
+    so nothing on the page puts it back and the board is asked instead.
+    """
+
+    def opening(self, printed: str) -> list[Token]:
+        # 1 e4 e5 2 Nf3 Nc6 3 Bb5 a6, and then whatever the scan made of
+        # White's fourth.
+        played = ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", str(index // 2 + 1)))
+            tokens.append(tok("move", san))
+        return tokens + [tok("move_number", "4."), tok("move", printed)]
+
+    def test_the_board_names_the_file_when_only_one_move_fits(self):
+        # Only the bishop on b5 reaches rank 3, and it reaches d3.
+        last = parse_tokens(self.opening("B13")).moves[-1]
+
+        assert (last.san, last.status) == ("Bd3", "uncertain")
+
+    def test_two_readings_are_left_for_the_reader(self):
+        # The rook has both g1 and f1, and a wrong move here would be played
+        # at half confidence on a position the book never printed.
+        result = parse_tokens(self.opening("R71"))
+
+        assert result.moves[-1].status == "broken"
+        assert result.ambiguities[-1]["candidates"] == ["Rg1", "Rf1"]
+
+    def test_the_check_mark_the_page_printed_has_to_hold(self):
+        # `Bd3` gives no check, so a token that printed one is not this move.
+        last = parse_tokens(self.opening("B13+")).moves[-1]
+
+        assert last.status == "broken"

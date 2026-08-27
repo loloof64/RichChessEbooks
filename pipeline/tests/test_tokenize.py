@@ -616,3 +616,32 @@ class TestABracketNothingCloses:
         # closes nothing, and `parse` ignores one that arrives at the top of
         # the stack.
         assert self.kinds("1.e4 (t de renoncer 1-0 1.d4 d5) 0-1") == ["var_close"]
+
+
+class TestAFileTheScannerReadAsADigit:
+    """`20.♗g5+` off SuperAttaquant's scan as `20.♗25+`.
+
+    A piece and two digits is not a move in any notation, so the first digit
+    stands where the file belongs. The token is emitted with the box the page
+    gave it and `parse` asks the board which file it was.
+    """
+
+    def test_the_piece_and_two_digits_are_a_move(self):
+        tokens = tokenize_pages([page_of("19.d7+ Kd8 20.B25+ f6 21.Rxd1")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "d7+", "Kd8", "B25+", "f6", "Rxd1",
+        ]
+
+    def test_a_digit_running_on_into_the_next_number_is_left_alone(self):
+        # `♗f4 12.♘bd2` comes off as `♗412♘bd2`, a different mangling that
+        # nothing here can take apart.
+        tokens = tokenize_pages([page_of("11.Qd3 B412Nbd2 Be7")])
+
+        assert not [t for t in tokens if t.kind == "move" and t.text.startswith("B4")]
+
+    def test_the_move_carries_the_box_of_what_was_printed(self):
+        tokens = tokenize_pages([page_of("20.B25+ f6")])
+
+        move = next(t for t in tokens if t.text == "B25+")
+        assert move.bbox is not None and move.raw == "B25+"

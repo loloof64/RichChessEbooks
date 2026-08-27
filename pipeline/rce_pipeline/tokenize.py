@@ -105,6 +105,18 @@ _TOKEN_TEMPLATE = r"""
               # comment on Boussole page 65, and the whole line after it.
             | (?<![A-Za-z])(?<!-\n)[{pieces}]?[a-h]?[1-8]?x?[a-h][ ][{ranks}](?!\.)
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}])?
+              # A file the scanner read as a digit. No notation writes a piece
+              # and two digits, so what stands where the file belongs is the
+              # wreck of the file letter and nothing else — and this scan
+              # wrecks it differently every time (`♗g5` as `♗25`, `♘d5` as
+              # `♘45`, `♗f4` as `♗41`), so no substitution table reaches it.
+              # The rank survives, `parse` asks the board which file, and the
+              # move keeps the box the page gave it either way.
+              #
+              # A *bare* rank behind the symbol is a different case and is
+              # `glyphs._file_the_symbol_swallowed`'s: there the letter is
+              # still on the page, inside the ink the symbol covered.
+            | (?<![A-Za-z\d])[{pieces}][1-8][{ranks}]
           )
           [+#]?
           # Never an apostrophe: with `l` read as a rank, the French elision

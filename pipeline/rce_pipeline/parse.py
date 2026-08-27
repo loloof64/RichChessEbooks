@@ -85,6 +85,12 @@ _LOST_SYMBOL_PIECES = ("K", "Q", "R", "B", "N")
 #: it. Written against SAN letters: `parse` reads a translated token.
 _RESTORED_PIECE = re.compile(r"[KQRBN]")
 
+#: A piece, a digit where the file belongs, and the rank. No notation writes a
+#: piece and two digits, so the first of them is the wreck of the file letter;
+#: the rank is what survived. `tokenize` emits these so the reader gets a box
+#: on the move whichever way it settles.
+_FILE_READ_AS_A_DIGIT = re.compile(r"^([KQRBN])[1-8]([1-8])$")
+
 #: The characters a SAN disambiguator can be: an origin file or an origin rank.
 _DISAMBIGUATION_CHARS = frozenset("abcdefgh12345678")
 
@@ -1381,6 +1387,10 @@ def _resolve(
         # wreck.
         return _settle_lost_symbol(board, plain, raw, "")
 
+    lost_file = _FILE_READ_AS_A_DIGIT.match(_CHECK_MARK.sub("", plain))
+    if lost_file:
+        return _settle_lost_file(board, plain, raw, lost_file)
+
     try:
         move = board.parse_san(plain)
         return _Resolution(move, board.san(move), "ok", 1.0)
@@ -1512,6 +1522,66 @@ def _readings_of(
             continue
         readings.append((move, san))
     return readings
+
+
+def _settle_lost_file(
+    board: chess.Board, plain: str, raw: str, shape: re.Match[str]
+) -> _Resolution:
+    """Name the file from the position, when the scanner read it as a digit.
+
+    SuperAttaquant prints `20.♗g5+ f6` and its layer carries `20.♗25+ f6`: the
+    file letter came off the scan as a digit and the rank survived beside it.
+    Nothing on the page can put the letter back — the same book reads `♘d5` as
+    `♘45` and `♗f4` as `♗41`, so the digit is not a look-alike of anything and
+    no substitution table reaches it.
+
+    The board can. The piece is printed and the rank is printed, and a piece
+    with one legal move to a rank has named its own square. Where two of them
+    reach it the readings are handed on as `candidates`, exactly as an
+    ambiguity is: a wrong move here is played, is legal, and puts every move
+    below it on a position the book never printed.
+
+    Eight of these over the corpus and every one on this scan; each stood at
+    the head of a game and three of them were the book's largest breaks.
+    """
+    piece, rank = shape.group(1), int(shape.group(2)) - 1
+    # The check mark is the third thing the page still says, and it is worth
+    # as much as the other two: `38.♗g6+` came off as `♗26+`, and the only
+    # bishop move to rank 6 was a capture that gives no check. Read without
+    # the mark it is legal, is played, and is not the book's move.
+    checks = plain.endswith(("+", "#"))
+    readings = [
+        (move, san)
+        for move, san in ((move, board.san(move)) for move in board.legal_moves)
+        if san.startswith(piece)
+        and chess.square_rank(move.to_square) == rank
+        and san.endswith(("+", "#")) == checks
+    ]
+    if len(readings) != 1:
+        return _Resolution(
+            None, plain, "broken", 0.0,
+            {
+                "raw": raw,
+                "reason": "the file is a digit and "
+                + (
+                    f"{len(readings)} of the {piece} reach rank {rank + 1}"
+                    if readings
+                    else f"no {piece} reaches rank {rank + 1}"
+                ),
+            },
+            candidates=[san for _, san in readings],
+        )
+    move, san = readings[0]
+    return _Resolution(
+        move, san, "uncertain", _LOST_SYMBOL_CONFIDENCE,
+        {
+            "raw": raw,
+            "reason": f"read as {san}: the file came off the scan as a digit, "
+            f"and only one {piece} reaches rank {rank + 1}",
+        },
+        candidates=[san],
+        settled_by="legality",
+    )
 
 
 def _settle_lost_symbol(
