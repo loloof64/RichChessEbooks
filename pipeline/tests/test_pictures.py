@@ -172,6 +172,37 @@ def _body(cell):
     )
 
 
+class TestAsPlaced:
+    """A picture is read the way the page places it, not the way it is stored.
+
+    Tactics draws every board of the book with `d = -145.5` where Grivas draws
+    its with `+145.92`: the same eight ranks, stored bottom to top.
+    """
+
+    image = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+
+    def test_a_plain_scaling_leaves_the_picture_alone(self):
+        placed = pictures._as_placed(self.image, (146.0, 0.0, 0.0, 146.0, 40.0, 55.0))
+
+        assert placed.tolist() == [[1.0, 2.0], [3.0, 4.0]]
+
+    def test_a_negative_height_turns_the_ranks_back_over(self):
+        placed = pictures._as_placed(self.image, (150.0, 0.0, 0.0, -145.5, 36.0, 250.9))
+
+        assert placed.tolist() == [[3.0, 4.0], [1.0, 2.0]]
+
+    def test_a_negative_width_turns_the_files_back_over(self):
+        placed = pictures._as_placed(self.image, (-150.0, 0.0, 0.0, 145.5, 36.0, 250.9))
+
+        assert placed.tolist() == [[2.0, 1.0], [4.0, 3.0]]
+
+    def test_a_picture_set_at_an_angle_is_left_as_it_is(self):
+        # Not a board this module can cut into sixty-four squares anyway.
+        placed = pictures._as_placed(self.image, (0.0, 146.0, -146.0, 0.0, 40.0, 55.0))
+
+        assert placed.tolist() == [[1.0, 2.0], [3.0, 4.0]]
+
+
 def test_the_frame_is_peeled_and_a_speck_above_it_ignored():
     image = board_image(OPENING)
     image[2, 300] = _INK  # a speck of dirt above the board, as Grivas has one

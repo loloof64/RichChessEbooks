@@ -462,10 +462,18 @@ def _candidate_images(doc: Any, page: Any) -> Iterator[tuple[Any, Any]]:
     Shape is asked of the rectangle the image occupies on the page rather than
     of its pixels: a publisher may store a board at any resolution, and it is
     what the reader sees that is square.
+
+    The array is the board **as the reader sees it**, which is not always how
+    it is stored: a picture is placed on the page by a matrix, and a negative
+    scale in it means the stored rows or columns run the other way. Tactics
+    draws every one of its boards with `d = -145.5` where Grivas draws its
+    with `+145.92`, so its ranks arrive bottom to top — a legal position read
+    upside down, which no game can ever reach and no clustering can notice.
     """
     import numpy as np
 
     page_area = page.rect.width * page.rect.height
+    placed = {info["xref"]: info["transform"] for info in page.get_image_info(xrefs=True)}
     for xref, *_rest in page.get_images(full=True):
         rects = page.get_image_rects(xref)
         if not rects:
@@ -488,7 +496,29 @@ def _candidate_images(doc: Any, page: Any) -> Iterator[tuple[Any, Any]]:
         if pixmap.width < 8 * SIDE or pixmap.height < 8 * SIDE:
             continue
         samples = np.frombuffer(pixmap.samples, dtype=np.uint8)
-        yield rect, samples.reshape(pixmap.height, pixmap.width).astype(np.float32) / 255.0
+        image = samples.reshape(pixmap.height, pixmap.width).astype(np.float32) / 255.0
+        yield rect, _as_placed(image, placed.get(xref))
+
+
+def _as_placed(image: Any, transform: Any) -> Any:
+    """`image` turned the way the matrix that places it on the page turns it.
+
+    Only the two reflections, and only when the matrix is a plain scaling: a
+    picture set at an angle is left as it is, because a board printed askew is
+    not a board this module can cut into sixty-four squares anyway.
+    """
+    import numpy as np
+
+    if transform is None:
+        return image
+    a, b, c, d, *_ = transform
+    if abs(b) > 1e-6 or abs(c) > 1e-6:
+        return image
+    if d < 0:
+        image = np.flipud(image)
+    if a < 0:
+        image = np.fliplr(image)
+    return np.ascontiguousarray(image)
 
 
 def _framed_boards(page: Any) -> Iterator[tuple[Any, Any, tuple[int, int, int, int]]]:
