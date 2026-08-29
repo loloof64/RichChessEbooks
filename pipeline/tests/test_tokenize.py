@@ -618,6 +618,34 @@ class TestABracketNothingCloses:
         assert self.kinds("1.e4 (t de renoncer 1-0 1.d4 d5) 0-1") == ["var_close"]
 
 
+class TestALabelIsNotACloseBracket:
+    """`a)` and `b)` label the alternatives a book lists under one move.
+
+    "19...Bxe5 20 Nxe5, and now: a) 20...Qxe5 ... b) 20...dxe5" — the label's
+    bracket closes nothing, and read as a variation close it pops the aside
+    those very lines belong to. Grivas page 21 played both lists on the
+    game's board; Sakaev prints the same shape with capitals on pages 45
+    and 48.
+    """
+
+    def kinds(self, text: str) -> list[str]:
+        return [t.kind for t in tokenize_pages([page_of(text)])
+                if t.kind in ("var_open", "var_close")]
+
+    def test_a_lettered_label_closes_nothing(self):
+        assert self.kinds("1.e4 e5\na) 2.Nf3 Nc6\nb) 2.Bc4 Bc5 1-0") == []
+
+    def test_a_capital_label_closes_nothing(self):
+        # Sakaev sets its lists with capitals and an en space in front.
+        assert self.kinds("1.e4 e5\n\u2002A)\u2002 2.Nf3 Nc6 1-0") == []
+
+    def test_a_variation_ending_in_a_move_still_closes(self):
+        # What the lookbehind must not reach: a variation ends in a digit, a
+        # check or an annotation, never in one letter with a space in front.
+        assert self.kinds("1.e4 (1.d4 d5 2.c4) e5 1-0") == ["var_open", "var_close"]
+        assert self.kinds("1.e4 (1.d4 Nf6!) e5 1-0") == ["var_open", "var_close"]
+
+
 class TestAFileTheScannerReadAsADigit:
     """`20.♗g5+` off SuperAttaquant's scan as `20.♗25+`.
 

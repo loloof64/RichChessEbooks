@@ -38,7 +38,14 @@ _CHARACTER_FIXES = {
 
 _TOKEN_TEMPLATE = r"""
       (?P<var_open>\()
-    | (?P<var_close>\))
+      # `a)` and `b)` label the alternatives a book lists under one move —
+      # "and now: a) 20...Qxe5 ... b) 20...dxe5" — and the label's bracket
+      # closes nothing. Read as a variation close it pops the aside those
+      # very lines belong to, and the whole list is played on the game's
+      # board instead: two of Grivas page 21's lists, thirteen moves each.
+      # A lone letter with a space in front of it is the label; a variation
+      # ends in a digit, a check or an annotation, never in one letter.
+    | (?P<var_close>(?<!\s[A-Za-z])\))
     | (?P<result>1-0|0-1|1/2-1/2|1/2|\*)
     | (?P<move_number>
           # A space inside the number: subset fonts break `18` into `1 8`, and
