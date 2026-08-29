@@ -617,6 +617,19 @@ def _tokenize_span(
             # take-back above counts back from the start.
             if rank_wreck is not None:
                 lost_symbol += rank_wreck.group()
+            if number_at is None and lost_symbol:
+                # The number announcing the move, which the wreck standing in
+                # front of it hid. A bare number is a move number only where a
+                # move follows it, and a wreck is not one: `16lilxd4` on
+                # Grivas page 18 — with the space gone the way it goes beside
+                # any symbol — left the `16` in the prose above, and the move
+                # it announced played a ply early for the rest of the game.
+                # The wreck is the licence: a figure, then this book's own
+                # spelling of a piece, then a square, is a move being
+                # announced, and prose has no such run in it.
+                announcing = _NUMBER_BEFORE_A_WRECK.search(text, cursor, start)
+                if announcing is not None:
+                    number_at = announcing.start(1)
 
         if number_at is not None:
             # The number stands as its own token, so the move behind it is
@@ -668,6 +681,18 @@ def _tokenize_span(
 #: the symbol the glyph pass replaces: three characters of scan (`ltJ`) come
 #: back as one (`N`), and the space or the dot in front of them goes too.
 _WELDED_NUMBER = re.compile(r"(?<![A-Za-z\d])(\d{1,3})$")
+
+#: A move number standing in front of the wreck of a piece symbol. Where the
+#: glyph pass restored the symbol the number is welded to it and
+#: `_WELDED_NUMBER` finds it; where it failed, the ink of the symbol is still
+#: there, and the number may be flush against it (`16lilxd4`) or a space away
+#: (`21 lilc6`). Neither reaches the bare-number branch of the token pattern,
+#: which asks for a piece letter or a pawn move and is handed a wreck.
+#:
+#: Plain spaces only, never a newline: a figure ending a line would otherwise
+#: announce whatever opens the next, which in two columns is not even the same
+#: paragraph.
+_NUMBER_BEFORE_A_WRECK = re.compile(r"(?<![A-Za-z\d])(\d{1,3})[ ]*$")
 
 #: A bare move number ending a run of prose. Believed only where a diagram
 #: stands between it and the move it announces.

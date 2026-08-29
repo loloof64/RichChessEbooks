@@ -47,6 +47,30 @@ class TestTheWreckOfASymbol:
 
         assert next(t for t in tokens if t.text == "xg5").lost_symbol == ""
 
+    def test_the_number_a_wreck_hid_still_announces_the_move(self):
+        # `16lilxd4` on Grivas page 18: a bare number counts only where a move
+        # follows it, and what follows here is the ink the scanner made of a
+        # knight. The `16` stayed in the prose above, and every move after it
+        # was played a ply early.
+        tokens = tokenize_pages(
+            [page_of("Practically forced. 16lilxd4 .tb7")], spellings={"lil": "N"}
+        )
+
+        number = next(t for t in tokens if t.kind == "move_number")
+        move = next(t for t in tokens if t.kind == "move" and t.text == "xd4")
+        assert number.text == "16"
+        # The move begins at its wreck, so the number ends where it begins:
+        # nothing of the score is left standing in the prose.
+        assert (move.raw, move.lost_symbol) == ("lilxd4", "lil")
+        assert number.end == move.start
+
+    def test_a_space_between_the_number_and_the_wreck_changes_nothing(self):
+        # The scanner keeps the space as readily as it loses it, and the
+        # bare-number branch is handed a wreck either way.
+        tokens = tokenize_pages([page_of("l:xa8 21 lilc6.")], spellings={"lil": "N"})
+
+        assert next(t for t in tokens if t.kind == "move_number").text.strip() == "21"
+
 
 class TestTheBooksOwnSpelling:
     """The piece a wreck is, where the book has been seen spelling it so.
