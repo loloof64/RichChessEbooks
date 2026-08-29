@@ -272,6 +272,31 @@ class TestBrokenFontLeftovers:
 
         assert repaired.text == "\u2656 a6"
 
+    def test_a_leftover_beginning_on_a_file_is_still_a_leftover(self):
+        # Grivas' queen ends its ink on `fi`, and `f` is a file — so a run
+        # that stops at the first character a move could carry stops there and
+        # leaves `♕fid5`, which is no move and yields no token at all. What
+        # ends the run is the move behind it: `fid5` is not one, `d5` is.
+        repaired = repair_page(page("22 'ifid5"), [glyph("Q", 20.0 + 3 * CHAR_WIDTH, CHAR_WIDTH)])
+
+        assert repaired.text == "22 \u2655d5"
+
+    def test_the_run_stops_as_soon_as_a_move_stands_behind_it(self):
+        # `bd2` is already a move, so the `b` is a disambiguating letter and
+        # not a leftover. Taking the shortest run that works is the whole
+        # guard: nothing else tells the two apart.
+        repaired = repair_page(page("liJbd2"), [glyph("N", 20.0, CHAR_WIDTH)])
+
+        assert repaired.text == "\u2658bd2"
+
+    def test_a_square_the_scan_spoiled_keeps_its_file(self):
+        # `♖al` for `♖a1` is no move at any length, so no run is taken on that
+        # ground and the whitelist answers instead. Eating the file would lose
+        # the square rather than the leftover.
+        repaired = repair_page(page("21 l:al"), [glyph("R", 20.0 + 3 * CHAR_WIDTH, CHAR_WIDTH)])
+
+        assert repaired.text == "21 \u2656al"
+
     def test_the_longest_mapping_a_book_prints_is_taken_whole(self):
         # Grivas spells its knight `tt::l` and its king `'ili>`. The glyph's
         # own box holds the first character, so four leftovers stand after it

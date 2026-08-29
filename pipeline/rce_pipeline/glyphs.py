@@ -670,19 +670,45 @@ def _swallow_leftovers(page: Page, end: int) -> int:
 
     Geometry cannot separate those leftovers from the square that follows,
     since they are all the same size and on the same row. What separates them
-    is that a leftover cannot belong to a move. Only characters outside
-    :data:`_MOVE_BODY` are taken, so a square, a rank or a disambiguating
-    letter is never eaten — `♘bd2` keeps its `b`.
+    is the move: the run is taken only as far as it has to be for a move to
+    stand behind it, and no further. `♘bd2` keeps its `b` because `bd2` is
+    already one; `♕fid5` — Grivas' queen, whose ink ends on the `f` of a file
+    — gives up `fi` because `fid5` is not a move and `d5` is.
+
+    Where no reading leaves a move, the run falls back on what a leftover can
+    never be: a character of :data:`_MOVE_BODY`. That is the case of a symbol
+    standing in prose, and of a square the scanner spoiled — `♖al` for `♖a1`
+    is not a move at any length, and eating its file would lose the square
+    instead of the leftover.
     """
     limit = min(end + _MAX_LEFTOVERS, len(page.chars))
-    while end < limit:
-        char = page.chars[end].char
-        # A space ends the run: leftovers are always flush against the symbol,
-        # and crossing a space would join the figurine to the next word.
-        if char.isspace() or char in _MOVE_BODY:
-            break
+    stop = end
+    # A space ends the run: leftovers are always flush against the symbol, and
+    # crossing a space would join the figurine to the next word.
+    while stop < limit and not page.chars[stop].char.isspace():
+        stop += 1
+    word = _word_after(page, end)
+    for taken in range(stop - end + 1):
+        if _MOVE_BEHIND.fullmatch(word[taken:]):
+            return end + taken
+    fallback = end
+    while fallback < stop and page.chars[fallback].char not in _MOVE_BODY:
+        fallback += 1
+    return fallback
+
+
+#: What has to stand behind a leftover for the run to have ended: the body of
+#: a move, without the piece the figurine itself supplies. The annotations go
+#: with it because the tokeniser has not split them off yet.
+_MOVE_BEHIND = re.compile(r"[a-h1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?[!?]*")
+
+
+def _word_after(page: Page, start: int) -> str:
+    """The characters from `start` to the first space, as the page has them."""
+    end = start
+    while end < len(page.chars) and not page.chars[end].char.isspace():
         end += 1
-    return end
+    return "".join(char.char for char in page.chars[start:end])
 
 
 def _rows_overlap(char_box: BBox, glyph_box: BBox) -> bool:
