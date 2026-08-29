@@ -184,6 +184,63 @@ class TestInTheParser:
         assert opened.initial_fen.startswith(position)
         assert [m.status for m in result.moves if m.game_id == opened.id] == ["ok", "ok"]
 
+    def test_a_board_under_a_game_header_opens_a_game(self):
+        """The board printed below a heading belongs to the game it names.
+
+        Markos page 89 finishes the score of Prusikin - Petrik, prints
+        "Dominik Csiba - Jan Markos / Banska Stiavnica 2011", and then the
+        board that game is joined at. Read as a correction to the score above
+        it, the diagram condemns everything since the last board agreed with
+        the line — eight sound moves of a game it has nothing to do with.
+        """
+        played = ("d4", "d5", "c4", "e6", "Nc3", "Nf6")
+        other = fen_after("e4", "e5", "Nf3", "Nc6", "Bb5", "a6")
+        result = parse_tokens(
+            self.make_tokens(
+                ("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                ("move_number", "2."), ("move", "c4"), ("move", "e6"),
+                ("move_number", "3."), ("move", "Nc3"), ("move", "Nf6"),
+                ("text", "A fine game. Dominik Csiba - Jan Markos "
+                         "Banska Stiavnica 2011"),
+                ("diagram", "/".join(rows_of(other))),
+                ("move_number", "4."), ("move", "Bxc6"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        assert [c["verdict"] for c in result.diagram_checks] == ["seeds"]
+        assert result.contradicted == []
+        assert len(result.games) == 2
+        assert result.games[1].position_known is True
+        assert result.games[1].initial_fen.startswith(other)
+        assert [m.status for m in result.moves] == ["ok"] * (len(played) + 1)
+
+    def test_a_game_cited_in_prose_is_not_a_heading(self):
+        """Two names and a dash is also how a book cites a game in passing.
+
+        What tells the two apart is where the citation stands: a heading is
+        the last thing before the board, and prose runs on past it. Without
+        that, a diagram correcting the line would open a game on every page
+        that mentions where a game was played.
+        """
+        position = fen_after("d4", "d5", "c4", "e6", "Nc3", "Nf6")
+        drifted = fen_after("d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Be7")
+        result = parse_tokens(
+            self.make_tokens(
+                ("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                ("move_number", "2."), ("move", "c4"), ("move", "e6"),
+                ("move_number", "3."), ("move", "Nc3"), ("move", "Nf6"),
+                ("text", "As in Dominik Csiba - Jan Markos, Banska Stiavnica "
+                         "2011, White has the freer game."),
+                ("diagram", "/".join(rows_of(drifted))),
+            ),
+            diagram_table=self.table(),
+        )
+
+        assert [c["verdict"] for c in result.diagram_checks] == ["corrects"]
+        assert len(result.games) == 1
+        assert result.main_lines[result.games[0].id][-1] == position
+
     def test_a_board_that_is_not_a_position_seeds_nothing(self):
         """A drawn board decodes into a board the book never printed.
 

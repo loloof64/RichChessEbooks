@@ -425,6 +425,34 @@ def _ends_in_a_word(text: str) -> bool:
     return bool(_PROSE_TAIL.match(tail))
 
 
+#: One side of a game header: a capitalised name, or several of them. Written
+#: without `\w` on purpose — a scanner leaves private-use characters in the
+#: text, and those must not read as letters.
+_HEADER_NAME = r"[A-Z][^\W\d_]*[a-z][^\W\d_]*"
+
+#: The header a book prints above a game: two sides joined by a dash, then
+#: where it was played and the year. Anchored at the end of the text, because
+#: what this is asked is whether the *next* thing on the page belongs to a new
+#: game — a header in the middle of a paragraph is a citation, not a heading.
+_GAME_HEADER = re.compile(
+    rf"{_HEADER_NAME}(?:\s+{_HEADER_NAME})*"
+    r"\s*[-\u2010-\u2015]\s*"
+    rf"{_HEADER_NAME}(?:\s+{_HEADER_NAME})*"
+    r"[^.!?]{0,70}?\b(?:1[89]\d\d|20\d\d)$"
+)
+
+
+def _ends_in_a_game_header(text: str) -> bool:
+    """Whether this prose closes with the heading of a new game.
+
+    "Dominik Csiba - Jan Markos / Banska Stiavnica 2011" is the book saying it
+    has finished with the game it was on. The year is what makes the test
+    safe: two names joined by a dash is also how a book cites a game in
+    passing, and a citation carries no date at the end of the line.
+    """
+    return bool(_GAME_HEADER.search(re.sub(r"\W+$", "", text)))
+
+
 def _ply_of(number: int, is_black: bool) -> int:
     """The half-move a printed `12.` or `12...` announces. White's first is 0."""
     return 2 * (number - 1) + (1 if is_black else 0)
@@ -606,6 +634,13 @@ def parse_tokens(
     #: A position read from a diagram, waiting for the number printed under it
     #: to say whose move it is.
     pending_position: str | None = None
+    #: Whether that diagram stood under the header of a new game, so the board
+    #: it prints opens one rather than correcting the game still running.
+    pending_opens_a_game = False
+    #: Whether the prose last read closed with a game header. Cleared by the
+    #: first move read after it: a heading announces what comes next, and once
+    #: the score has started the announcement is spent.
+    header_read = False
     #: Whether the main line has been sound since the game began: a diagram is
     #: only allowed to teach the font from a board that can be believed.
     line_sound = True
@@ -907,6 +942,10 @@ def parse_tokens(
         token = tokens[at]
         at += 1
         kind_before, last_kind = last_kind, token.kind
+        if token.kind not in ("text", "diagram", "annotation"):
+            # A heading announces the game printed under it, and the first
+            # thing read from that game spends the announcement.
+            header_read = False
         if token.kind == "text":
             level = stack[-1] if stack else None
             if level is not None and level.last_move_id is not None:
@@ -928,6 +967,7 @@ def parse_tokens(
                 # number when the score resumes after a comment, so nothing
                 # real is lost by letting the licence expire here.
                 level.moves_allowed = 0
+            header_read = _ends_in_a_game_header(token.text)
             continue
 
         if token.kind == "diagram":
@@ -944,6 +984,15 @@ def parse_tokens(
                 verdict = "seeds"
             elif printed == reached:
                 verdict = "confirms"
+            elif header_read:
+                # The book has printed the heading of another game between the
+                # last move and this board, so the board is that game's
+                # opening position and not a correction to the line above it.
+                # Read as a correction it condemns the moves it stands under:
+                # Markos page 89 prints the diagram of Csiba - Markos below the
+                # score of Prusikin - Petrik, and eight sound moves of the
+                # latter were blamed on it.
+                verdict = "seeds"
             else:
                 verdict = "corrects"
             if verdict == "confirms":
@@ -970,6 +1019,7 @@ def parse_tokens(
                 # still read and still judged; it just does not move a line
                 # nobody is on.
                 pending_position = printed
+                pending_opens_a_game = header_read
             result.diagram_checks.append(
                 {
                     "page": token.page,
@@ -1012,6 +1062,7 @@ def parse_tokens(
                             stack[-1].moves_allowed = max(stack[-1].moves_allowed, 1)
                             last_kind = "move_number"
             seeded = None
+            opens_on_a_header = False
             if pending_position is not None:
                 # The diagram gave the placement and this number gives the rest
                 # of the position: whose move it is, and which move it is.
@@ -1034,6 +1085,7 @@ def parse_tokens(
                     if _plays(other, line[0]):
                         seeded, is_black_only = other, not is_black_only
                 pending_position = None
+                opens_on_a_header, pending_opens_a_game = pending_opens_a_game, False
                 if not chess.Board(seeded).is_valid():
                     # The board decoded, and it is not a position: the side the
                     # number does *not* name stands in check, or a side holds
@@ -1056,7 +1108,7 @@ def parse_tokens(
                 # marked wrong by a board a page away, with the diagram beside
                 # them confirming they were right.
                 agreed_at = stack[0].parent_id if stack else None
-                if game is None or not game.position_known:
+                if game is None or not game.position_known or opens_on_a_header:
                     # A game the book never printed the start of is not a game
                     # this board belongs to. SuperAttaquant opens eleven of its
                     # fourteen examples in mid-score, each under a drawn board
