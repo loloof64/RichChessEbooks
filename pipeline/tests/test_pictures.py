@@ -78,11 +78,21 @@ def _hatch() -> np.ndarray:
     return ((y + x) % 10) < 2
 
 
-def _cell(piece: str, dark: bool) -> np.ndarray:
+def _dither() -> np.ndarray:
+    """The other way to shade one: half the pixels, in a checkerboard.
+
+    Tactics does it this way, and it is the awkward one — `binary_fill_holes`
+    closes its one-pixel gaps and the whole square becomes a body.
+    """
+    y, x = np.mgrid[0:CELL, 0:CELL]
+    return (y + x) % 2 == 0
+
+
+def _cell(piece: str, dark: bool, shading=_hatch) -> np.ndarray:
     """One square, drawn: its shading, and the piece standing on it."""
     cell = np.full((CELL, CELL), _LIGHT, dtype=np.float32)
     if dark:
-        cell[_hatch()] = _INK
+        cell[shading()] = _INK
     if piece == ".":
         return cell
     from scipy import ndimage
@@ -98,7 +108,7 @@ def _cell(piece: str, dark: bool) -> np.ndarray:
     return cell
 
 
-def board_image(board_fen: str) -> np.ndarray:
+def board_image(board_fen: str, shading=_hatch) -> np.ndarray:
     """A drawn board, framed, as a publisher would store it."""
     ranks = [
         "".join("." * int(ch) if ch.isdigit() else ch for ch in rank)
@@ -111,16 +121,18 @@ def board_image(board_fen: str) -> np.ndarray:
     for rank, row in enumerate(ranks):
         for file, piece in enumerate(row):
             top, left = FRAME + rank * CELL, FRAME + file * CELL
-            image[top : top + CELL, left : left + CELL] = _cell(piece, (rank + file) % 2 == 1)
+            image[top : top + CELL, left : left + CELL] = _cell(
+                piece, (rank + file) % 2 == 1, shading
+            )
     return image
 
 
-def book(tmp_path, boards, *, text="1 e4 e5 2 Nf3"):
+def book(tmp_path, boards, *, text="1 e4 e5 2 Nf3", shading=_hatch):
     """A PDF with one board to a page, each followed by a line of text."""
     path = str(tmp_path / "drawn.pdf")
     doc = fitz.open()
     for board_fen in boards:
-        image = board_image(board_fen)
+        image = board_image(board_fen, shading)
         samples = (np.clip(image, 0.0, 1.0) * 255).astype(np.uint8).tobytes()
         pixmap = fitz.Pixmap(fitz.csGRAY, image.shape[1], image.shape[0], samples, 0)
         page = doc.new_page(width=400, height=600)
@@ -141,6 +153,34 @@ def test_a_piece_reads_the_same_on_a_light_and_on_a_dark_square():
     light = pictures._signature(_cell("r", dark=False), _body(_cell("r", dark=False)))
     dark = pictures._signature(_cell("r", dark=True), _body(_cell("r", dark=True)))
     assert float(np.abs(light - dark).mean()) < pictures.MERGE_DISTANCE
+
+
+def test_a_dithered_dark_square_is_not_a_body():
+    """Tactics shades its dark squares with a fifty-percent dither rather than
+    with strokes. `binary_fill_holes` closes its one-pixel gaps, and the empty
+    square comes out a body covering more than two thirds of itself — a shape
+    that varies with where the dither's phase fell, so one empty dark square
+    took four different characters over nine boards and not one of them could
+    be decoded. Nothing a board carries covers that much of its square: over
+    every board of the corpus the largest real body reaches 0.53."""
+    shaded = _cell(".", dark=True, shading=_dither)
+
+    assert _body(shaded).mean() > pictures._MOST_OF_A_SQUARE
+
+
+def test_the_empty_squares_of_a_dithered_board_are_one_character(tmp_path):
+    """The claim the whole module rests on, on a board shaded that way: the
+    thirty-two empty squares in the middle of the opening position are one
+    thing, light and dark alike. Read as bodies they are four things, and a
+    board that carries a character nothing explains is refused whole."""
+    path = book(tmp_path, [OPENING], shading=_dither)
+    pages = extract.extract_pages(path, first_page=1, last_page=1)
+
+    read = pictures.read(path, pages, skip_pages=set())
+
+    assert len(read.diagrams) == 1
+    middle = "".join(read.diagrams[0].rows[2:6])
+    assert len(set(middle)) == 1
 
 
 def test_an_empty_square_is_the_same_character_whatever_its_colour():

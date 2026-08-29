@@ -107,6 +107,15 @@ OPENING_RATIO = 0.08
 #: eleven of its boards. Measured 2026-08-25 over the whole corpus.
 INSET = 0.01
 
+#: How much of its own square a body may cover and still be a piece. This is a
+#: fact about how a board is drawn rather than a threshold: a piece is drawn
+#: inside its square with air around it, and shading read as ink fills the
+#: square. Measured over every board of the corpus — Grivas' 1194 bodies reach
+#: **0.53** at the very most, SuperAttaquant's 545 reach 0.50, Boussole's 458
+#: reach 0.52 — against Tactics, where 103 squares of 382 pass 0.6 and the
+#: worst reaches 0.83.
+_MOST_OF_A_SQUARE = 0.6
+
 #: Where a square's own paper is read off: high enough to be the paper and not
 #: the ink standing on it, low enough not to be the scanner's noise.
 _PAPER_PERCENTILE = 90.0
@@ -768,6 +777,15 @@ def _signatures(image: Any, region: tuple[int, int, int, int]) -> list[Any] | No
             body = ndimage.binary_opening(
                 ndimage.binary_fill_holes(cell < _ink_below(cell)), structure=element
             )
+            if body.mean() > _MOST_OF_A_SQUARE:
+                # Nothing a board carries covers this much of its square: what
+                # was read is the square's own shading. Tactics shades its dark
+                # squares with a fifty-percent dither, `binary_fill_holes`
+                # closes its one-pixel gaps, and every empty dark square came
+                # out a body over two thirds of itself — signatures that vary
+                # with where the dither's phase fell, so an empty dark square
+                # took four different characters and no board decoded at all.
+                body = np.zeros_like(body)
             squares.append(_signature(cell, body))
             ground = cell[~body]
             grounds[(rank + file) % 2].append(float(ground.mean()) if ground.size else 1.0)
