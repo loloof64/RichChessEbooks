@@ -111,7 +111,16 @@ _TOKEN_TEMPLATE = r"""
               # takes the number of the move behind it — the `6.♗g5` of the
               # comment on Boussole page 65, and the whole line after it.
             | (?<![A-Za-z])(?<!-\n)[{pieces}]?[a-h]?[1-8]?x?[a-h][ ][{ranks}](?!\.)
-            | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}])?
+              # The piece a pawn promoted to. `=Q` is one way of writing it
+              # and the figurine set straight after the square is the other:
+              # SuperAttaquant prints `33.dxe8♕+`, `42.c8♕`, `29.exf8♕#`, and
+              # with no `=` to find, none of those was a token at all — the
+              # move vanished and the line went with it, twelve times over
+              # twelve pages. Only on the promotion ranks, and only where no
+              # square follows the piece: `16♗a2♗c7`, where a lost space runs
+              # two moves together, would otherwise read as a pawn promoting
+              # to a bishop on the second rank.
+            | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}]|(?<=[18])[{pieces}](?![a-h]))?
               # A file the scanner read as a digit. No notation writes a piece
               # and two digits, so what stands where the file belongs is the
               # wreck of the file letter and nothing else — and this scan

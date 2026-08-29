@@ -72,6 +72,34 @@ class TestTheWreckOfASymbol:
         assert next(t for t in tokens if t.kind == "move_number").text.strip() == "21"
 
 
+class TestPromotion:
+    """The piece a pawn promoted to, written with no equals sign.
+
+    A figurine set straight after the square is how SuperAttaquant writes it —
+    `33.dxe8♕+`, `42.c8♕`, `29.exf8♕#` — and with no `=` to find, none of
+    those was a token at all: the move vanished and the line went with it.
+    """
+
+    def test_the_piece_after_the_square_is_the_promotion(self):
+        tokens = tokenize_pages([page_of("33.dxe8Q+ Rxe8")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["dxe8Q+", "Rxe8"]
+
+    def test_two_moves_run_together_are_not_a_promotion(self):
+        # `16♗a2♗c7` on Boussole page 65: a lost space runs two moves together,
+        # and read as a promotion the second move disappears into the first.
+        # The second rank is not a promotion rank and a square follows the
+        # piece, so either guard alone refuses it.
+        tokens = tokenize_pages([page_of("16 Ba2Bc7")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Ba2", "Bc7"]
+
+    def test_the_equals_sign_form_still_reads(self):
+        tokens = tokenize_pages([page_of("51.a8=Q Kf7")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["a8=Q", "Kf7"]
+
+
 class TestTheBooksOwnSpelling:
     """The piece a wreck is, where the book has been seen spelling it so.
 
