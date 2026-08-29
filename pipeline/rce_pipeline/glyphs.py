@@ -647,11 +647,15 @@ def _covered_range(page: Page, box: BBox) -> tuple[int, int]:
 #: to keep rather than a blacklist of what to drop.
 _MOVE_BODY = frozenset("abcdefgh12345678xX+#=-Oo0")
 
-#: How many leftover characters may be swallowed after one figurine. Three
-#: covers the longest mapping seen (`'itt` for a king); beyond that the symbol
-#: was probably placed in prose, where eating words would be worse than leaving
-#: the move unreadable.
-_MAX_LEFTOVERS = 3
+#: How many leftover characters may be swallowed after one figurine. Four
+#: covers the longest mapping seen: Grivas spells its king `'ili>` and its
+#: knight `tt::l`, five characters of which the glyph's own box holds one, and
+#: at three the last of them survived to stand in front of the square — `♔>xf7`,
+#: `♘lxg3`, neither of which is a move. Beyond four the symbol was probably
+#: placed in prose, where eating words would be worse than leaving the move
+#: unreadable; a fifth is never taken on any book of the corpus, so this bound
+#: is the run these mappings actually reach and not a margin over it.
+_MAX_LEFTOVERS = 4
 
 
 def _swallow_leftovers(page: Page, end: int) -> int:

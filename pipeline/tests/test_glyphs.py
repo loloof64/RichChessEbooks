@@ -272,6 +272,17 @@ class TestBrokenFontLeftovers:
 
         assert repaired.text == "\u2656 a6"
 
+    def test_the_longest_mapping_a_book_prints_is_taken_whole(self):
+        # Grivas spells its knight `tt::l` and its king `'ili>`. The glyph's
+        # own box holds the first character, so four leftovers stand after it
+        # — and at three the last of them survived in front of the square,
+        # making `♘lxg3` and `♔>xf7`, which are not moves.
+        knight = repair_page(page("14 tt::lxg3"), [glyph("N", 20.0 + 3 * CHAR_WIDTH, CHAR_WIDTH)])
+        king = repair_page(page("25 'ili>xf7"), [glyph("K", 20.0 + 3 * CHAR_WIDTH, CHAR_WIDTH)])
+
+        assert knight.text == "14 \u2658xg3"
+        assert king.text == "25 \u2654xf7"
+
 
 class TestPlacementScore:
     def test_counts_symbols_that_landed_inside_a_move(self):
