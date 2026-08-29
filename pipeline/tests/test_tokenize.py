@@ -556,6 +556,32 @@ class TestANumberSeparatedFromItsMove:
 
         assert [t.text for t in tokens if t.kind == "move_number"] == ["1"]
 
+    def test_the_letters_and_the_digits_mix(self):
+        # The confusion is per character, not per number: Grivas prints
+        # `10 ...Nxd4` as `lO ...` and `21 ...f5` as `2l ...`, one character
+        # lost out of two either way.
+        for raw, read in (("lO ...", "10..."), ("2l ...", "21..."),
+                          ("1O ...", "10..."), ("Il ...", "11...")):
+            tokens = tokenize_pages([page_of(f"9 Nf3 Practically forced. {raw} Nxd4")])
+            numbers = [t.text for t in tokens if t.kind == "move_number"]
+            assert numbers == ["9", read], (raw, numbers)
+
+    def test_a_figure_in_front_of_an_ellipsis_is_left_alone(self):
+        # All digits already: whatever kept this from being read as a number,
+        # it was not the scanner's alphabet. Reading it here would take every
+        # figure standing in front of an ellipsis.
+        text = "1 e4 He had won in 1994 ... e5 was still to come"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["1"]
+
+    def test_letters_that_read_as_no_move_number_are_letters(self):
+        # `O ...` reads as move zero and `lOO ...` as move one hundred: the
+        # first is no move at all, and neither is what the letters were.
+        for raw in ("O ...", "OO ..."):
+            tokens = tokenize_pages([page_of(f"9 Nf3 and so {raw} Nxd4")])
+            assert [t.text for t in tokens if t.kind == "move_number"] == ["9"]
+
 
 class TestTwoMovesRunTogether:
     """A restored symbol takes the space beside it, and welds two moves.

@@ -677,7 +677,15 @@ _STRANDED_NUMBER = re.compile(r"(?<![A-Za-z\d])(\d{1,3})\s*$")
 #: `l`/`1` confusion this corpus already repairs in a destination rank. On its
 #: own a letter is a letter; what makes this one a number is the ellipsis it
 #: carries, which announces a black move and can follow nothing else.
-_STRANDED_AS_LETTERS = re.compile(r"(?<![A-Za-z\d])([lI]{1,3})(\s*\.\s*\.\s*\.)\s*$")
+#:
+#: The digits and the letters mix, because the confusion is per character and
+#: not per number: Grivas prints `10 ...♘xd4` as `lO ...` and `21 ...f5` as
+#: `2l ...`, one character lost out of two either way. Refusing the mixed form
+#: left both of those moves with no number to announce them, and the analysis
+#: hanging off each was played on the game's own board.
+_STRANDED_AS_LETTERS = re.compile(
+    r"(?<![A-Za-z\d])([\dlIOo]{1,3})(\s*\.\s*\.\s*\.)\s*$"
+)
 
 
 def _free_a_number_a_board_stranded(
@@ -752,12 +760,27 @@ def _a_stranded_number(tokens: list[Token], at: int) -> tuple[re.Match[str] | No
         found = _STRANDED_AS_LETTERS.search(token.raw)
         if found is None:
             return None, None
-        return found, found.group(1).translate(_LETTERS_TO_DIGITS) + "..."
+        digits = found.group(1).translate(_LETTERS_TO_DIGITS)
+        if found.group(1).isdigit():
+            # All digits already: whatever kept this from being read as a
+            # number, it was not the scanner's alphabet, and reading it here
+            # would take every figure in front of an ellipsis.
+            return None, None
+        if digits.startswith("0") or not 0 < int(digits) <= _LETTERS_CEILING:
+            # `O ...` reads as move zero and `lOO ...` as move one hundred:
+            # the first is no move at all, and neither is what the letters
+            # were. A number a book prints has a move behind it.
+            return None, None
+        return found, digits + "..."
     return None, None
 
 
-#: What a scanner leaves of the digit `1` when it prints a move number.
-_LETTERS_TO_DIGITS = str.maketrans("lI", "11")
+#: What a scanner leaves of a digit when it prints a move number.
+_LETTERS_TO_DIGITS = str.maketrans("lIOo", "1100")
+
+#: Above this a book is not numbering a move, so a run of letters that reads
+#: as a bigger figure was never a number. Mirrors `parse._NUMBER_CEILING`.
+_LETTERS_CEILING = 120
 
 
 def _weight_of(page: Page, start: int, end: int) -> bool:
