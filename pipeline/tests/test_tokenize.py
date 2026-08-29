@@ -566,6 +566,14 @@ class TestANumberSeparatedFromItsMove:
             numbers = [t.text for t in tokens if t.kind == "move_number"]
             assert numbers == ["9", read], (raw, numbers)
 
+    def test_the_number_split_by_a_subset_font(self):
+        # `11 ...` set in a subset face comes out `1 l ...`, the two figures
+        # separated. Read as the letter alone it announces move one, and the
+        # citation branches ten moves before the book put it.
+        tokens = tokenize_pages([page_of("9 Nf3 was compelled to play 1 l ... Nxd4")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["9", "11..."]
+
     def test_a_figure_in_front_of_an_ellipsis_is_left_alone(self):
         # All digits already: whatever kept this from being read as a number,
         # it was not the scanner's alphabet. Reading it here would take every

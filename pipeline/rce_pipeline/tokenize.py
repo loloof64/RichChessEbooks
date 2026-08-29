@@ -684,7 +684,7 @@ _STRANDED_NUMBER = re.compile(r"(?<![A-Za-z\d])(\d{1,3})\s*$")
 #: left both of those moves with no number to announce them, and the analysis
 #: hanging off each was played on the game's own board.
 _STRANDED_AS_LETTERS = re.compile(
-    r"(?<![A-Za-z\d])([\dlIOo]{1,3})(\s*\.\s*\.\s*\.)\s*$"
+    r"(?<![A-Za-z\d])([\dlIOo](?:[ ]?[\dlIOo]){0,2})(\s*\.\s*\.\s*\.)\s*$"
 )
 
 
@@ -760,8 +760,10 @@ def _a_stranded_number(tokens: list[Token], at: int) -> tuple[re.Match[str] | No
         found = _STRANDED_AS_LETTERS.search(token.raw)
         if found is None:
             return None, None
-        digits = found.group(1).translate(_LETTERS_TO_DIGITS)
-        if found.group(1).isdigit():
+        # The space a subset font leaves between the two figures of a number
+        # goes with it: `1 l ...` is the eleventh move printed in two pieces.
+        digits = found.group(1).translate(_LETTERS_TO_DIGITS).replace(" ", "")
+        if found.group(1).replace(" ", "").isdigit():
             # All digits already: whatever kept this from being read as a
             # number, it was not the scanner's alphabet, and reading it here
             # would take every figure in front of an ellipsis.
