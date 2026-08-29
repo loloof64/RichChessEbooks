@@ -425,10 +425,12 @@ def _ends_in_a_word(text: str) -> bool:
     return bool(_PROSE_TAIL.match(tail))
 
 
-#: One side of a game header: a capitalised name, or several of them. Written
-#: without `\w` on purpose — a scanner leaves private-use characters in the
-#: text, and those must not read as letters.
-_HEADER_NAME = r"[A-Z][^\W\d_]*[a-z][^\W\d_]*"
+#: One side of a game header: a capitalised name, or several of them, with the
+#: initials a book puts in front of one — "Ki. Georgiev", "J.C. Fernandez",
+#: "I. Zaitsev", three of SuperAttaquant's sixteen headings. Written without
+#: `\w` on purpose — a scanner leaves private-use characters in the text, and
+#: those must not read as letters.
+_HEADER_NAME = r"(?:[A-Z]\.\s*){0,3}[A-Z][^\W\d_]*[a-z][^\W\d_]*\.?"
 
 #: The header a book prints above a game: two sides joined by a dash, then
 #: where it was played and the year. Anchored at the end of the text, because
@@ -451,6 +453,37 @@ def _ends_in_a_game_header(text: str) -> bool:
     passing, and a citation carries no date at the end of the line.
     """
     return bool(_GAME_HEADER.search(re.sub(r"\W+$", "", text)))
+
+
+#: The same heading at the head of the prose rather than at its end. A book
+#: may print the board first and name the game under it — SuperAttaquant does
+#: it every time, "Anderssen - Zukertort / Barmen, 1869" set below the
+#: position the score opens from — and then the heading that says a new game
+#: begins arrives *after* the board that begins it.
+_GAME_HEADER_FIRST = re.compile(
+    r"^\W*"
+    rf"{_HEADER_NAME}(?:\s+{_HEADER_NAME})*"
+    r"\s*[-\u2010-\u2015]\s*"
+    rf"{_HEADER_NAME}(?:\s+{_HEADER_NAME})*"
+    r"[^.!?]{0,70}?\b(?:1[89]\d\d|20\d\d)\b"
+)
+
+
+def _opens_on_a_game_header(text: str) -> bool:
+    """Whether this prose *begins* with the heading of a new game."""
+    return bool(_GAME_HEADER_FIRST.match(text))
+
+
+def _a_game_is_named_under(tokens: Sequence[Token], at: int) -> bool:
+    """Whether the prose at `at` — printed straight after a board — names a game.
+
+    The board comes first and the heading under it, which is the other way
+    round from the book `_ends_in_a_game_header` was written for. Only the very
+    next token is asked: a heading standing anywhere else on the page belongs
+    to some other board.
+    """
+    after = tokens[at] if at < len(tokens) else None
+    return after is not None and after.kind == "text" and _opens_on_a_game_header(after.text)
 
 
 def _ply_of(number: int, is_black: bool) -> int:
@@ -972,6 +1005,7 @@ def parse_tokens(
 
         if token.kind == "diagram":
             rows = tuple(token.text.split("/"))
+            names_a_game = _a_game_is_named_under(tokens, at)
             reached = stack[0].board.board_fen() if stack else None
             # Where in its game's main line this diagram was met. The
             # positions around that point are what `diagrams.learn` searches:
@@ -984,14 +1018,15 @@ def parse_tokens(
                 verdict = "seeds"
             elif printed == reached:
                 verdict = "confirms"
-            elif header_read:
-                # The book has printed the heading of another game between the
-                # last move and this board, so the board is that game's
-                # opening position and not a correction to the line above it.
-                # Read as a correction it condemns the moves it stands under:
-                # Markos page 89 prints the diagram of Csiba - Markos below the
-                # score of Prusikin - Petrik, and eight sound moves of the
-                # latter were blamed on it.
+            elif header_read or names_a_game:
+                # The book has printed the heading of another game beside this
+                # board, so the board is that game's opening position and not a
+                # correction to the line above it. Read as a correction it
+                # condemns the moves it stands under: Markos page 89 prints the
+                # diagram of Csiba - Markos below the score of Prusikin -
+                # Petrik, and eight sound moves of the latter were blamed on
+                # it. The heading may stand on either side — Markos prints it
+                # above the board and SuperAttaquant under it.
                 verdict = "seeds"
             else:
                 verdict = "corrects"
@@ -1019,7 +1054,7 @@ def parse_tokens(
                 # still read and still judged; it just does not move a line
                 # nobody is on.
                 pending_position = printed
-                pending_opens_a_game = header_read
+                pending_opens_a_game = header_read or names_a_game
             result.diagram_checks.append(
                 {
                     "page": token.page,
