@@ -618,7 +618,16 @@ def _tokenize_span(
                     continue
                 start += len(lost_symbol)
                 kept = text[out[-1].end : start]
-                lost_symbol = kept if _WRECK_MARK.search(kept) else ""
+                # A mark no word carries, or a run this book has been seen
+                # spelling a piece with. Without the second, the queen
+                # SuperAttaquant's scanner writes `W` was given back whole
+                # every time it stood behind a move number — `21...Wb7` — and
+                # `b7` was left to be read as a pawn move to the seventh rank.
+                # The number in front is what makes the letter safe to believe
+                # here: nothing else stands between the two.
+                lost_symbol = kept if (
+                    _WRECK_MARK.search(kept) or _piece_spelled(kept, spellings)
+                ) else ""
                 start -= len(lost_symbol)
                 break
             # Last, because it is the only part of the wreck that stands

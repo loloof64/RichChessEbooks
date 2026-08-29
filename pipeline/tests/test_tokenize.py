@@ -72,6 +72,31 @@ class TestTheWreckOfASymbol:
         assert next(t for t in tokens if t.kind == "move_number").text.strip() == "21"
 
 
+class TestAWreckAMoveNumberRunsInto:
+    """A wreck that reaches back over the number's dots gives them back.
+
+    What is left after the number has its own is still the symbol, and it is
+    still the symbol when the book's own spelling is all that says so.
+    """
+
+    def test_a_letter_the_book_spells_survives_the_take_back(self):
+        # `21...Wb7` on SuperAttaquant: the wreck found is `.W`, the number
+        # takes its dot back, and the `W` left standing carries no mark of any
+        # kind. Dropped, `b7` reads as a pawn move to the seventh rank — legal
+        # to parse, impossible to play, and it took 30 moves of the game down.
+        tokens = tokenize_pages([page_of("par 21...Wb7 22.c6")], spellings={"W": "Q"})
+
+        move = next(t for t in tokens if t.text == "b7")
+        assert (move.lost_symbol, move.lost_piece) == ("W", "Q")
+
+    def test_a_run_the_book_never_spelled_is_no_wreck(self):
+        # And with no wreck in front of it the token is not read at all — the
+        # letter running into it is a word as far as anything here can tell.
+        tokens = tokenize_pages([page_of("par 21...Zb7 22.c6")], spellings={"W": "Q"})
+
+        assert not [t for t in tokens if t.kind == "move" and t.text == "b7"]
+
+
 class TestPromotion:
     """The piece a pawn promoted to, written with no equals sign.
 
