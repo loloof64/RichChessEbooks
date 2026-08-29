@@ -504,6 +504,30 @@ def test_a_stray_square_is_named_by_the_nearest_piece_that_can_stand_there():
     assert diagrams.decode(tuple(rows), named) == board.board_fen()
 
 
+def test_two_strays_on_one_board_are_named_together():
+    """Legality is a property of the whole position, so one stray at a time
+    can never settle a board that carries two: with the second still
+    unexplained the board does not decode at all, and no reading of the first
+    can stand. Two of SuperAttaquant's boards are like that, and one of them
+    is 39 moves of a game with no position under any of them."""
+    board = chess.Board()
+    table = dict(FONT)
+    # Both kings came off the clustering as characters of their own — `K` is
+    # what this font prints a white king with and `M` a black one — and a king
+    # is the one thing a position cannot do without.
+    white, black = "\ue0ff", "\ue0fe"
+    rows = [row.replace("K", white).replace("M", black) for row in rows_of(board.board_fen())]
+
+    # By distance each is most like a queen; only the two read as kings
+    # together leave a position anybody could have reached.
+    named = diagrams.name_the_strays(
+        table, [rows], {white: ["Q", "K", "R"], black: ["D", "M", "T"]}
+    )
+
+    assert (named[white], named[black]) == ("K", "k")
+    assert diagrams.decode(tuple(rows), named) == board.board_fen()
+
+
 def test_a_stray_no_piece_can_explain_keeps_its_own_character():
     board = chess.Board()
     table = dict(FONT)

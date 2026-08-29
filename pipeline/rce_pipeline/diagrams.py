@@ -367,9 +367,9 @@ def name_the_strays(
     """The same table, with the squares no cluster explained read off the board.
 
     A stray is one square of one board — SuperAttaquant has seven of them over
-    thirteen boards, one each — and one is enough for :func:`decode` to refuse
-    the whole board, which is the difference between a game the reader can play
-    through and a game with no position under any of its moves.
+    thirteen boards — and one is enough for :func:`decode` to refuse the whole
+    board, which is the difference between a game the reader can play through
+    and a game with no position under any of its moves.
 
     Two things know what such a square is and neither is enough alone. The
     **distance** says which of the believed characters its picture is most
@@ -381,23 +381,76 @@ def name_the_strays(
     character that leaves a position anybody could have reached — they answer
     together.
 
+    **A board's strays are named together**, because legality is a property of
+    the whole position: with a second square still unexplained the board cannot
+    be decoded at all, so no reading of the first one can ever stand. Two of
+    SuperAttaquant's boards carry two strays each, and named one at a time they
+    were refused however plain each of them was — 39 moves of one game with no
+    position under any of them. The joint readings are tried nearest first, by
+    the sum of the two distances.
+
     A stray that no character can make legal keeps its own, and its board is
     refused as before: a board guessed at is worse than a board dropped.
     """
     named = dict(table)
-    for stray, ranked in neighbours.items():
+    for stray in neighbours:
+        if stray in named:
+            continue
         rows = next((b for b in boards if any(stray in row for row in b)), None)
         if rows is None:
             continue
-        for other in ranked:
-            kind = named.get(other)
-            if kind is None:
-                continue
-            trial = {**named, stray: kind}
-            if _stands(rows, trial):
-                named[stray] = kind
-                break
+        unknown = sorted({char for row in rows for char in row} - set(named))
+        settled = _settle_strays(rows, named, unknown, neighbours)
+        if settled is not None:
+            named.update(settled)
     return named
+
+
+#: How many squares of one board may be read off it at once. Beyond this the
+#: board is not one the cluster nearly explained but one it did not read, and
+#: the combinations to try grow with it.
+_MAX_STRAYS = 3
+
+#: How many joint readings of a board's strays are tried before it is given up
+#: on. Reached only by a board with three of them and a long ranking.
+_MAX_TRIALS = 500
+
+
+def _settle_strays(
+    rows: Sequence[str],
+    named: dict[str, str],
+    unknown: Sequence[str],
+    neighbours: dict[str, list[str]],
+) -> dict[str, str] | None:
+    """What the unexplained squares of one board are, or nothing.
+
+    The candidates for each are the believed characters it stands nearest, in
+    that order and one per kind — two characters of the same kind are the same
+    reading of the board, and trying both only doubles the work.
+    """
+    from itertools import product
+
+    if not unknown or len(unknown) > _MAX_STRAYS:
+        return None
+    ranked = []
+    for stray in unknown:
+        kinds: list[str] = []
+        for other in neighbours.get(stray, ()):
+            kind = named.get(other)
+            if kind is not None and kind not in kinds:
+                kinds.append(kind)
+        if not kinds:
+            return None
+        ranked.append(list(enumerate(kinds)))
+    tried = 0
+    for combination in sorted(product(*ranked), key=lambda c: sum(at for at, _ in c)):
+        tried += 1
+        if tried > _MAX_TRIALS:
+            return None
+        reading = {stray: kind for stray, (_, kind) in zip(unknown, combination)}
+        if _stands(rows, {**named, **reading}):
+            return reading
+    return None
 
 
 def initial_fen(board_fen: str, *, number: int, black_to_move: bool) -> str:
