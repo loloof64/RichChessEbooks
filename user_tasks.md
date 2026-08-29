@@ -1,8 +1,67 @@
 # What I have to do next
 
+Written 2026-08-22, revised 2026-08-29 (twelfth session).
+`main` is at the commit below, 367 tests green. Every figure was measured
+locally on the corpus.
+
+> **Twelfth session, 2026-08-29 — SuperAttaquant 129 -> 150, corpus 2806 ->
+> 2827, and every other book is untouched to the unit.** One commit, one move
+> put back.
+>
+> **The move a number announced, kept on the number.** A move number is a
+> promise that a move follows it, and this scan breaks the promise: `16.d5!`
+> arrives as `16.45!`, `16.e6` as `16.6`, `20...♗g7` as `20...2.27`. Nothing
+> matches the run, it is under `_MIN_COMMENT_LENGTH` so it is not even kept as
+> prose, and **the move is gone from every count** — not a token, not a node,
+> not a box. `tokenize._the_wreck_of_an_announced_move` keeps the digits on
+> the number itself (`Token.lost_move`), which is the whole of the ninth
+> session's fix: emitted as a token of its own they are prose, and prose ends
+> the number's licence, so the move printed *after* them is lost too.
+> `parse._put_back_a_lost_move` reads the rank off the end and hands it to
+> `_move_of_the_eaten_ply`, the instrument already trusted for a rank welded
+> to the front of a number: the board names the move and the score playing on
+> is what believes it. **It is called in the seeding branch as well** — the
+> other half of why the ninth session's attempt fired nowhere.
+>
+> Two guards, and each was measured:
+>
+> - **Nothing is kept where a move does follow the number.** `29.♖g7+!` comes
+>   off as `29.8 g7+!`, and read as a lost move the `8` is a rank the board is
+>   asked about — a move put back that the book never printed, in front of the
+>   move it did. Without this guard p207's last game is swallowed by the one
+>   above it: **150 -> 134**, sixteen clean moves gone.
+> - **The run must stand hard against the number.** `34. 8xf8+` is the same
+>   shape a space away and is the move's own wreck.
+>
+> **Seven numbers on SuperAttaquant hold a lost move; one is put back**, and
+> that one is `16.d5` on p202. It is worth **21 clean** on its own — g7 goes
+> from 0/44 to 21 clean + 2 uncertain — because it stands at the head of a
+> game the book seeds from a drawn board, and without it Black's reply is
+> played as White's and the whole example dies. `unscored` is unchanged, and
+> `contradicted` and `drifted` are where they were.
+>
+> **Measured and refused: crossing the prose to find the line.** The four
+> other candidates all have prose behind them — the book prints the move, then
+> five lines about what it was for, then the score again — so
+> `_the_line_after` returns nothing and `_move_of_the_eaten_ply` refuses.
+> `_the_line_the_score_resumes` was written for exactly that: cross a
+> paragraph where the token behind it is the move number naming the very next
+> ply, so the run stays one line by the book's own account. It is **an exact
+> no-op on the corpus** — the lines it recovers still do not play three moves
+> in order, because the moves in them carry their own damage (`21.d4! ♕b8`
+> arrives as `d4` and `b8`, the queen's wreck unrestored, and the replay dies
+> on the second move). Reverted, and **it is the right next thing to retry**
+> the moment `_move_of_the_eaten_ply` replays a move using its `lost_piece`:
+> those two are one piece of work, and `20...♗g7` (38 moves) and `16.e6` (41)
+> are what they are worth.
+>
+> **Where SuperAttaquant stands: 611 moves, 150 clean, 258 cascade, 56
+> unscored, 47 below a break, 39 drifted, 22 first breaks.** g1's 51 unscored
+> are still the window's edge. The two biggest breaks left are the two named
+> just above.
+
 Written 2026-08-22, revised 2026-08-29 (eleventh session, second half).
-`main` is at `5d15114`, 362 tests green. Every figure was measured locally on
-the corpus.
+`5d15114` was `main` at that revision, 362 tests green.
 
 > **Laurent, mid-session: "il faudrait encore améliorer, en priorité ->
 > super attaquant -> tactics. Beaucoup trop peu de coups et lignes non

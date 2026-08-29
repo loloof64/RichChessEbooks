@@ -10,6 +10,7 @@ same character in :class:`~rce_pipeline.extract.Page.chars`.
 from __future__ import annotations
 
 import re
+import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
@@ -357,6 +358,11 @@ class Token:
     #: says so — `glyphs.spellings`, learned from the symbols the glyph pass
     #: did restore. Empty when the book taught no spelling for this ink.
     lost_piece: str = ""
+    #: What the scan left of the move this number announced, where the move
+    #: itself came off as no token at all: the `45` of `16.45!`, printed
+    #: `16.d5!`. Only the rank at the end of it is worth anything, and only
+    #: `parse` can use even that — see `_the_wreck_of_an_announced_move`.
+    lost_move: str = ""
     #: Printed in a heavier weight than the body text. Books that typeset the
     #: game score bold and the analysis around it plain mark, character by
     #: character, the one thing `parse` otherwise has to guess: which line a
@@ -377,6 +383,8 @@ class Token:
             payload["lost_symbol"] = self.lost_symbol
         if self.lost_piece:
             payload["lost_piece"] = self.lost_piece
+        if self.lost_move:
+            payload["lost_move"] = self.lost_move
         if self.bold:
             payload["bold"] = True
         return payload
@@ -460,7 +468,9 @@ def _tokenize_page(
     tokens.extend(_tokenize_span(
         page, text, token_re, to_san, cursor, len(text), spellings
     ))
-    return _free_a_number_a_board_stranded(tokens, page, text)
+    return _the_wreck_of_an_announced_move(
+        _free_a_number_a_board_stranded(tokens, page, text), page, text
+    )
 
 
 def _drop_a_bracket_nothing_closes(tokens: list[Token]) -> list[Token]:
@@ -855,3 +865,90 @@ def _make_text_token(page: Page, text: str, start: int, end: int) -> Token | Non
         end=end,
         bbox=page.bbox_for(start, end),
     )
+
+
+#: What a move number is left standing in front of, where the move it
+#: announced came off the scan as digits. `16.d5!` arrives as `16.45!`,
+#: `15.exf7+ ♔h8 16.e6` as `... 16.6`, and `20...♗g7` as `20...2.27`: the file
+#: letter is a digit or is gone altogether, nothing matches, and the run is
+#: too short even to be kept as prose. Bounded at four characters, hard
+#: against the number — a figure a space away is the next thing the page says,
+#: not the wreck of this one — and it must end on a rank, which is the one
+#: thing about the move that survives.
+_MOVE_LEFT_AS_DIGITS = re.compile(r"[\d.]{0,3}[1-8](?![\d.a-zA-Z])")
+
+
+def _the_wreck_of_an_announced_move(
+    tokens: list[Token], page: Page, text: str
+) -> list[Token]:
+    """Keep the digits a move number is left holding, on the number itself.
+
+    A move number is a promise that a move follows it, and this scan breaks
+    the promise a dozen times over twelve pages. Nothing matches the run, it
+    is under `_MIN_COMMENT_LENGTH` or it is swallowed by the paragraph behind
+    it, and the move is gone with no trace anywhere — not a token, not a node,
+    not a box, and so not in any count either.
+
+    It is kept **on the number** and nowhere else. Emitted as a token of its
+    own it is prose, and prose is what ends a number's licence, so the move
+    printed after it would be lost with it — which is how this was measured
+    and refused once already. What `parse` may do with it is one thing and one
+    only: read the rank off the end and ask the board which move ended there.
+    `_move_of_the_eaten_ply` answers that from the score playing on, not from
+    any guess about the characters, and where the score does not play on the
+    move stays lost.
+
+    Whatever the run was read as goes with it. `20...♗g7` comes off as
+    `20...2.27`, whose `2.` reads as a second move number hard against the
+    first — and a move number printed against another one is not one; `16.e6`
+    comes off as `16.6`, where the digit opens the paragraph printed under the
+    move and the paragraph keeps it.
+
+    Nothing at all is kept where a move *does* follow the number: the promise
+    is then kept, and the digits in front of the move are the wreck of its own
+    symbol. `29.♖g7+!` comes off as `29.8 g7+!`, and read as a lost move the
+    `8` is a rank the board is asked about — a move put back that the book
+    never printed, in front of the move it did. Sixteen of SuperAttaquant's
+    moves died under one of those.
+    """
+    out: list[Token] = []
+    skip = 0
+    for at, token in enumerate(tokens):
+        if skip:
+            skip -= 1
+            continue
+        found = (
+            _MOVE_LEFT_AS_DIGITS.match(text, token.end)
+            if token.kind == "move_number" else None
+        )
+        if found is None:
+            out.append(token)
+            continue
+        covered, tail = 0, None
+        for other in tokens[at + 1:]:
+            if other.start >= found.end():
+                break
+            if other.end <= found.end() and other.kind == "move_number":
+                covered += 1
+                continue
+            if other.kind == "text":
+                # The paragraph the digits open. It keeps everything but them.
+                tail = _make_text_token(page, text, found.end(), other.end)
+                covered += 1
+            else:
+                covered = -1
+            break
+        if covered < 0:
+            out.append(token)
+            continue
+        after = tail if tail is not None else (
+            tokens[at + 1 + covered] if at + 1 + covered < len(tokens) else None
+        )
+        if after is not None and after.kind == "move":
+            out.append(token)
+            continue
+        skip = covered
+        out.append(dataclasses.replace(token, lost_move=found.group()))
+        if tail is not None:
+            out.append(tail)
+    return out

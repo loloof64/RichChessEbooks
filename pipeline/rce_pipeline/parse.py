@@ -960,6 +960,33 @@ def parse_tokens(
             board=board.copy(), parent_id=parent, opened_at=parent, opened_ply=declared
         )]
 
+    def _put_back_a_lost_move(token: Token, at: int) -> None:
+        """Play the move a number announced and the scan destroyed.
+
+        The number is a promise that a move follows it, and `tokenize` keeps
+        the digits the scan left where the move should be — `16.45` for
+        `16.d5`, `16.6` for `16.e6`. All that is left of the move is the rank
+        it ended on, and the board is asked which move that was, exactly as it
+        is for a rank welded to the front of a number.
+
+        Every one of these stands at the head of a game this book seeds from a
+        drawn board, and the cost of losing one is the whole game: the reply
+        printed after it is played as the move that never arrived, on the
+        wrong side, and nothing below it is on a position the book printed.
+        """
+        if not token.lost_move or not stack or stack[-1].board_lost:
+            return
+        put_back = _move_of_the_eaten_ply(
+            stack[-1].board, int(token.lost_move[-1]), _the_line_after(tokens, at)
+        )
+        if put_back is None:
+            return
+        tokens.insert(at, dataclasses.replace(
+            token, kind="move", text=put_back, raw=token.lost_move, lost_move="",
+            consumed="", lost_symbol="", lost_piece="",
+        ))
+        stack[-1].moves_allowed = max(stack[-1].moves_allowed, 1)
+
     #: Asides `_place_by_weight` has opened since the score was last resumed.
     asides: list[_Level] = []
     last_declared: int | None = None
@@ -1160,6 +1187,7 @@ def parse_tokens(
                     main_history.clear()
                     line_sound = True
                 stack[-1].moves_allowed = 1 if is_black_only else 2
+                _put_back_a_lost_move(token, at)
                 continue
             if game is None and over is not None and _ply_of(number, is_black_only) in (
                 _ply_awaited(over[1].board),
@@ -1216,6 +1244,7 @@ def parse_tokens(
                 # again: whatever follows is resolved against the board once
                 # more, as it was before this level lost it.
                 stack[-1].board_lost = False
+                _put_back_a_lost_move(token, at)
             continue
 
         if token.kind == "var_open":

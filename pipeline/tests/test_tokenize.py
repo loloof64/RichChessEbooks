@@ -813,3 +813,44 @@ class TestAFileThatLeftNoCharacter:
         tokens = tokenize_pages([page_of("30.B3+ Kh8")])
 
         assert [t.text for t in tokens if t.kind == "move"] == ["B3+", "Kh8"]
+
+
+class TestTheMoveANumberAnnouncedAndTheScanDestroyed:
+    """`16.d5!` off SuperAttaquant's page as `16.45!`.
+
+    The move matches nothing, the run is too short to be kept as prose, and
+    the move is gone from every count — not a token, not a node, not a box.
+    The digits are kept on the number so `parse` can ask the board which move
+    ended on the rank they still name.
+    """
+
+    def test_the_digits_are_kept_on_the_number(self):
+        tokens = tokenize_pages([page_of("16.45! Bxc3 17.Red1 exd5")])
+
+        number = next(t for t in tokens if t.kind == "move_number")
+        assert number.text == "16." and number.lost_move == "45"
+
+    def test_the_paragraph_the_digits_open_keeps_everything_but_them(self):
+        tokens = tokenize_pages([page_of("15.exf7+ Kh8 16.6 Le pion e6 assure la suite")])
+
+        number = [t for t in tokens if t.kind == "move_number"][-1]
+        assert number.text == "16." and number.lost_move == "6"
+        assert [t for t in tokens if t.kind == "text"][0].text.startswith("Le pion")
+
+    def test_a_number_printed_hard_against_another_one_goes_with_it(self):
+        tokens = tokenize_pages([page_of("20...2.27 Short prefere rendre la piece")])
+
+        numbers = [t for t in tokens if t.kind == "move_number"]
+        assert [(t.text, t.lost_move) for t in numbers] == [("20...", "2.27")]
+
+    def test_nothing_is_kept_where_a_move_does_follow(self):
+        # `29.♖g7+!` as `29.8 g7+!`: the promise is kept and the digit in
+        # front of the move is the wreck of its own symbol, not a lost move.
+        tokens = tokenize_pages([page_of("28.Rf1 Rc8 29.8 g7+! Kh8")])
+
+        assert all(not t.lost_move for t in tokens if t.kind == "move_number")
+
+    def test_a_figure_a_space_away_is_not_the_wreck_of_this_move(self):
+        tokens = tokenize_pages([page_of("34. 8xf8+ Qxf8 35.Qxf8")])
+
+        assert all(not t.lost_move for t in tokens if t.kind == "move_number")
