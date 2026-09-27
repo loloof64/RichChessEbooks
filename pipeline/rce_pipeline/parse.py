@@ -578,9 +578,28 @@ def _the_score_after(tokens: Sequence[Token], at: int, ply: int, most: int = 6) 
 _EATEN_LOOKAHEAD = 2
 
 
+def _position_key(board: chess.Board) -> str:
+    """The position itself, without the two clocks a transposition changes."""
+    return board.fen().rsplit(" ", 2)[0]
+
+
+@dataclass
+class _Eaten:
+    """The move `_move_of_the_eaten_ply` puts back, and how far to doubt it."""
+
+    san: str
+    #: The positions that depend on which of several equal moves the book
+    #: printed — empty where the line named one move alone.
+    doubtful: frozenset[str] = frozenset()
+    #: Where those moves' lines become one position again.
+    merged: str | None = None
+    #: Every move that carried the line as far, the one put back first.
+    readings: tuple[str, ...] = ()
+
+
 def _move_of_the_eaten_ply(
     board: chess.Board, rank: int, line: Sequence[Token]
-) -> str | None:
+) -> _Eaten | None:
     """The move the welded number destroyed, named by the board.
 
     All the number kept of it is the rank it ended on — the `5` of `f5` in
@@ -591,10 +610,16 @@ def _move_of_the_eaten_ply(
     line is followed as far as the book prints it, and the move that carries it
     furthest wins.
 
-    Where two carry it equally far the move is **not** put back. A wrong move
-    here would be worse than a missing one: it is played, it is legal, and
-    every position below it is one the book never printed — which is the way
-    `clean` lies, and this pipeline counts that as the failure it is.
+    Where two carry it equally far the move is **not** put back, unless their
+    lines meet. A wrong move here would be worse than a missing one: it is
+    played, it is legal, and every position below it is one the book never
+    printed — which is the way `clean` lies, and this pipeline counts that as
+    the failure it is. But where the lines become one position — Plaskett-
+    Short's `20...♗g7` or `♗e7`, and the bishop takes on f6 from either — only
+    the positions before the meeting can be wrong. One move is put back, and
+    those positions come back as `doubtful`, for the moves played on them to be
+    left to the reader; below the meeting the board is the book's whichever
+    move it printed.
     """
     if len(line) < _EATEN_LOOKAHEAD:
         return None
@@ -605,7 +630,7 @@ def _move_of_the_eaten_ply(
             continue
         after = board.copy(stack=False)
         after.push(move)
-        reached = 0
+        positions = [_position_key(after)]
         for token in line:
             # Read as the score itself reads it: the moves after the break
             # carry the scan's damage too — `♕b8` arriving as `b8` beside
@@ -615,14 +640,28 @@ def _move_of_the_eaten_ply(
             if trial.move is None or trial.status == "broken":
                 break
             after.push(trial.move)
-            reached += 1
+            positions.append(_position_key(after))
+        reached = len(positions) - 1
         if reached > carried:
-            best, carried = [move], reached
+            best, carried = [(move, positions)], reached
         elif reached == carried:
-            best.append(move)
-    if carried < _EATEN_LOOKAHEAD or len(best) != 1:
+            best.append((move, positions))
+    if carried < _EATEN_LOOKAHEAD or not best:
         return None
-    return board.san(best[0])
+    if len(best) == 1:
+        return _Eaten(board.san(best[0][0]))
+    lines = [positions for _move, positions in best]
+    meet = next(
+        (at for at in range(carried + 1) if len({line[at] for line in lines}) == 1), None
+    )
+    if meet is None:
+        return None
+    return _Eaten(
+        board.san(best[0][0]),
+        doubtful=frozenset(lines[0][:meet]),
+        merged=lines[0][meet],
+        readings=tuple(board.san(move) for move, _positions in best),
+    )
 
 
 def _number_stripped_of_a_lost_move(
@@ -1031,11 +1070,23 @@ def parse_tokens(
         put_back = _move_of_the_eaten_ply(stack[-1].board, int(token.lost_move[-1]), line)
         if put_back is None:
             return
+        _doubt(put_back)
         tokens.insert(at, dataclasses.replace(
-            token, kind="move", text=put_back, raw=token.lost_move, lost_move="",
+            token, kind="move", text=put_back.san, raw=token.lost_move, lost_move="",
             consumed="", lost_symbol="", lost_piece="",
         ))
         stack[-1].moves_allowed = max(stack[-1].moves_allowed, 1)
+
+    #: Positions that depend on which of several equal moves a destroyed ply
+    #: was, each with those moves, and the positions where their lines meet.
+    #: A move played onto one of the first is left for the reader to check.
+    doubted: dict[str, tuple[str, ...]] = {}
+    met: set[str] = set()
+
+    def _doubt(put_back: _Eaten) -> None:
+        doubted.update(dict.fromkeys(put_back.doubtful, put_back.readings))
+        if put_back.merged is not None:
+            met.add(put_back.merged)
 
     #: Asides `_place_by_weight` has opened since the score was last resumed.
     asides: list[_Level] = []
@@ -1167,8 +1218,9 @@ def parse_tokens(
                             stack[-1].board, eaten, _the_line_after(tokens, at)
                         )
                         if put_back is not None:
+                            _doubt(put_back)
                             tokens.insert(at, dataclasses.replace(
-                                token, kind="move", text=put_back, raw=token.text,
+                                token, kind="move", text=put_back.san, raw=token.text,
                                 consumed="", lost_symbol="", lost_piece="",
                             ))
                             stack[-1].moves_allowed = max(stack[-1].moves_allowed, 1)
@@ -1431,6 +1483,30 @@ def parse_tokens(
                 {"raw": token.text, "reason": "the game's starting position was never printed"},
             )
         move = resolution.move
+        if move is not None and doubted:
+            # Played onto a position that depends on which of several moves a
+            # destroyed ply was, or from one without reaching the position
+            # their lines meet at: the board may not be the book's, so the move
+            # is left for the reader to check — and an aside opened here
+            # inherits the doubt, position by position.
+            after = board_before.copy(stack=False)
+            after.push(move)
+            readings = doubted.get(_position_key(after))
+            if readings is None and _position_key(after) not in met:
+                readings = doubted.get(_position_key(board_before))
+            if readings is not None:
+                doubted.setdefault(_position_key(after), readings)
+                if resolution.status == "ok":
+                    resolution = dataclasses.replace(
+                        resolution,
+                        status="uncertain",
+                        confidence=min(resolution.confidence, 1 / len(readings)),
+                        repair={
+                            "raw": token.raw,
+                            "reason": "played on a board that depends on which move the "
+                            f"scan destroyed: {' or '.join(readings)} carry the line alike",
+                        },
+                    )
 
         move_counter += 1
         sibling_key = (game.id, level.parent_id)

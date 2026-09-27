@@ -1737,3 +1737,44 @@ class TestALostMoveTheProseSeparatesFromItsLine:
         result = parse_tokens(self.tokens(resumes="7."))
 
         assert "Be7" not in sans(result)
+
+
+class TestALostMoveTwoMovesExplainAlike:
+    """A destroyed move the line cannot name, on a line that does not care.
+
+    Plaskett-Short, SuperAttaquant page 201: `20...♗g7` comes off the scan as
+    `20...2.27`, and `♗e7` carries "21.d4 ♕b8 22.dxc5 bxc5 23.exf6 ♗xf6"
+    exactly as far — the bishop takes on f6 from either square, and from there
+    the two games are one. Refusing the move loses all 38 moves of the game;
+    putting one back is wrong, if it is wrong, only until the positions meet.
+
+    So one is put back, and every move played on a position that depends on
+    which it was is left for the reader to check. Below the meeting the moves
+    are on the book's own board whichever the book printed.
+    """
+
+    def tokens(self) -> list[Token]:
+        played = ["e4", "e6", "d4", "g6", "Nf3", "Nf6", "e5"]
+        out: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                out.append(tok("move_number", f"{index // 2 + 1}."))
+            out.append(tok("move", san))
+        return out + [
+            # `4...♗g7` or `4...♗e7`: the scan kept the rank.
+            dataclasses.replace(tok("move_number", "4..."), lost_move="2.27"),
+            tok("move_number", "5."), tok("move", "exf6"), tok("move", "Bxf6"),
+            tok("move_number", "6."), tok("move", "Nc3"), tok("move", "O-O"),
+            tok("move_number", "7."), tok("move", "Bd3"), tok("move", "d5"),
+        ]
+
+    def test_the_moves_before_the_positions_meet_are_left_to_check(self):
+        main = [m for m in parse_tokens(self.tokens()).moves if m.variation_index == 0]
+
+        assert [m.san for m in main][7] in ("Be7", "Bg7")
+        assert [(m.san, m.status) for m in main][8:] == [
+            ("exf6", "uncertain"), ("Bxf6", "ok"), ("Nc3", "ok"), ("O-O", "ok"),
+            ("Bd3", "ok"), ("d5", "ok"),
+        ]
+        assert main[7].status == "uncertain"
+        assert all(m.repair and m.repair["reason"] for m in main[7:9])
