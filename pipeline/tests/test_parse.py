@@ -1739,6 +1739,58 @@ class TestALostMoveTheProseSeparatesFromItsLine:
         assert "Be7" not in sans(result)
 
 
+class TestAPieceWhoseSquareWasLost:
+    """`2.NO` — the knight printed, its square read as `O`: the board and the
+    score after it name the move, as they name a move a number destroyed."""
+
+    def test_the_line_names_the_square(self):
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2."), ("move", "N?"), ("move", "Nc6"),
+            ("move_number", "3."), ("move", "Bb5"), ("move", "a6"),
+            ("move_number", "4."), ("move", "Ba4"), ("move", "Nf6"),
+            # Only a knight on f3 takes on e5.
+            ("move_number", "5."), ("move", "Nxe5"),
+        ))
+
+        assert [(m.san, m.status) for m in result.moves][2:4] == [
+            ("Nf3", "uncertain"), ("Nc6", "ok"),
+        ]
+
+    def test_a_move_the_line_only_finds_ambiguous_is_not_ruled_out(self):
+        # Svidler-Jakovenko, Silman p612: `2.NB` for `2.Nf3`, and `9.Nbd2`
+        # read `Nhd2`. With the knight on f3 two knights reach d2, so the line
+        # stops there; with it on h3 only one does, and the line runs on — so
+        # the wrong knight carried it further. Two pieces reaching a square
+        # says nothing against either: the right move is still standing.
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "d4"), ("move", "d5"),
+            ("move_number", "2."), ("move", "N?"), ("move", "Nf6"),
+            ("move_number", "3."), ("move", "e3"), ("move", "e6"),
+            ("move_number", "4."), ("move", "Nhd2"), ("move", "c5"),
+            ("move_number", "5."), ("move", "c3"),
+        ))
+
+        assert "Nh3" not in sans(result)
+
+    def test_the_line_is_followed_until_it_tells_the_knights_apart(self):
+        # `2.Nf3` and `2.Na3` both play the next six moves; only the twelfth,
+        # `7.Nxe5`, needs the knight on f3. Silman's `2.NO` is `Nf3` against
+        # `Nh3` over ten plies as often as not.
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2."), ("move", "N?"), ("move", "Nc6"),
+            ("move_number", "3."), ("move", "Bc4"), ("move", "Bc5"),
+            ("move_number", "4."), ("move", "c3"), ("move", "Nf6"),
+            ("move_number", "5."), ("move", "d3"), ("move", "d6"),
+            ("move_number", "6."), ("move", "O-O"), ("move", "O-O"),
+            ("move_number", "7."), ("move", "h3"), ("move", "a6"),
+            ("move_number", "8."), ("move", "Nxe5"),
+        ))
+
+        assert (result.moves[2].san, result.moves[2].status) == ("Nf3", "uncertain")
+
+
 class TestALostMoveTwoMovesExplainAlike:
     """A destroyed move the line cannot name, on a line that does not care.
 

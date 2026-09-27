@@ -542,9 +542,9 @@ def _tokenize_page(
     tokens.extend(_tokenize_span(
         page, text, token_re, to_san, cursor, len(text), spellings
     ))
-    return _the_wreck_of_an_announced_move(
+    return _a_piece_whose_square_was_lost(_the_wreck_of_an_announced_move(
         _free_a_number_a_board_stranded(tokens, page, text), page, text
-    )
+    ), page, text)
 
 
 def _drop_a_bracket_nothing_closes(tokens: list[Token]) -> list[Token]:
@@ -950,6 +950,43 @@ def _make_text_token(page: Page, text: str, start: int, end: int) -> Token | Non
 #: not the wreck of this one — and it must end on a rank, which is the one
 #: thing about the move that survives.
 _MOVE_LEFT_AS_DIGITS = re.compile(r"[\d.]{0,3}[1-8](?![\d.a-zA-Z])")
+
+
+#: A piece letter whose square the scan made into one capital letter, with
+#: nothing but space between it and the tokens on either side: `2.NO Nc6`.
+_PIECE_WITH_ITS_SQUARE_LOST = re.compile(r"\s*([KQRBN])(x?)[A-Z]([+#]?)\s+")
+
+
+def _a_piece_whose_square_was_lost(
+    tokens: list[Token], page: Page, text: str
+) -> list[Token]:
+    """A move whose piece survived and whose square did not.
+
+    Silman's scan reads `f3` as `O` about half the time — `2.NO Nc6`, `BO`,
+    `QO` — and a piece letter with no square matches nothing: the move was
+    gone without a trace, and `2...Nc6` was played as White's second. Inside
+    a score, between a number or a move and the next move, it is kept as the
+    piece and a `?` for the square, which `parse` asks the board and the score
+    after it to name.
+    """
+    out: list[Token] = []
+    for token, after in zip(tokens, tokens[1:] + [None]):
+        out.append(token)
+        if after is None or token.kind not in ("move_number", "move") or after.kind not in (
+            "move", "move_number"
+        ):
+            continue
+        found = _PIECE_WITH_ITS_SQUARE_LOST.fullmatch(text, token.end, after.start)
+        if found is None:
+            continue
+        piece, capture, check = found.groups()
+        out.append(Token(
+            kind="move", text=f"{piece}{capture}?{check}",
+            raw=text[found.start(1):found.end(3)], page=page.number,
+            start=found.start(1), end=found.end(3),
+            bbox=page.bbox_for(found.start(1), found.end(3)),
+        ))
+    return out
 
 
 def _the_wreck_of_an_announced_move(

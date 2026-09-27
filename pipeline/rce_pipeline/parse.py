@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 import chess
 
@@ -525,6 +525,13 @@ def _the_line_after(tokens: Sequence[Token], at: int, most: int = 6) -> list[Tok
     return out
 
 
+#: A move `tokenize` kept with its square lost: the piece, a capture, a `?`.
+_SQUARE_LOST = re.compile(r"^([KQRBN])(x?)\?[+#]?$")
+
+#: How many plies of the score a lost square is looked for in.
+_SQUARE_LOOKAHEAD = 20
+
+
 #: How far the book's comment on a move may run before the score resumes.
 #: SuperAttaquant's is one paragraph, which the layer hands over as a text, a
 #: square the prose names, and the text after it — twice over at most.
@@ -578,6 +585,18 @@ def _the_score_after(tokens: Sequence[Token], at: int, ply: int, most: int = 6) 
 _EATEN_LOOKAHEAD = 2
 
 
+def _two_pieces_reach(board: chess.Board, text: str) -> bool:
+    """Whether the piece and square `text` names are reached by more than one piece.
+
+    The character between them is left out: `Nhd2` is `9.Nbd2` with its `b`
+    read as an `h`, and what it says about a board is where knights stand.
+    """
+    plain = _CHECK_MARK.sub("", _TRAILING_ANNOTATION.sub("", text.strip()))
+    match = _DISAMBIGUATED.match(plain)
+    named = match.group(1) + match.group(3) if match else plain
+    return len(_ambiguous_candidates(board, named)) > 1
+
+
 def _position_key(board: chess.Board) -> str:
     """The position itself, without the two clocks a transposition changes."""
     return board.fen().rsplit(" ", 2)[0]
@@ -621,12 +640,24 @@ def _move_of_the_eaten_ply(
     left to the reader; below the meeting the board is the book's whichever
     move it printed.
     """
+    return _move_the_line_names(
+        board, lambda move: chess.square_rank(move.to_square) == rank - 1, line
+    )
+
+
+def _move_the_line_names(
+    board: chess.Board, fits: Callable[[chess.Move], bool], line: Sequence[Token]
+) -> _Eaten | None:
+    """The one move that `fits` and carries the score after it furthest.
+
+    What `_move_of_the_eaten_ply` asks of a rank, asked of anything the scan
+    left of a move: a piece whose square is gone asks it of the piece.
+    """
     if len(line) < _EATEN_LOOKAHEAD:
         return None
-    wanted = rank - 1
     best, carried = [], 0
     for move in board.legal_moves:
-        if chess.square_rank(move.to_square) != wanted:
+        if not fits(move):
             continue
         after = board.copy(stack=False)
         after.push(move)
@@ -637,6 +668,14 @@ def _move_of_the_eaten_ply(
             # the queen's wreck — and the line only names the eaten move if
             # it is read with the same repairs.
             trial = _resolve(after, token.text, token.consumed, token.lost_symbol, token.lost_piece)
+            if trial.move is None and _two_pieces_reach(after, token.text):
+                # Two pieces reach the square: the move is ambiguous here, not
+                # impossible, and says nothing against this reading. `9.Nbd2`
+                # read `Nhd2` stops the right knight's line and not a wrong
+                # one's, and the wrong one would win. The reading stands to the
+                # end of the line, on positions no other reading shares.
+                positions += [f"?{move.uci()}{index}" for index in range(len(line) - len(positions) + 1)]
+                break
             if trial.move is None or trial.status == "broken":
                 break
             after.push(trial.move)
@@ -1444,6 +1483,33 @@ def parse_tokens(
                 0.0,
                 {"raw": token.text, "reason": "read after a move the line could not"},
             )
+        elif game.position_known and _SQUARE_LOST.match(token.text):
+            # The piece printed and its square not: the board and the score
+            # after it name the move, or nothing does.
+            piece, capture = _SQUARE_LOST.match(token.text).groups()
+            kind = chess.PIECE_SYMBOLS.index(piece.lower())
+            named = _move_the_line_names(
+                board_before,
+                lambda move: board_before.piece_type_at(move.from_square) == kind
+                and board_before.is_capture(move) == bool(capture),
+                # Followed further than a destroyed ply's: a piece has a handful
+                # of moves and two of them often play the same ten plies —
+                # Silman's `2.NO` is `Nf3` or `Nh3` until the knight moves again.
+                _the_score_after(tokens, at, _ply_awaited(board_before), most=_SQUARE_LOOKAHEAD),
+            )
+            if named is None:
+                resolution = _Resolution(
+                    None, token.text, "broken", 0.0,
+                    {"raw": token.raw, "reason": "the square was lost, and the score "
+                     "after it names no single move of this piece"},
+                )
+            else:
+                _doubt(named)
+                resolution = _Resolution(
+                    board_before.parse_san(named.san), named.san, "uncertain", 0.5,
+                    {"raw": token.raw, "reason": "the square was lost; the score "
+                     "after it names this move"},
+                )
         elif game.position_known:
             resolution = _resolve(
                 board_before, token.text, token.consumed, token.lost_symbol,

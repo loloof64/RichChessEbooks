@@ -172,6 +172,23 @@ class TestANumberTheScannerSpelled:
         assert move.lost_symbol == ""
 
 
+class TestAPieceWhoseSquareTheScannerLost:
+    """`2.NO Nc6` — Silman's scan reads `f3` as `O` about half the time.
+
+    `NO`, `BO`, `QO`: the piece is printed and its square is not a square, so
+    the token matched nothing and the move was gone — and `2...Nc6` was then
+    played as White's second, killing eleven games of seventeen pages on
+    their third ply. Inside a score, hard behind a number, it is a move whose
+    square the board has to name.
+    """
+
+    def test_it_is_a_move_with_its_square_lost(self):
+        tokens = tokenize_pages([page_of("1.e4 c5 2.NO Nc6 3.c3")])
+
+        move = next(t for t in tokens if t.raw.strip() == "NO")
+        assert (move.kind, move.text) == ("move", "N?")
+
+
 class TestANumberThatLostADot:
     """`21..♕xb5` — a scan loses one dot of an ellipsis as readily as it
     loses anything else. Nineteen of SuperAttaquant's black numbers and
