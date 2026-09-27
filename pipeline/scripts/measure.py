@@ -70,24 +70,55 @@ HELDOUT = [
 ]
 
 
-def measure(window: tuple[str, str, int, int | None]) -> tuple[str, dict]:
-    name, pattern, first, last = window
+def measure(job: tuple[tuple[str, str, int, int | None], int]) -> tuple[str, dict]:
+    """One window's figures, read from `lead` pages before it and counted on it alone.
+
+    The lead is what a whole book gives a page and a twelve-page window takes
+    away: the games that teach the diagram font, the boards that seed. Sakaev
+    77-88 run alone scores 0 of 996 clean — nothing in it opens a game, so no
+    diagram is ever read — and run from page 37 it scores 908. A reader
+    converts the whole book, so the window alone measures a failure nobody meets.
+    """
+    (name, pattern, first, last), lead = job
     try:
         from rce_pipeline import pipeline
 
         path = sorted(glob.glob(f"{LIBRARY}/{pattern}"))[0]
-        run = pipeline.run(path, work_dir=f"/tmp/rce-measure/{name}", first_page=first,
-                           last_page=last, glyph_model=MODEL, write_artefacts=False)
+        run = pipeline.run(path, work_dir=f"/tmp/rce-measure/{name}",
+                           first_page=max(1, first - lead), last_page=last,
+                           glyph_model=MODEL, write_artefacts=False)
     except Exception as error:  # a window that crashes is a figure too
         return name, {"error": f"{type(error).__name__}: {error}"[:200]}
-    parsed = run.parsed
+    return name, figures(run.parsed, first, last)
+
+
+def figures(parsed, first: int, last: int | None) -> dict[str, int]:
+    """A reading's figures on pages `first` to `last` alone."""
+    by_id = {m.id: m for m in parsed.moves}
     unplaced = {game.id for game in parsed.games if not game.position_known}
-    return name, {
-        "moves": len(parsed.moves),
-        **{status: sum(m.status == status for m in parsed.moves)
+    against = set(parsed.contradicted) | set(parsed.drifted)
+
+    def below_a_break(move) -> bool:
+        parent = move.parent_id
+        while parent is not None:
+            if by_id[parent].status == "broken":
+                return True
+            parent = by_id[parent].parent_id
+        return False
+
+    # The same test as `ParseResult.break_diagnosis`'s `clean`, move by move,
+    # so that only the window's pages are counted.
+    moves = [m for m in parsed.moves if m.page >= first and (last is None or m.page <= last)]
+    return {
+        "moves": len(moves),
+        **{status: sum(m.status == status for m in moves)
            for status in ("ok", "uncertain", "broken")},
-        "unplaced": sum(m.game_id in unplaced for m in parsed.moves),
-        "clean": parsed.break_diagnosis()["clean"],
+        "unplaced": sum(m.game_id in unplaced for m in moves),
+        "clean": sum(
+            m.status == "ok" and m.game_id not in unplaced and m.id not in against
+            and not below_a_break(m)
+            for m in moves
+        ),
     }
 
 
@@ -96,21 +127,27 @@ def main() -> None:
     parser.add_argument("set", choices=("corpus", "heldout"))
     parser.add_argument("only", nargs="*", help="measure only these windows")
     parser.add_argument("--json", help="write the figures here")
+    parser.add_argument(
+        "--lead", type=int, default=None,
+        help="pages read before each window and not counted "
+             "(default: 60 held out, 0 on the corpus, whose figures are compared bare)",
+    )
     args = parser.parse_args()
+    lead = args.lead if args.lead is not None else (60 if args.set == "heldout" else 0)
     windows = [w for w in (CORPUS if args.set == "corpus" else HELDOUT)
                if not args.only or w[0] in args.only]
     with ProcessPoolExecutor(6) as pool:
-        figures = dict(pool.map(measure, windows))
-    for name, row in figures.items():
+        results = dict(pool.map(measure, [(w, lead) for w in windows]))
+    for name, row in results.items():
         if "error" in row:
             print(f"{name:34} ERROR {row['error']}")
         else:
             print(f"{name:34} moves {row['moves']:5}  clean {row['clean']:5}  "
                   f"broken {row['broken']:5}  unplaced {row['unplaced']:5}")
-    print(f"{'total':34} clean {sum(r.get('clean', 0) for r in figures.values())}")
+    print(f"{'total':34} clean {sum(r.get('clean', 0) for r in results.values())}")
     if args.json:
         with open(args.json, "w") as out:
-            json.dump(figures, out, indent=1, ensure_ascii=False)
+            json.dump(results, out, indent=1, ensure_ascii=False)
 
 
 if __name__ == "__main__":

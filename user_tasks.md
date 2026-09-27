@@ -40,21 +40,38 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >   309 first breaks none of the one-character repairs repeats beyond two;
 >   `♕c7` read `♕e7` on p206 stays broken.
 >
-> **What the control shows: off the tuned pages the pipeline is far from
-> working.** Most held-out windows score under 5% clean. Sakaev forty pages
-> on is **0 of 996** (98% on its own range), Markos 0 of 275. Two causes,
-> both bigger than anything left on SuperAttaquant:
+> **What the control shows — measure it with a lead.** A twelve-page window
+> read alone takes away what a whole book gives it: the games that teach the
+> diagram font. Sakaev 77-88 alone is **0 of 996** clean, every diagram
+> `unread`; read from page 37 it is **908**. So `measure.py heldout` reads 60
+> pages before each window and counts the window only (`--lead`; the corpus
+> stays bare so its figures still compare). With the lead, held out:
+> **2837 clean of 12 669 (22%)**, and `9c2b58a` over the session's start is
+> +40, all Summerscale, nothing lost anywhere. What is left, in order:
 >
-> 1. **Games never placed.** Sakaev+40's 996 moves are all in unplaced games
->    though the window holds 26 diagrams; Markos+40 225/275, Silman 454/1096.
->    **This is the next thing to do**: why do Sakaev's text-layer diagrams
->    place nothing there, when they place everything on pp. 37-50?
-> 2. **Games placed and misread.** *Tactics Training* (Kaber, figurine font):
->    41 of 42 games placed, 1 clean move of 1070.
+> 1. **Typeset letter books read almost nothing.** Silman 4th ed. **9 of
+>    1096**, Pachman *Théorie élémentaire 1* 6/1313, *The Critical Moment*
+>    38/1035, *How to Beat the Sicilian* 7/720. No scan, no glyphs — one or two
+>    causes shared by all of them, and **the next thing to do**.
+> 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
+>    `unread` because no game ever reaches one to teach the font, and every
+>    solution's `1.` is then played from the initial position (`position_known`
+>    is set by `number == 1`, even straight under an unread board). 4/1070.
+>    A font table has to come from the boards themselves, as `settle` does for
+>    drawn ones; Sakaev's and this font pair each piece by case — upper on a
+>    light square, lower on a dark one.
+> 3. **The range changes the reading.** More lead sometimes *lowers* a window:
+>    *Chess College 3* 809 -> 616, *Théorie élémentaire 2* 69 -> 29, and their
+>    move counts move too — book-level choices (tables, weight, spellings) are
+>    made over whatever range is read. A reader converts whole books.
+> 4. **Speed.** Grivas pages 1-65 does not finish in 20 minutes (every other
+>    window is under 7). Suspect `_best_table` reparsing the whole range once
+>    per candidate table. Unusable on a whole book.
 >
 > Fabrice's documents mostly give no moves at all (8 of 23 empty).
-> Figures per window: run `measure.py heldout --json`; the first run of each
-> version is not kept in the repository.
+> Figures per window: `measure.py heldout --json`; run one window per process
+> with a timeout (`measure.py heldout <name>`), or one slow window holds the
+> whole pool — the first attempt ran four hours on Grivas+40.
 >
 > **TDD Guard is on** (plugin). It judges `Edit`/`Write` only, and only sees
 > test results through the pytest reporter: install
