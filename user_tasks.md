@@ -1,7 +1,7 @@
 # What I have to do next
 
 Written 2026-08-22, revised 2026-09-27 (thirteenth session).
-`main` is at the commit below, 370 tests green.
+`main` is at the commit below, 376 tests green.
 
 > **Thirteenth session, 2026-09-27 — the corpus is not the book, and now
 > there is a control to say so.** Corpus 2827 -> 2830 (SuperAttaquant 150 ->
@@ -49,10 +49,20 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 > **2837 clean of 12 669 (22%)**, and `9c2b58a` over the session's start is
 > +40, all Summerscale, nothing lost anywhere. What is left, in order:
 >
-> 1. **Typeset letter books read almost nothing.** Silman 4th ed. **9 of
->    1096**, Pachman *Théorie élémentaire 1* 6/1313, *The Critical Moment*
->    38/1035, *How to Beat the Sicilian* 7/720. No scan, no glyphs — one or two
->    causes shared by all of them, and **the next thing to do**.
+> 1. **Letter books reading almost nothing.** Silman turned out to be a scan
+>    with an OCR layer, and two causes were found and fixed on it (below):
+>    9 -> 82. Still to look at, in this order: Pachman *Théorie élémentaire 1*
+>    **6/1313** (French — **the next thing to do**), *The Critical Moment*
+>    38/1035, *How to Beat the Sicilian* 7/720.
+>    - `660031e` **move numbers the OCR spelled in letters** (`lO.`, `IS.`,
+>      `3S.`, welded `l.e4`): read as digits, `S` as 5 or 8, kept only where the
+>      book's count awaits that number or it is `1.`. Silman unplaced 375 -> 19.
+>    - `f168749` **a piece whose square the scan lost** (`2.NO` for `2.Nf3`):
+>      tokenized `N?`, named by `_move_the_line_names` over 20 plies. A reading
+>      is not ruled out by a move its board makes *ambiguous* — that guard took
+>      out a wrong `Nh3` (Svidler-Jakovenko). All 11 moves it names are right.
+>    - Held out after both: **2911** (session start 2797), nothing lost.
+>    - Silman is now tuned on: keep some held-out books nobody opens.
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
