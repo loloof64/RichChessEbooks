@@ -153,6 +153,25 @@ class TestTheBooksOwnSpelling:
         assert next(t for t in tokens if t.text == "xg5").lost_piece == "B"
 
 
+class TestANumberTheScannerSpelled:
+    """A move number whose digits the OCR read as letters.
+
+    Silman's *How to Reassess Your Chess* is a scan whose layer spells `10.`
+    as `lO.`, `15.` as `IS.` and `38.` as `3S.` — over seventy numbers in
+    seventeen pages, some welded to their move (`lO.b3`) and read as the wreck
+    of a piece symbol, some standing alone and read as prose. Either way the
+    move has no number, and the game it opens is never placed.
+    """
+
+    def test_a_number_welded_to_its_move_is_a_number(self):
+        tokens = tokenize_pages([page_of("9.Nf3 Nf6 lO.Bd3 Be7")])
+
+        numbers = [t.text for t in tokens if t.kind == "move_number"]
+        move = next(t for t in tokens if t.text == "Bd3")
+        assert numbers == ["9.", "10."]
+        assert move.lost_symbol == ""
+
+
 class TestANumberThatLostADot:
     """`21..♕xb5` — a scan loses one dot of an ellipsis as readily as it
     loses anything else. Nineteen of SuperAttaquant's black numbers and

@@ -435,7 +435,81 @@ def tokenize_pages(
         tokens.extend(_tokenize_page(
             page, token_re, to_san, blocks.get(page.number, []), spellings or {}
         ))
-    return _drop_a_bracket_nothing_closes(tokens)
+    return _read_numbers_the_scanner_spelled(_drop_a_bracket_nothing_closes(tokens))
+
+
+#: A move number as a scanner spells it: its digits, or the letters OCR puts
+#: in their place, then the dot or the ellipsis. At least one letter, or it
+#: was read as a number already.
+_SPELLED_NUMBER = re.compile(r"([\dlIOoS]{1,3})(\.(?:\s*\.\s*\.)?)")
+
+#: What each of those letters can have been. `S` is a `5` or an `8`, and only
+#: the book's own count says which.
+_SPELLED_DIGITS = {"l": "1", "I": "1", "O": "0", "o": "0", "S": "58"}
+
+
+def _readings_of(spelled: str) -> list[int]:
+    """Every number a spelled run can stand for."""
+    readings = [""]
+    for char in spelled:
+        readings = [done + digit for done in readings for digit in _SPELLED_DIGITS.get(char, char)]
+    return [int(r) for r in readings if not r.startswith("0")]
+
+
+def _read_numbers_the_scanner_spelled(tokens: list[Token]) -> list[Token]:
+    """Give back the move numbers OCR spelled in letters.
+
+    Silman's scan prints `10.` as `lO.` and `38.` as `3S.`: welded to the
+    move, the letters are read as the wreck of a piece symbol, and standing
+    alone as prose, and either way the move has lost its number. A run of
+    letters in front of a dot is a number only where the book's own count
+    says so — the number after the last one read, or `1.`, which opens a
+    game — so `I.` in a sentence and a real wreck are left as they were.
+    """
+    out: list[Token] = []
+    last: int | None = None
+
+    def number_of(spelled_run: str) -> tuple[int, bool] | None:
+        spelled = _SPELLED_NUMBER.fullmatch(spelled_run)
+        if spelled is None or spelled.group(1).isdigit():
+            return None
+        black = len(spelled.group(2)) > 1
+        awaited = {1} if not black else set()
+        if last is not None:
+            awaited.add(last if black else last + 1)
+        number = next((n for n in _readings_of(spelled.group(1)) if n in awaited), None)
+        return None if number is None else (number, black)
+
+    for at, token in enumerate(tokens):
+        after = tokens[at + 1] if at + 1 < len(tokens) else None
+        if token.kind == "move_number":
+            last = int(re.match(r"\d+", token.text).group())
+        elif token.kind == "text" and after is not None and after.kind == "move":
+            # Standing alone in front of its move, and read as prose.
+            read = number_of(token.raw.strip())
+            if read is not None:
+                number, black = read
+                token = dataclasses.replace(
+                    token, kind="move_number", text=f"{number}{'...' if black else '.'}"
+                )
+                last = number
+        elif (
+            token.kind == "move" and token.lost_symbol and not token.lost_piece
+            and not (out and out[-1].kind == "move_number")
+        ):
+            # Welded to its move, and read as the wreck of a piece symbol.
+            read = number_of(token.lost_symbol)
+            if read is not None:
+                number, black = read
+                out.append(dataclasses.replace(
+                    token, kind="move_number", text=f"{number}{'...' if black else '.'}",
+                    raw=token.lost_symbol, end=token.start + len(token.lost_symbol),
+                    lost_symbol="",
+                ))
+                token = dataclasses.replace(token, lost_symbol="")
+                last = number
+        out.append(token)
+    return out
 
 
 def _tokenize_page(
