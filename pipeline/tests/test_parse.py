@@ -6,6 +6,8 @@ not need a document. Extraction is exercised by the notebook's visual check,
 which is the only thing that can really tell whether a box sits on its move.
 """
 
+import dataclasses
+
 import chess
 import pytest
 
@@ -1687,3 +1689,51 @@ class TestAFileTheScannerReadAsADigit:
         last = parse_tokens(self.opening("B3")).moves[-1]
 
         assert (last.san, last.status) == ("Bd3", "uncertain")
+
+
+class TestALostMoveTheProseSeparatesFromItsLine:
+    """The move a number announced, with the book's comment standing after it.
+
+    SuperAttaquant page 201 prints "20...♗g7", then a paragraph — "Short
+    préfère rendre la pièce plutôt que d'exiler son Cavalier en h5" — and only
+    then the score again, "21.d4! ♕b8 22.dxc5 bxc5". The scan leaves `20...2.27`
+    of the move, so all that is left is its rank, and the line that names it is
+    past the prose. Its second move is damaged too: `♕b8` arrives as `b8` with
+    the queen's wreck beside it. Without the move the game's reply is played as
+    the move that never arrived, on the wrong side, and all 39 of its moves die.
+
+    The prose is crossed only where the number after it is the very next ply:
+    then the run is still one line, by the book's own count.
+    """
+
+    def tokens(self, resumes: str = "6.") -> list[Token]:
+        played = ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O"]
+        out: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                out.append(tok("move_number", f"{index // 2 + 1}."))
+            out.append(tok("move", san))
+        return out + [
+            # `5...♗e7`, of which the scan kept the rank.
+            dataclasses.replace(tok("move_number", "5..."), lost_move="2.27"),
+            tok("text", "Black keeps his knight rather than put it on"),
+            tok("move", "h5"),
+            tok("text", "and White builds his centre."),
+            tok("move_number", resumes), tok("move", "e1", lost_symbol="H", lost_piece="R"),
+            tok("move", "b5"),
+            tok("move_number", "7."), tok("move", "Bb3"), tok("move", "d6"),
+            # Only the bishop leaving f8 lets Black castle: the line names it.
+            tok("move_number", "8."), tok("move", "c3"), tok("move", "O-O"),
+        ]
+
+    def test_the_move_is_put_back_from_the_line_after_the_prose(self):
+        result = parse_tokens(self.tokens())
+        main = [m for m in result.moves if m.variation_index == 0]
+
+        assert [m.san for m in main][9:] == ["Be7", "Re1", "b5", "Bb3", "d6", "c3", "O-O"]
+        assert all(m.status != "broken" for m in main)
+
+    def test_nothing_is_put_back_where_the_number_is_not_the_next_ply(self):
+        result = parse_tokens(self.tokens(resumes="7."))
+
+        assert "Be7" not in sans(result)

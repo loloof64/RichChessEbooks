@@ -507,17 +507,17 @@ def _plays(fen: str, text: str) -> bool:
     return True
 
 
-def _the_line_after(tokens: Sequence[Token], at: int, most: int = 6) -> list[str]:
+def _the_line_after(tokens: Sequence[Token], at: int, most: int = 6) -> list[Token]:
     """The run of moves printed after this point, as far as the score runs.
 
     Move numbers and the annotations that decorate a move are read across;
     prose, a bracket or a result end the run, because past one of those the
     moves are no longer this line's.
     """
-    out: list[str] = []
+    out: list[Token] = []
     for token in tokens[at:]:
         if token.kind == "move":
-            out.append(token.text)
+            out.append(token)
             if len(out) == most:
                 break
         elif token.kind not in ("annotation", "move_number"):
@@ -525,15 +525,61 @@ def _the_line_after(tokens: Sequence[Token], at: int, most: int = 6) -> list[str
     return out
 
 
+#: How far the book's comment on a move may run before the score resumes.
+#: SuperAttaquant's is one paragraph, which the layer hands over as a text, a
+#: square the prose names, and the text after it — twice over at most.
+_PROSE_CROSSED = 8
+
+
+def _the_score_after(tokens: Sequence[Token], at: int, ply: int, most: int = 6) -> list[Token]:
+    """The moves the book prints after ply `ply`, across its comments on them.
+
+    "16.e6 Le pion e6 assure la protection… 16...♗f6 17.♘e5! Les Blancs sont
+    déjà en position… 17...♕e7 18.♘g6+!": the score stops for a paragraph
+    and resumes, and each time it resumes on the number of the very next ply.
+    That number is what makes the run one line by the book's own count, so a
+    paragraph is crossed only where the number behind it is the ply awaited,
+    and every other number is held to the same count. A square the prose names
+    on the way is the prose's.
+    """
+    out: list[Token] = []
+    prose_from: int | None = None
+    for index in range(at, len(tokens)):
+        token = tokens[index]
+        if prose_from is not None and index - prose_from >= _PROSE_CROSSED:
+            break
+        if token.kind == "move_number":
+            number = int(re.match(r"\d+", token.text).group())
+            if _ply_of(number, token.text.count(".") > 1) != ply + 1 + len(out):
+                break
+            prose_from = None
+        elif token.kind == "text":
+            if prose_from is None:
+                prose_from = index
+        elif token.kind == "move":
+            if prose_from is None:
+                out.append(token)
+                if len(out) == most:
+                    break
+        elif token.kind != "annotation":
+            break
+    return out
+
+
 #: How many of the moves printed after an eaten ply have to play, in order,
-#: before the move that was eaten is believed. Two is not enough — a black move
+#: before the move that was eaten is believed. One is not enough — a black move
 #: to the fifth rank rarely stops White pushing a pawn — and the line runs on
-#: past the break for as long as the book keeps printing it.
-_EATEN_LOOKAHEAD = 3
+#: past the break for as long as the book keeps printing it. What keeps a wrong
+#: move out is that exactly one move must carry the line furthest, not the
+#: length: three was never measured, and two, measured over all six books and
+#: every reading `pipeline` tries, puts back one move more — `16.e6` on
+#: SuperAttaquant p206, the book's own, whose line breaks on the scan's
+#: `17...♕e7` for `♕c7` — and nothing wrong.
+_EATEN_LOOKAHEAD = 2
 
 
 def _move_of_the_eaten_ply(
-    board: chess.Board, rank: int, line: Sequence[str]
+    board: chess.Board, rank: int, line: Sequence[Token]
 ) -> str | None:
     """The move the welded number destroyed, named by the board.
 
@@ -560,11 +606,15 @@ def _move_of_the_eaten_ply(
         after = board.copy(stack=False)
         after.push(move)
         reached = 0
-        for text in line:
-            try:
-                after.push_san(_TRAILING_ANNOTATION.sub("", text.strip()))
-            except ValueError:
+        for token in line:
+            # Read as the score itself reads it: the moves after the break
+            # carry the scan's damage too — `♕b8` arriving as `b8` beside
+            # the queen's wreck — and the line only names the eaten move if
+            # it is read with the same repairs.
+            trial = _resolve(after, token.text, token.consumed, token.lost_symbol, token.lost_piece)
+            if trial.move is None or trial.status == "broken":
                 break
+            after.push(trial.move)
             reached += 1
         if reached > carried:
             best, carried = [move], reached
@@ -976,9 +1026,9 @@ def parse_tokens(
         """
         if not token.lost_move or not stack or stack[-1].board_lost:
             return
-        put_back = _move_of_the_eaten_ply(
-            stack[-1].board, int(token.lost_move[-1]), _the_line_after(tokens, at)
-        )
+        number = int(re.match(r"\d+", token.text).group())
+        line = _the_score_after(tokens, at, _ply_of(number, token.text.count(".") > 1))
+        put_back = _move_of_the_eaten_ply(stack[-1].board, int(token.lost_move[-1]), line)
         if put_back is None:
             return
         tokens.insert(at, dataclasses.replace(
@@ -1132,7 +1182,7 @@ def parse_tokens(
                     pending_position, number=number, black_to_move=is_black_only
                 )
                 line = _the_line_after(tokens, at)
-                if line and not _plays(seeded, line[0]):
+                if line and not _plays(seeded, line[0].text):
                     # The number under a board says whose move it is, and a
                     # scan loses an ellipsis as readily as anything else: `24`
                     # for `24...`. Where the move printed after it cannot be
@@ -1144,7 +1194,7 @@ def parse_tokens(
                     other = diagrams.initial_fen(
                         pending_position, number=number, black_to_move=not is_black_only
                     )
-                    if _plays(other, line[0]):
+                    if _plays(other, line[0].text):
                         seeded, is_black_only = other, not is_black_only
                 pending_position = None
                 opens_on_a_header, pending_opens_a_game = pending_opens_a_game, False
