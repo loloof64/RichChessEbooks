@@ -1,8 +1,66 @@
 # What I have to do next
 
-Written 2026-08-22, revised 2026-08-29 (twelfth session).
-`main` is at the commit below, 367 tests green. Every figure was measured
-locally on the corpus.
+Written 2026-08-22, revised 2026-09-27 (thirteenth session).
+`main` is at the commit below, 370 tests green.
+
+> **Thirteenth session, 2026-09-27 — the corpus is not the book, and now
+> there is a control to say so.** Corpus 2827 -> 2830 (SuperAttaquant 150 ->
+> 153), two commits, one change measured and withdrawn — and the finding that
+> matters more than all three.
+>
+> **Laurent asked whether the work was just fitting the algorithm to the six
+> books.** Partly, and nothing could tell: every change for thirteen sessions
+> was found on those pages and judged on those pages. So there is now a
+> held-out set, fixed before any version was run on it:
+> `pipeline/scripts/measure.py heldout` — eleven books outside the corpus at
+> the window `choose_pages.py --whole-games` picks, Silman's *How to Reassess
+> Your Chess* (4th ed.), Fabrice's documents (`DeFabrice/`) whole, and the six
+> corpus books forty pages past their tuned range. **A change is kept when it
+> helps the corpus and does not hurt there. Never choose a constant on it.**
+>
+> - `7884fe1` **follow the score past the book's comment** on a move the scan
+>   destroyed (`_the_score_after`: a paragraph is crossed only where the number
+>   behind it is the very ply awaited), the line replayed through `_resolve`
+>   so its own damage is read as the score reads it, `_EATEN_LOOKAHEAD` 3 -> 2.
+>   Corpus +3. **Held out +35**, all on *Répertoire d'ouvertures efficace* —
+>   which is Olibris like SuperAttaquant (ISBN 978-2-916340), so a sibling,
+>   not yet proof across publishers.
+> - `9c2b58a` **put back a destroyed move where the moves explaining it
+>   meet** — Plaskett-Short's `20...♗g7`/`♗e7`, both bishops take on f6. The
+>   moves on positions that depend on the choice are `uncertain`. Corpus:
+>   broken -23, clean unchanged (item below). Held out: no change.
+> - **Measured and withdrawn: a board far from every position of the line is
+>   not a correction of it.** On the corpus every correcting board is within
+>   9 squares of its line and SuperAttaquant's exercise boards 21-36 away, so
+>   `_stands_apart` at 15 looked safe. Held out it cost *The Critical Moment*
+>   50 `ok` moves (the verdict feeds the table choice). The problem is real —
+>   exercise 66's board, handed over mid-score by the two-column p204,
+>   condemns all of Plaskett-Short — and still open.
+> - **Measured and refused: widening `_CONFUSABLE_PAIRS`.** Of the corpus'
+>   309 first breaks none of the one-character repairs repeats beyond two;
+>   `♕c7` read `♕e7` on p206 stays broken.
+>
+> **What the control shows: off the tuned pages the pipeline is far from
+> working.** Most held-out windows score under 5% clean. Sakaev forty pages
+> on is **0 of 996** (98% on its own range), Markos 0 of 275. Two causes,
+> both bigger than anything left on SuperAttaquant:
+>
+> 1. **Games never placed.** Sakaev+40's 996 moves are all in unplaced games
+>    though the window holds 26 diagrams; Markos+40 225/275, Silman 454/1096.
+>    **This is the next thing to do**: why do Sakaev's text-layer diagrams
+>    place nothing there, when they place everything on pp. 37-50?
+> 2. **Games placed and misread.** *Tactics Training* (Kaber, figurine font):
+>    41 of 42 games placed, 1 clean move of 1070.
+>
+> Fabrice's documents mostly give no moves at all (8 of 23 empty).
+> Figures per window: run `measure.py heldout --json`; the first run of each
+> version is not kept in the repository.
+>
+> **TDD Guard is on** (plugin). It judges `Edit`/`Write` only, and only sees
+> test results through the pytest reporter: install
+> `~/.claude/plugins/marketplaces/tdd-guard/reporters/pytest` into the venv
+> and run pytest with `-o tdd_guard_project_root=<repo>`. One new test per
+> edit, and it wants a function stubbed before it is called.
 
 > **Twelfth session, 2026-08-29 — SuperAttaquant 129 -> 150, corpus 2806 ->
 > 2827, and every other book is untouched to the unit.** One commit, one move
