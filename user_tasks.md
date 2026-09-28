@@ -108,6 +108,18 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      page was for the corpus, to count right and wrong moves instead of
 >      `clean`; (2) freeze the table and weight choices while a parse change is
 >      measured, so the two effects come apart.
+>    - ***The Critical Moment*** (40/1035) is a scan whose OCR spelled every
+>      figurine as debris (`Ji.xe4`, `'ii'c2`, `wxe4`) under generated font
+>      names, so neither `OCR_LAYER_FONTS` nor the no-language rule sees it —
+>      35 stray piece letters make English win at 19% against 693 pawn moves.
+>      **Measured and withdrawn**: no language when the winner's piece moves are
+>      under a fifth of the neutral ones (`_LEAST_PIECE_SHARE` = 0.2; letters
+>      books sit near 1 — Silman 1.76, Pachman 0.94 — this book 0.04). Glyph
+>      recovery then runs, 795 symbols, 89% spliced, pieces right, +275 moves
+>      read — and held out −16: Critical −4, Sicilian −8, Boussole+40 −6. The
+>      book starts from its 25 drawn boards, unread without a table (same wall
+>      as Kaber), and the other two read more and less surely. Retry once the
+>      boards can be read without a game reaching them.
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
