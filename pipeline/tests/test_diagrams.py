@@ -564,6 +564,18 @@ def test_legality_cannot_do_it_alone_and_says_so_by_leaving_a_tie():
     assert len(tables) < 200
 
 
+def test_the_colours_are_the_way_up_a_book_prints_them():
+    """Exchanging the colours leaves every position legal, and the tie went to
+    whichever `settle` listed first: The Critical Moment's boards came out with
+    White's pawns on the seventh rank and his king on g8, all twelve tables
+    alike, and every line seeded from one broke. A book prints its boards for
+    a reader sitting behind White, so White's pawns stand below Black's."""
+    boards = [rows_of(fen) for fen in (MIDDLEGAME, ENDGAME)]
+    first = diagrams.settle(boards, TWINS, ".")[0]
+
+    assert all(first[char].isupper() == FONT[char].isupper() for char in first if char != ".")
+
+
 def test_a_character_no_twin_covers_leaves_nothing_to_settle():
     """A board carrying a stray cannot be read under any table, so it supports
     none of them; a book of nothing but such boards settles nothing."""

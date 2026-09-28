@@ -539,7 +539,30 @@ def settle(
         return []
     standing = [table for score, table in ranked if score == best]
     seen = Counter(char for rows in positions for row in rows for char in row)
-    return sorted(standing, key=lambda table: _how_many_of_each(table, seen, len(positions)))
+    return sorted(standing, key=lambda table: (
+        _upside_down(table, positions), _how_many_of_each(table, seen, len(positions))
+    ))
+
+
+def _upside_down(table: dict[str, str], boards: Sequence[Sequence[str]]) -> bool:
+    """Whether this table puts White's pawns above Black's, on average.
+
+    Legality cannot say which colour a book fills, but the page can: a board
+    is printed for a reader behind White, so White's pawns stand lower. The
+    Critical Moment's boards came out with White's pawns on the seventh rank
+    and his king on g8 when the tie went the other way.
+    """
+    rows_of = {"P": [], "p": []}
+    for rows in boards:
+        for index, row in enumerate(rows):
+            for char in row:
+                kind = table.get(char)
+                if kind in rows_of:
+                    rows_of[kind].append(index)
+    if not rows_of["P"] or not rows_of["p"]:
+        return False
+    # Row 0 is the eighth rank, so White's pawns carry the larger index.
+    return sum(rows_of["P"]) / len(rows_of["P"]) < sum(rows_of["p"]) / len(rows_of["p"])
 
 
 #: How many of a piece a middlegame board carries, on average. Rooks are the
