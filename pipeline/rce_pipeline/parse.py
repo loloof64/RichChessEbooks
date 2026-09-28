@@ -1144,6 +1144,9 @@ def parse_tokens(
     last_declared: int | None = None
     last_licence = 2
     adrift: set[str] = set()
+    #: The first move each drifting game played on its main line after the
+    #: loss: the moves descending from it are the ones `drifted` counts.
+    drift_from: dict[str, str] = {}
     #: The kind of the token before this one. A move printed hard against the
     #: move in front of it is read even where the licence is spent: what the
     #: licence keeps out is the commentary naming a square, and prose is what
@@ -1389,9 +1392,12 @@ def parse_tokens(
                     # number agrees again — a diagram reseeds it, or the book
                     # starts a fresh game.
                     if last_declared != _ply_awaited(stack[0].board):
+                        if game.id not in adrift:
+                            drift_from.pop(game.id, None)
                         adrift.add(game.id)
                     else:
                         adrift.discard(game.id)
+                        drift_from.pop(game.id, None)
                 stack[-1].moves_allowed = last_licence
                 # The book has printed a number, so it is starting the line
                 # again: whatever follows is resolved against the board once
@@ -1633,7 +1639,19 @@ def parse_tokens(
                 result.main_lines.setdefault(game.id, []).append(level.board.board_fen())
 
         if game.id in adrift:
-            result.drifted.append(node.id)
+            # What drifted is the line from its first move after the loss,
+            # and what hangs from it — not a system the book cited from a
+            # position the line reached before: Pachman's chapters cite
+            # `2° 4. e3` from a model game's fourth move, and those stood on
+            # the printed board whatever the game's score lost afterwards.
+            if game.id not in drift_from and len(stack) == 1:
+                drift_from[game.id] = node.id
+            first = drift_from.get(game.id)
+            ancestor: str | None = node.id
+            while ancestor is not None and ancestor != first:
+                ancestor = level.parent_id if ancestor == node.id else by_id[ancestor].parent_id
+            if first is not None and ancestor == first:
+                result.drifted.append(node.id)
         result.moves.append(node)
         by_id[node.id] = node
         if game.root_move_id is None:

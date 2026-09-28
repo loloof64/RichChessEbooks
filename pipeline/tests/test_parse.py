@@ -433,6 +433,26 @@ class TestBreakDiagnosis:
         assert diagnosis["drifted"] == 2
         assert set(result.drifted) == {result.moves[3].id, result.moves[4].id}
 
+    def test_an_aside_from_before_the_line_drifted_is_not_adrift(self):
+        # Pachman's chapters: a model game whose score loses a move, and the
+        # other systems cited from its fourth move — "2° 4. e3 …". A system
+        # branched at a position the line reached before it lost anything
+        # stands on the board the book printed, whatever the score did later.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("move_number", "3."), ("move", "Nc6"), ("move", "Bc4"),
+                ("text", "Instead of that,"),
+                ("move_number", "2..."), ("move", "d6"),
+                ("move_number", "3."), ("move", "d4"),
+            )
+        )
+
+        cited = [m for m in result.moves if m.san in ("d6", "d4")]
+        assert [m.status for m in cited] == ["ok", "ok"]
+        assert not {m.id for m in cited} & set(result.drifted)
+
     def test_a_line_that_matches_again_stops_being_adrift(self):
         # A number the line does agree with clears it: whatever was lost, the
         # book and the board are on the same move again, and what follows

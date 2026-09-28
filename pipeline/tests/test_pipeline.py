@@ -121,8 +121,8 @@ def shuffling_game() -> tuple[list[Token], dict[str, str]]:
 
     Long enough for `weight_marks_the_line` to have an opinion, and marked the
     way a scan's ink marks a book the measurement was wrong about: four numbers
-    in ten and every second move, neither of them the score. Two moves stand
-    clean at that weight; read flat, all eighty do.
+    in ten and every second move, neither of them the score. Half the moves
+    stand clean at that weight; read flat, all eighty do.
 
     Both halves of the marking matter. A number alone can no longer cripple a
     book, because a bold number resuming the score at the ply the aside beneath
@@ -151,7 +151,7 @@ def test_a_table_is_weighed_at_the_weight_the_book_would_ship_it_in():
     diagrams, by a comparison of exactly this kind — so a table judged on the
     weighted reading alone is judged on a reading the book may be about to
     throw away. Here the weighted reading is the one it throws away: it leaves
-    two moves clean where reading the book flat leaves 80, and against a
+    40 moves clean where reading the book flat leaves 80, and against a
     crippled reading a table with the knights and bishops exchanged looks like
     a gain. Weighed at both weights, it is refused.
     """
@@ -161,7 +161,9 @@ def test_a_table_is_weighed_at_the_weight_the_book_would_ship_it_in():
         wrong[one], wrong[other] = right[other], right[one]
     without = parse_tokens(tokens)
 
-    assert without.break_diagnosis()["clean"] == 2
+    # Half the plies: the plain moves the marking sends aside are played on the
+    # game's own board, so only what descends from the drifting score is lost.
+    assert without.break_diagnosis()["clean"] == 40
     assert parse_tokens(tokens, weighted=False).break_diagnosis()["clean"] == 80
 
     assert pipeline._best_table(
