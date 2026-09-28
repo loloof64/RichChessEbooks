@@ -87,6 +87,43 @@ def test_a_learned_table_is_asked_only_not_to_break_the_book():
     assert pipeline._worth_reading(right, tokens, without, strict_numbering=True)
 
 
+def test_a_learned_table_many_boards_confirm_is_kept_on_a_near_tie():
+    """Chess College 3 learned its font from its own games, 57 of its boards
+    confirmed the line, and the table was refused by four moves: 2107 against
+    2111. The boards it read also corrected lines, and a correction only ever
+    takes moves away. Boussole's refused table was taught by two boards; five
+    boards agreeing on one whole table is not a coincidence a wrong one makes."""
+    board = chess.Board()
+    tokens: list[Token] = []
+    played = ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O", "Be7"]
+    for index, san in enumerate(played):
+        if index % 2 == 0:
+            tokens.append(tok("move_number", f"{index // 2 + 1}."))
+        tokens.append(tok("move", san))
+        board.push_san(san)
+        if index % 2 == 1:
+            tokens.append(tok("diagram", rows_of(board)))
+    tokens += [
+        tok("move_number", "6."), tok("move", "Re1"), tok("move", "b5"),
+        tok("move_number", "7."), tok("move", "Bb3"), tok("move", "d6"),
+    ]
+    printed = board.copy()
+    for san in ("Re1", "b5", "Bb3", "O-O"):
+        printed.push_san(san)
+    tokens += [
+        tok("diagram", rows_of(printed)),
+        tok("move_number", "8."), tok("move", "c3"), tok("move", "O-O"),
+    ]
+    right = {char: char for rows in (rows_of(board), rows_of(printed)) for char in rows}
+    right.pop("/")
+    without = parse_tokens(tokens)
+    with_table = parse_tokens(tokens, diagram_table=right)
+    standing = lambda r: r.break_diagnosis()["clean"] + r.break_diagnosis()["contradicted"]
+
+    assert standing(with_table) < standing(without)
+    assert pipeline._worth_reading(right, tokens, without, strict_numbering=True)
+
+
 def test_a_learned_table_that_breaks_the_book_is_refused():
     """Boussole is what this is for: two boards read of seventeen drawn.
 

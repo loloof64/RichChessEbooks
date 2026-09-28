@@ -447,6 +447,12 @@ def run(
 MAX_TABLES_TRIED = 200
 
 
+#: How many boards confirming their line make a learned table one to keep,
+#: whatever `clean` says: five boards agreeing on one whole table is not a
+#: coincidence a wrong table makes. Boussole's bad table had two behind it.
+_CONFIRMED_ENOUGH = 5
+
+
 def _worth_reading(
     table: dict[str, str],
     tokens: list[Any],
@@ -484,7 +490,13 @@ def _worth_reading(
     with_table = parse.parse_tokens(
         tokens, strict_numbering=strict_numbering, diagram_table=table
     )
-    return standing(with_table) >= standing(without)
+    # Or enough boards confirm the line that reaches them. Chess College 3's
+    # table was refused by four moves — 2107 against 2111 — with 57 of its
+    # boards confirming the line, cascade 2225 -> 1407 and 276 more moves on
+    # placed games; the boards it read corrected lines too, and a correction
+    # only ever takes moves away. Boussole's table was taught by two boards.
+    confirmed = sum(check["verdict"] == "confirms" for check in with_table.diagram_checks)
+    return standing(with_table) >= standing(without) or confirmed >= _CONFIRMED_ENOUGH
 
 
 def _best_table(

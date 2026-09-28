@@ -171,8 +171,8 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      freeze it during a measured change, or choose on something other than
 >      `clean`. Reading quality comes first; speed does not matter
 >      (Laurent, 2026-09-28).
->    - **Found, and left uncommitted in the working tree for Laurent to
->      decide**: the seesaw is `_worth_reading`. Chess College 3 learns a
+>    - **Found, and committed after Laurent decided (the figure below is why
+>      it needed deciding)**: the seesaw is `_worth_reading`. Chess College 3 learns a
 >      13-character table from its own games; with it 57 boards confirm their
 >      line, cascade 2225 -> 1407, unscored 388 -> 112 — and it is refused by
 >      four moves, 2107 against 2111 (`clean + contradicted`), because the
