@@ -120,6 +120,19 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      book starts from its 25 drawn boards, unread without a table (same wall
 >      as Kaber), and the other two read more and less surely. Retry once the
 >      boards can be read without a game reaching them.
+>    - **Reading a font's boards with no game reaching them — the plan.**
+>      Kaber's font (`\uf0xx`, i.e. ASCII + 0xf000) and Sakaev's follow one
+>      convention: **the same piece is lower case on a light square and upper
+>      case on a dark one** (`o/O`, `p/P`, `r/R`…), empties are ` ` and `+`
+>      — exactly twelve case pairs. So: (1) fold each pair; (2) the kings are
+>      the two symbols on every board exactly once, the pawns the two never on
+>      ranks 1/8 and most numerous; (3) the rest by the moves printed under
+>      each board — a puzzle's `1.Nd5` only plays if that symbol is a knight —
+>      scoring candidate tables per board on a few plies, **not** by
+>      reparsing the range per table (that is what makes Grivas 1-65 run past
+>      twenty minutes). Then Kaber, then the drawn boards of The Critical
+>      Moment and Silman's exercises (`diagrams.settle` exists for those and
+>      still reads 0 of 25 there — find out why first).
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
