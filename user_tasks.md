@@ -91,6 +91,23 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      positions the chapter has printed), as `_move_the_line_names` does for one
 >      destroyed move, at the scale of a line. Pachman carries 6541 `cascade`.
 >      Then retry this change, and the `113.`-for-`13.` numbers (16 of them).
+>    - **Resynchronising, two prototypes, both refused** (scratch copies only,
+>      never in the repository):
+>      1. *By the move* — at a broken move try every legal move in its place,
+>         and every move inserted before it, keep the one that alone carries
+>         the score after it ≥ 4 plies. Ten fire in the whole run, Pachman
+>         145 -> 148, and the one on the window replaces the book's own `Ce1`
+>         with `Nh4`: the board was already wrong upstream. Slow, too.
+>      2. *By the branch* — re-root a broken line on the sibling position at
+>         the same ply that lets it play ≥ 3 plies. `ok` +63, broken -103, and
+>         `clean` 145 -> 68, one test broken.
+>    - **Why stop there**: every change to `parse` also moves the readings
+>      `pipeline` picks by `clean` (table, weight), so on this book a real gain
+>      and a side effect look the same. Before more work on it: (1) a ground
+>      truth — two or three Pachman pages typed out by eye, as the annotated
+>      page was for the corpus, to count right and wrong moves instead of
+>      `clean`; (2) freeze the table and weight choices while a parse change is
+>      measured, so the two effects come apart.
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
