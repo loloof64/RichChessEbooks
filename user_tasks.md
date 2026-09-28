@@ -155,6 +155,22 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >        the stray mapping in `pipeline`. The Critical Moment's boards fail
 >        the same way (clean 36 -> 7 under every table) — check whether it is
 >        the same shape.
+>      - **Both built with tests and measured, both withdrawn** (held out
+>        3334 -> 3124). The `1.`-plays-from-the-start guard alone costs Chess
+>        College 3 187 clean and gains nothing anywhere, Silman included; the
+>        stray settling alone costs Théorie élémentaire 1 23 and Silman still
+>        gains nothing (`_best_table` keeps no table for it).
+>    - **The seesaw is now the first thing to fix.** Chess College 3 flips
+>      between two whole readings — 815 clean / 459 broken and 628 / 317 — on
+>      changes that have nothing to do with it (`b38e235` flipped it one way,
+>      the guard above flipped it back). `pipeline` picks table and weight by
+>      `clean`, so any parse change can move a book's reading wholesale, and
+>      neither measure says which reading is right. Before more parse work:
+>      find what the two Chess College 3 readings differ in (table? weight?),
+>      decide from the page which is right, and make the choice stable —
+>      freeze it during a measured change, or choose on something other than
+>      `clean`. Reading quality comes first; speed does not matter
+>      (Laurent, 2026-09-28).
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
