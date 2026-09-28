@@ -138,6 +138,23 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      votes in all, because **Kaber prints its solutions apart from their
 >      boards**, linked by the exercise number. Step (3) needs that link first:
 >      pair each board with the solution printed under its number.
+>    - **Drawn boards with no game reaching them.** `603bd2f` settles the
+>      colours the way a book prints them (White's pawns below). Then, probed
+>      in scratch copies only:
+>      - *Silman*: `settle` returns nothing because clustering 17 pages leaves
+>        ~3 singleton "strays" on every board (59 over 19), so no board stands.
+>        Mapping each stray to its nearest cluster (`reading.neighbours`)
+>        **before** settling, and into every candidate table, reads all 19
+>        boards — and costs clean 86 -> 28 under any table.
+>      - *Why*: Silman prints the board first and then the game **from move 1**
+>        that leads to it ("Diagram 416 — Black to move — 1.e4 c5 2.Nf3…");
+>        `parse` seeds the `1.` game on the board and plays `1.e4` on a
+>        middlegame. Next: in `parse`, a board followed by a white `1.` whose
+>        move plays from the initial position and not on the board does not
+>        seed that game (as the side-to-move flip already tests `_plays`). Then
+>        the stray mapping in `pipeline`. The Critical Moment's boards fail
+>        the same way (clean 36 -> 7 under every table) — check whether it is
+>        the same shape.
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
