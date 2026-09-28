@@ -124,8 +124,14 @@ _TOKEN_TEMPLATE = r"""
               # The capture sign set between spaces, and in capitals as often
               # as not: Pachman's *Théorie élémentaire* prints `D x b2`,
               # `T X f5`, `c x d5` — 351 captures in seventeen pages against
-              # seven tight, and not one of them was read.
-            | (?<![A-Za-z])[{pieces}a-h][ ][xX][ ][a-h][{ranks}]
+              # seven tight, and not one of them was read. The line may break
+              # behind the sign, which a narrow column does to `D X \ne7` (the
+              # layer keeps the space before the break): a sign and then a
+              # square is a capture on either line. Behind the sign a square is
+              # due, so a small `s` is read as its rank too — the same scan
+              # prints `C x es`, `d x cs` — which is safe nowhere else: `as`
+              # is an English word.
+            | (?<![A-Za-z])[{pieces}a-h][ ][xX][ ]?\n?[ ]?[a-h][{ranks}s]
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}]|(?<=[18])[{pieces}](?![a-h]))?
               # A file the scanner read as a digit. No notation writes a piece
               # and two digits, so what stands where the file belongs is the

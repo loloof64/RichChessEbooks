@@ -1759,6 +1759,19 @@ class TestALostMoveTheProseSeparatesFromItsLine:
         assert "Be7" not in sans(result)
 
 
+class TestAFiveReadAsASmallS:
+    """`C x es` — Pachman's scan reads `5` as `s` as well as `S`."""
+
+    def test_it_is_the_look_alike_it_is(self):
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+            ("move_number", "3."), ("move", "Nxes"),
+        ))
+
+        assert (result.moves[-1].san, result.moves[-1].status) == ("Nxe5", "uncertain")
+
+
 class TestTwoAlternativesInOneBracket:
     """Pachman, Théorie élémentaire 1: "5. Fg5 Fe7 (le plus solide, mais vont
     toutefois également 5. ... Fb4 et 5. .. h6 6. Fh4 g5 ?)" — two answers to

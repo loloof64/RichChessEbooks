@@ -202,6 +202,22 @@ class TestACaptureSetWithSpaces:
 
         assert [t.text for t in tokens if t.kind == "move"] == ["Rxa7", "Qxb2", "cxd5"]
 
+    def test_a_line_may_break_behind_the_sign(self):
+        # `7. F X e7 D X \ne7`: the queen's recapture, across a line break in a
+        # narrow column — the layer keeps the space before the break. Lost,
+        # the queen never reached e7 and `9...Db4` died.
+        tokens = tokenize_pages([page_of("7. F X e7 D X \ne7 8. C X e4")], piece_letters="RDTFC")
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Bxe7", "Qxe7", "Nxe4"]
+
+    def test_a_five_read_as_a_small_s_behind_the_sign(self):
+        # `13. C x es`, `d x cs`: this scan reads `5` as `s` as well as `S`.
+        # Behind the sign a square is due, so the letter is its rank; the
+        # move goes out as printed and `parse` weighs the look-alike.
+        tokens = tokenize_pages([page_of("13. C x es d x cs")], piece_letters="RDTFC")
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Nxes", "dxcs"]
+
 
 class TestANumberThatLostADot:
     """`21..♕xb5` — a scan loses one dot of an ellipsis as readily as it

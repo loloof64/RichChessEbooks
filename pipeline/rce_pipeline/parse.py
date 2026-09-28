@@ -32,7 +32,9 @@ _CONFUSABLE_PAIRS = frozenset(
     for pair in (
         ("0", "O"), ("0", "o"), ("O", "o"),
         ("1", "l"), ("1", "I"), ("l", "I"),
-        ("8", "B"), ("5", "S"), ("2", "Z"),
+        # `s` only ever reaches a move behind a capture sign — see
+        # `tokenize`'s spaced capture — where Pachman's scan prints `C x es`.
+        ("8", "B"), ("5", "S"), ("5", "s"), ("2", "Z"),
         ("6", "b"), ("9", "g"),
     )
 )
