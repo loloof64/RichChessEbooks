@@ -1,7 +1,7 @@
 # What I have to do next
 
 Written 2026-08-22, revised 2026-09-27 (thirteenth session).
-`main` is at the commit below, 378 tests green.
+`main` is at the commit below, 382 tests green.
 
 > **Thirteenth session, 2026-09-27 — the corpus is not the book, and now
 > there is a control to say so.** Corpus 2827 -> 2830 (SuperAttaquant 150 ->
@@ -67,15 +67,20 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      spaces** (`D x b2`, `T X f5`, 351 of them against 7 tight) 6 -> 77, and
 >      `c40cdbc` **a bracket's second answer to one move** (`(5...Fb4 et
 >      5...h6 …)`) 77 -> 84. Held out **2990**, nothing lost.
->    - **Measured and withdrawn**: the same capture across a line break
->      (`D X \ne7`, the layer keeps the space) and `5` read as a small `s`
->      behind the sign (`C x es` — nowhere else: `as` is English). The main line
->      of the Ouest-Indienne then reads *right* ten plies further, and Pachman
->      falls 84 -> 38: `drifted` 1204 -> 1653. **An opening book's chapter is a
->      tree of systems and a model game interleaved**, `parse` makes it one
->      game, and the drift a better main line carries swallows the `2° 4.e3`
->      and `3° 4.g3` systems that were clean before. That structure is the next
->      thing on this book, and the two tokenizer changes come back after it.
+>    - `b38e235` **drifted counts only what descends from the line that
+>      drifted.** An adrift game used to mark every move it read, asides
+>      included — even Pachman's `2° 4. e3`, cited from a position the model
+>      game reached before it lost anything. **This changes the measurement:
+>      compare nothing before it with anything after it.** New bases: corpus
+>      **2901** (2830 before), held out 3294 (2990). `pipeline` picks its
+>      readings by `clean`, so Chess College 3 now ships one with +199 clean
+>      and +142 broken; Théorie élémentaire 2 lost 2.
+>    - `0c385e9` then the two capture shapes this session had withdrawn: across
+>      a line break (`D X \ne7`) and `5` as a small `s` behind the sign (`C x
+>      es` — nowhere else, `as` is English). Withdrawn when Pachman fell
+>      84 -> 38 under the old drift; now 105 -> 145. Held out **3334**.
+>    - Pachman is still 145 of 1782: an opening book's chapter is a tree of
+>      systems and a model game interleaved, and `parse` reads it as one game.
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
