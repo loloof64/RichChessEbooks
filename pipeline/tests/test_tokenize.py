@@ -189,6 +189,20 @@ class TestAPieceWhoseSquareTheScannerLost:
         assert (move.kind, move.text) == ("move", "N?")
 
 
+class TestACaptureSetWithSpaces:
+    """`D x b2`, `T X f5`, `c x d5` — Pachman's *Théorie élémentaire* sets the
+    capture sign between spaces, 351 times in seventeen pages against seven
+    tight. None of those captures was a token, and every line died on its
+    first one."""
+
+    def test_the_capture_is_one_move(self):
+        tokens = tokenize_pages(
+            [page_of("26. T x a7 D X b2 27. c x d5")], piece_letters="RDTFC"
+        )
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Rxa7", "Qxb2", "cxd5"]
+
+
 class TestANumberThatLostADot:
     """`21..♕xb5` — a scan loses one dot of an ellipsis as readily as it
     loses anything else. Nineteen of SuperAttaquant's black numbers and

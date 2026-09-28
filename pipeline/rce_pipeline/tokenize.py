@@ -121,6 +121,11 @@ _TOKEN_TEMPLATE = r"""
               # square follows the piece: `16♗a2♗c7`, where a lost space runs
               # two moves together, would otherwise read as a pawn promoting
               # to a bishop on the second rank.
+              # The capture sign set between spaces, and in capitals as often
+              # as not: Pachman's *Théorie élémentaire* prints `D x b2`,
+              # `T X f5`, `c x d5` — 351 captures in seventeen pages against
+              # seven tight, and not one of them was read.
+            | (?<![A-Za-z])[{pieces}a-h][ ][xX][ ][a-h][{ranks}]
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}]|(?<=[18])[{pieces}](?![a-h]))?
               # A file the scanner read as a digit. No notation writes a piece
               # and two digits, so what stands where the file belongs is the
@@ -617,6 +622,9 @@ def _tokenize_span(
         # Move numbers and promotions may carry internal spaces ("14 ." or
         # "e8 = Q"); squeeze them so downstream code sees canonical text.
         text_out = match.group() if kind == "annotation" else re.sub(r"\s+", "", match.group())
+        if kind == "move":
+            # `T X f5`: no alphabet has an `X` for a piece, so it is the sign.
+            text_out = text_out.replace("X", "x")
         consumed = lost_symbol = ""
         number_at: int | None = None
         if kind == "move":
