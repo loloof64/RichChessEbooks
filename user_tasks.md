@@ -81,6 +81,16 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      84 -> 38 under the old drift; now 105 -> 145. Held out **3334**.
 >    - Pachman is still 145 of 1782: an opening book's chapter is a tree of
 >      systems and a model game interleaved, and `parse` reads it as one game.
+>    - **Measured and withdrawn**: spelled numbers with a space (`1 O.`, `1 S.`,
+>      42 of them): first breaks 151 -> 128 but `below_break` 993 -> 1159, and
+>      Pachman 145 -> 39. **The wall, twice now**: after a break `parse` carries
+>      the same line on at the next number, on the board from *before* the
+>      break, so every better-read number ties more moves to a dead line. The
+>      next real piece of work is **resynchronising after a break** — find the
+>      position the moves after it can be played from (in the line, or among the
+>      positions the chapter has printed), as `_move_the_line_names` does for one
+>      destroyed move, at the scale of a line. Pachman carries 6541 `cascade`.
+>      Then retry this change, and the `113.`-for-`13.` numbers (16 of them).
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
