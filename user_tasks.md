@@ -171,6 +171,20 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      freeze it during a measured change, or choose on something other than
 >      `clean`. Reading quality comes first; speed does not matter
 >      (Laurent, 2026-09-28).
+>    - **Found, and left uncommitted in the working tree for Laurent to
+>      decide**: the seesaw is `_worth_reading`. Chess College 3 learns a
+>      13-character table from its own games; with it 57 boards confirm their
+>      line, cascade 2225 -> 1407, unscored 388 -> 112 — and it is refused by
+>      four moves, 2107 against 2111 (`clean + contradicted`), because the
+>      boards it reads also correct lines. The fix keeps a learned table that
+>      at least `_CONFIRMED_ENOUGH` = 5 boards confirm (Boussole's bad one had
+>      2), with a test. Held out: **clean 3334 -> 3141, ok 4213 -> 4340, broken
+>      8720 -> 8570, unplaced 395 -> 387**; corpus 2901 unchanged. `clean`
+>      falls because boards that are read make hidden errors visible — the
+>      brief's own rule is to believe the printed position over `clean`. If it
+>      is taken, the control needs a figure that does not punish reading
+>      diagrams (confirmations, or `ok` on placed games), and the changes this
+>      session withdrew on `clean` alone deserve a second look under it.
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
