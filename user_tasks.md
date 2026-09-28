@@ -133,6 +133,11 @@ Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 >      twenty minutes). Then Kaber, then the drawn boards of The Critical
 >      Moment and Silman's exercises (`diagrams.settle` exists for those and
 >      still reads 0 of 25 there — find out why first).
+>      *Prototyped* (scratch only): the structure holds — Kaber's `k` stands on
+>      all 55 boards exactly once, a king — but the vote by moves gets about ten
+>      votes in all, because **Kaber prints its solutions apart from their
+>      boards**, linked by the exercise number. Step (3) needs that link first:
+>      pair each board with the solution printed under its number.
 > 2. **Puzzle books.** *Tactics Training* (Kaber, Chess Alpha): 55 diagrams
 >    `unread` because no game ever reaches one to teach the font, and every
 >    solution's `1.` is then played from the initial position (`position_known`
