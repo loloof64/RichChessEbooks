@@ -1739,6 +1739,36 @@ class TestALostMoveTheProseSeparatesFromItsLine:
         assert "Be7" not in sans(result)
 
 
+class TestTwoAlternativesInOneBracket:
+    """Pachman, Théorie élémentaire 1: "5. Fg5 Fe7 (le plus solide, mais vont
+    toutefois également 5. ... Fb4 et 5. .. h6 6. Fh4 g5 ?)" — two answers to
+    the same move inside one bracket. The second was read as the first
+    carrying on, with White to play, and the bracket died on it."""
+
+    def test_the_second_is_played_where_the_first_began(self):
+        played = ["d4", "Nf6", "c4", "e6", "Nf3", "b6", "Nc3", "Bb7", "Bg5", "Be7"]
+        tokens: list[Token] = []
+        for index, san in enumerate(played):
+            if index % 2 == 0:
+                tokens.append(tok("move_number", f"{index // 2 + 1}."))
+            tokens.append(tok("move", san))
+        tokens += [
+            tok("var_open", "("),
+            tok("move_number", "5..."), tok("move", "Bb4"),
+            tok("move_number", "5..."), tok("move", "h6"),
+            tok("move_number", "6."), tok("move", "Bh4"), tok("move", "g5"),
+            tok("var_close", ")"),
+            tok("move_number", "6."), tok("move", "e3"),
+        ]
+        result = parse_tokens(tokens)
+
+        assert all(m.status == "ok" for m in result.moves)
+        h6 = next(m for m in result.moves if m.san == "h6")
+        # Played after 5.Bg5, not after 5...Bb4: the bishop is still on f8.
+        assert chess.Board(h6.fen).piece_at(chess.F8) == chess.Piece(chess.BISHOP, chess.BLACK)
+        assert result.moves[-1].san == "e3" and result.moves[-1].variation_index == 0
+
+
 class TestAPieceWhoseSquareWasLost:
     """`2.NO` — the knight printed, its square read as `O`: the board and the
     score after it name the move, as they name a move a number destroyed."""

@@ -939,6 +939,18 @@ def parse_tokens(
             # believed there — a scan invents brackets, and one of them opened
             # in the middle of a Boussole comment holds the score of the game
             # hostage for the rest of the page.
+            #
+            # And a second answer to a move the bracket has already answered:
+            # "(… également 5. ... Fb4 et 5. .. h6 6. Fh4 g5 ?)", Pachman's
+            # Théorie élémentaire. The number goes back to a ply this very
+            # bracket played, so the line starts again there — still inside
+            # the bracket, which its `)` still closes.
+            level = stack[-1]
+            if level.from_bracket and declared < _ply_awaited(level.board) and (
+                declared in level.history
+            ):
+                board, parent = level.history[declared]
+                level.board, level.parent_id = board.copy(), parent
             return
         if declared in main_history:
             board, parent = main_history[declared]
