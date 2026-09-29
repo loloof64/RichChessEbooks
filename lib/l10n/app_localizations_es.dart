@@ -127,6 +127,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get flipBoard => 'Girar el tablero';
 
   @override
+  String get whiteToMove => 'Juegan las blancas';
+
+  @override
+  String get blackToMove => 'Juegan las negras';
+
+  @override
   String get moveUnreadable =>
       'No se pudo leer esta jugada: el tablero muestra la última posición conocida antes de ella.';
 

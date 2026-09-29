@@ -114,7 +114,12 @@
         "bbox": { "$ref": "#/$defs/bbox" },
         "fen": {
           "type": "string",
-          "description": "The printed position. Side to move from the line the board stands on, white when nothing says; castling and en passant are never claimed, a diagram does not print them."
+          "description": "The printed position. Side to move as printed beside the board, else from the line the board stands on, white when nothing says; castling and en passant are never claimed, a diagram does not print them."
+        },
+        "to_move_known": {
+          "type": "boolean",
+          "default": true,
+          "description": "Since 1.2.0, optional. False when nothing said whose move it is: the FEN then reads white and the reader shows no side to move."
         }
       }
     },

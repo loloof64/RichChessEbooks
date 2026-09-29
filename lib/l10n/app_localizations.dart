@@ -310,6 +310,18 @@ abstract class AppLocalizations {
   /// **'Flip the board'**
   String get flipBoard;
 
+  /// No description provided for @whiteToMove.
+  ///
+  /// In en, this message translates to:
+  /// **'White to move'**
+  String get whiteToMove;
+
+  /// No description provided for @blackToMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Black to move'**
+  String get blackToMove;
+
   /// No description provided for @moveUnreadable.
   ///
   /// In en, this message translates to:

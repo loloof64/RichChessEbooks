@@ -1644,6 +1644,47 @@ class TestALineFromTheStartCitedInsideAGame:
         assert all(not on_the_main_line(result, m) for m in cited)
 
 
+class TestTheSideToMoveOfAnExportedDiagram:
+    def test_a_board_whose_side_nothing_says_is_exported_as_unknown(self):
+        # The reader shows whose move it is beside the board, and must not
+        # claim White's for a board where nothing said so.
+        board = chess.Board()
+        board.push_san("e4")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows), bbox=BBox(50, 400, 200, 200))
+        result = parse_tokens([diagram, tok("text", "A study of the centre.")], diagram_table=table)
+
+        (exported,) = result.to_json()["diagrams"]
+        assert exported["to_move_known"] is False
+
+    def test_a_board_the_book_marks_is_exported_with_its_side(self):
+        board = chess.Board()
+        board.push_san("e4")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(
+            tok("diagram", rows), bbox=BBox(50, 400, 200, 200), to_move="b"
+        )
+        result = parse_tokens([diagram, tok("text", "A study of the centre.")], diagram_table=table)
+
+        (exported,) = result.to_json()["diagrams"]
+        assert exported["fen"].split()[1] == "b"
+        assert "to_move_known" not in exported
+
+
 class TestTheSideToMovePrintedBesideTheBoard:
     def test_a_black_triangle_beats_the_number_the_prose_cites(self):
         # Markos page 48: the board of Morovic Fernandez - Adams carries a ▼,

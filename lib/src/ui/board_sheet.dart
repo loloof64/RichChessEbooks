@@ -83,6 +83,9 @@ class _BoardSheetState extends State<BoardSheet> {
     final lastMove = move?.uci == null || move?.fen == null
         ? null
         : Move.parse(move!.uci!);
+    // Shown only where it is known: a diagram whose side nothing said reads
+    // white in its FEN and must not claim it.
+    final whiteToMove = move != null ? whiteToMoveIn(fen) : diagram!.whiteToMove;
 
     return SafeArea(
       child: Padding(
@@ -96,6 +99,7 @@ class _BoardSheetState extends State<BoardSheet> {
                 Expanded(
                   child: Text(label, style: theme.textTheme.headlineSmall),
                 ),
+                if (whiteToMove != null) _SideToMove(whiteToMove: whiteToMove),
                 IconButton(
                   tooltip: AppLocalizations.of(context).flipBoard,
                   icon: const Icon(Icons.swap_vert),
@@ -168,6 +172,43 @@ class _Board extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Whose move it is on the board shown: a disc of that side's colour.
+class _SideToMove extends StatelessWidget {
+  const _SideToMove({required this.whiteToMove});
+
+  final bool whiteToMove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
+    final label = whiteToMove ? l10n.whiteToMove : l10n.blackToMove;
+    return Semantics(
+      label: label,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: label,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: whiteToMove ? Colors.white : Colors.black,
+                border: Border.all(color: theme.colorScheme.outline),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(label, style: theme.textTheme.bodyMedium),
+          ],
+        ),
+      ),
     );
   }
 }

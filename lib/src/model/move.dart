@@ -156,12 +156,18 @@ class GameEntry {
 /// A board the book printed, as the pipeline read it (`moves.json` since
 /// 1.1.0). Tapping it opens its position.
 class DiagramEntry {
-  const DiagramEntry({required this.page, required this.bbox, required this.fen});
+  const DiagramEntry({
+    required this.page,
+    required this.bbox,
+    required this.fen,
+    this.toMoveKnown = true,
+  });
 
   factory DiagramEntry.fromJson(Map<String, dynamic> json) => DiagramEntry(
     page: json['page'] as int,
     bbox: RceBBox.fromJson(json['bbox'] as Map<String, dynamic>),
     fen: json['fen'] as String,
+    toMoveKnown: json['to_move_known'] as bool? ?? true,
   );
 
   final int page;
@@ -169,4 +175,17 @@ class DiagramEntry {
 
   /// The printed position. Castling and en passant are never claimed.
   final String fen;
+
+  /// False when nothing said whose move it is (`moves.json` since 1.2.0):
+  /// [fen] then reads white only because a FEN must name a side.
+  final bool toMoveKnown;
+
+  /// Whether White is to move, or null where the book never said.
+  bool? get whiteToMove => toMoveKnown ? whiteToMoveIn(fen) : null;
+}
+
+/// Whether White is to move in [fen], or null for no position.
+bool? whiteToMoveIn(String? fen) {
+  final side = fen?.split(' ').elementAtOrNull(1);
+  return side == null ? null : side == 'w';
 }

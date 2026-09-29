@@ -370,18 +370,21 @@ class ParseResult:
 
     def to_json(self) -> dict[str, Any]:
         return {
-            "schema_version": "1.1.0",
+            "schema_version": "1.2.0",
             "games": [g.to_json() for g in self.games],
             "moves": [m.to_json() for m in self.moves],
             # Every board the book printed that could be read, for the reader
             # to open when it is tapped. Castling and en passant are not
-            # printed on a diagram, so they are not claimed.
+            # printed on a diagram, so they are not claimed — nor whose move
+            # it is where nothing said so (since 1.2.0): the FEN needs a side
+            # and says White's, and `to_move_known` says not to show it.
             "diagrams": [
                 {
                     "page": check["page"],
                     "bbox": check["bbox"],
                     "fen": f"{check['printed']} "
                            f"{'b' if check.get('white_to_move') is False else 'w'} - - 0 1",
+                    **({"to_move_known": False} if check.get("white_to_move") is None else {}),
                 }
                 for check in self.diagram_checks
                 if check.get("printed") and check.get("bbox")
@@ -1401,7 +1404,12 @@ def parse_tokens(
                     "sound": bool(stack) and line_sound,
                     "verdict": verdict,
                     "bbox": token.bbox.to_json() if token.bbox is not None else None,
-                    "white_to_move": on_the_board.turn if on_the_board is not None else None,
+                    # The side the book printed beside the board, else the
+                    # side the line it stands on is to play.
+                    "white_to_move": (
+                        token.to_move == "w" if token.to_move
+                        else on_the_board.turn if on_the_board is not None else None
+                    ),
                 }
             )
             if pending_position == printed and printed is not None:

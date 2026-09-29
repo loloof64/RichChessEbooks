@@ -127,6 +127,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get flipBoard => 'Retourner l\'échiquier';
 
   @override
+  String get whiteToMove => 'Trait aux Blancs';
+
+  @override
+  String get blackToMove => 'Trait aux Noirs';
+
+  @override
   String get moveUnreadable =>
       'Ce coup n\'a pas pu être lu : l\'échiquier montre la dernière position connue avant lui.';
 

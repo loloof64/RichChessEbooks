@@ -127,6 +127,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get flipBoard => 'Flip the board';
 
   @override
+  String get whiteToMove => 'White to move';
+
+  @override
+  String get blackToMove => 'Black to move';
+
+  @override
   String get moveUnreadable =>
       'This move could not be read: the board shows the last position before it.';
 

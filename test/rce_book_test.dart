@@ -109,6 +109,18 @@ void main() {
       expect(withDiagram.diagramsOnPage(13).single.fen, '8/8/8/8/8/8/8/K6k w - - 0 1');
       expect(withDiagram.diagramsOnPage(12), isEmpty);
     });
+
+    test('say whose move it is only where the book said so', () {
+      DiagramEntry diagram(Map<String, dynamic> extra) => DiagramEntry.fromJson({
+        'page': 13,
+        'bbox': {'x': 100, 'y': 200, 'w': 180, 'h': 180},
+        'fen': '8/8/8/8/8/8/8/K6k b - - 0 1',
+        ...extra,
+      });
+
+      expect(diagram({}).whiteToMove, isFalse);
+      expect(diagram({'to_move_known': false}).whiteToMove, isNull);
+    });
   });
 
   group('tree navigation', () {
