@@ -1083,12 +1083,19 @@ def parse_tokens(
         """
         if len(stack) < 2:
             return
-        level, parent = stack[-1], stack[-2]
+        level = stack[-1]
         if not level.from_bracket or level.last_move_id is not None:
             return
         if declared == _ply_awaited(level.board):
             return
-        if declared != _ply_awaited(parent.board):
+        # The line it opened in first, then the ones below it, the game last:
+        # Markos page 167 opens one inside an aside to say "from the initial
+        # diagram […] 19.♖c1", the ply the game itself awaits.
+        parent = next(
+            (below for below in reversed(stack[:-1]) if _ply_awaited(below.board) == declared),
+            None,
+        )
+        if parent is None:
             return
         level.board = parent.board.copy()
         level.parent_id = parent.last_move_id or parent.parent_id
@@ -1763,6 +1770,9 @@ def parse_tokens(
                     board=level.board.copy(),
                     parent_id=level.parent_id,
                     moves_allowed=level.moves_allowed,
+                    # Opened on the game's move like any aside: a number can
+                    # go back into it (Markos page 167, `22.♕xa7`).
+                    game_at=(game.id, level.parent_id),
                 )
             )
             level = stack[-1]

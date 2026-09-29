@@ -1191,6 +1191,37 @@ class TestWhichSideOfTheMoveABracketOpensOn:
         assert by_san["d5"].status == "ok"
         assert by_san["d5"].parent_id == by_san["Nc3"].id
 
+    def test_a_bracket_naming_the_game_s_ply_inside_an_aside_opens_on_the_game(self):
+        # Markos page 167, inside "b) 20.♖c1 ♗d5 21.♖xc7": "(From the initial
+        # diagram, this position can also be reached by a different route:
+        # 19.♖c1 ♗d5 20.cxd6 cxd6 21.♖c7)" — the ply the game awaits, below
+        # the aside the bracket opened in.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "d4", True), ("move", "Nf6", True),
+                ("move_number", "2.", True), ("move", "c4", True), ("move", "e6", True),
+                ("text", "a)", False),
+                ("move_number", "3.", False), ("move", "Nc3", False), ("move", "Bb4", False),
+                ("text", "b)", False),
+                ("move_number", "3.", False), ("move", "g3", False), ("move", "b6", False),
+                ("move_number", "4.", False), ("move", "Nf3", False), ("move", "Bb7", False),
+                ("move_number", "5.", False), ("move", "Bg2", False),
+                ("var_open", "(", False),
+                ("text", "or by a different route:", False),
+                ("move_number", "3.", False), ("move", "Nf3", False), ("move", "b6", False),
+                ("move_number", "4.", False), ("move", "g3", False),
+                ("var_close", ")", False),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+        by_id = {m.id: m for m in result.moves}
+        routed = [m for m in result.moves if m.san == "Nf3"][-1]
+        assert by_id[routed.parent_id].san == "e6"
+
 
 class TestTwoAlternativesCitedTogether:
     """"White can choose between 7 ♘a2 and 7 ♘b1", both at the same juncture.
@@ -1876,6 +1907,82 @@ class TestTheSideToMoveOfAnExportedDiagram:
         (exported,) = result.to_json()["diagrams"]
         assert exported["fen"].split()[1] == "b"
         assert "to_move_known" not in exported
+
+
+class TestTheAnalysisNumberUnderABoard:
+    def test_a_plain_number_seeds_the_game_and_its_moves_stay_analysis(self):
+        # Markos page 167: under the board of Markos - Macak, "let's start
+        # with 19.c6. Black has to answer 19...♗xc6" — analysis, and the
+        # first number under the board. It seeded the game and its moves were
+        # played as the game's, so `19.♗b5!` and every aside after it broke.
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6"):
+            board.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows), to_move="w")
+        result = parse_tokens(
+            [diagram] + weighed(
+                ("text", "Let's start with", False),
+                ("move_number", "3.", False), ("move", "d4", False),
+                ("text", ". Black has to answer", False),
+                ("move_number", "3...", False), ("move", "exd4", False),
+                ("text", "Then it was easy to find the right move:", False),
+                ("move_number", "3.", True), ("move", "Bb5", True), ("move", "a6", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+        assert on_the_main_line(result, by_san["a6"])
+        assert not on_the_main_line(result, by_san["exd4"])
+
+    def test_an_alternative_inside_that_analysis_branches_from_it(self):
+        # The same page: "a) 20.♕c2 ♗d5 21.♕xc7 […] 22.♕xd6 ♘b8 23.♕c7 ♘c6
+        # […] Capturing the other pawn with 22.♕xa7" — Black's 22nd is one
+        # only the analysis reached, and it was played after 23...♘c6.
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6"):
+            board.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows), to_move="w")
+        result = parse_tokens(
+            [diagram] + weighed(
+                ("text", "Let's start with", False),
+                ("move_number", "3.", False), ("move", "d4", False),
+                ("text", ". Black has to answer", False),
+                ("move_number", "3...", False), ("move", "exd4", False),
+                ("move_number", "4.", False), ("move", "Nxd4", False), ("move", "Nf6", False),
+                ("text", "Capturing the other way with", False),
+                ("move_number", "4.", False), ("move", "Qxd4", False),
+                ("text", "looks frightening.", False),
+                ("move_number", "4.", True), ("move", "Bb5", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        by_id = {m.id: m for m in result.moves}
+        qxd4 = next(m for m in result.moves if m.san == "Qxd4")
+        assert qxd4.status == "ok"
+        assert by_id[qxd4.parent_id].san == "exd4"
 
 
 class TestTheSideToMovePrintedBesideTheBoard:
