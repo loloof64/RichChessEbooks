@@ -116,7 +116,12 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get panelHint =>
-      'Toque una jugada de la página para ver aquí su posición.';
+      'Toque una jugada o un diagrama de la página para ver aquí su posición.';
+
+  @override
+  String diagramOnPage(int page) {
+    return 'Diagrama, página $page';
+  }
 
   @override
   String get flipBoard => 'Girar el tablero';

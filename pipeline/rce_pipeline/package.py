@@ -17,7 +17,7 @@ from typing import Any
 from .notation import NotationReport
 from .parse import ParseResult
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 GENERATOR_NAME = "rce-pipeline"
 GENERATOR_VERSION = "0.1.0"
 

@@ -85,6 +85,10 @@ class RceArchive {
     final moves = (movesJson['moves'] as List<dynamic>? ?? const [])
         .map((move) => MoveNode.fromJson(move as Map<String, dynamic>))
         .toList();
+    // Since 1.1.0; an older archive simply offers no diagram.
+    final diagrams = (movesJson['diagrams'] as List<dynamic>? ?? const [])
+        .map((diagram) => DiagramEntry.fromJson(diagram as Map<String, dynamic>))
+        .toList();
 
     final sourceBytes = _readEntry(archive, manifest.sourcePath);
     final digest = sha256.convert(sourceBytes).toString();
@@ -106,6 +110,7 @@ class RceArchive {
       manifest: manifest,
       games: games,
       moves: moves,
+      diagrams: diagrams,
       sourceFilePath: sourceFilePath,
     );
   }

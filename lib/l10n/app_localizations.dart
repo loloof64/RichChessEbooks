@@ -295,8 +295,14 @@ abstract class AppLocalizations {
   /// No description provided for @panelHint.
   ///
   /// In en, this message translates to:
-  /// **'Tap a move on the page to see its position here.'**
+  /// **'Tap a move or a diagram on the page to see its position here.'**
   String get panelHint;
+
+  /// No description provided for @diagramOnPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagram, page {page}'**
+  String diagramOnPage(int page);
 
   /// No description provided for @flipBoard.
   ///

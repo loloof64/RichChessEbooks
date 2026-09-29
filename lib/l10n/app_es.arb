@@ -32,7 +32,8 @@
   "zoomLevel": "Nivel de zoom",
   "zoomWholePage": "Página completa",
   "zoomPageWidth": "Ancho de página",
-  "panelHint": "Toque una jugada de la página para ver aquí su posición.",
+  "panelHint": "Toque una jugada o un diagrama de la página para ver aquí su posición.",
+  "diagramOnPage": "Diagrama, página {page}",
   "flipBoard": "Girar el tablero",
   "moveUnreadable": "No se pudo leer esta jugada: el tablero muestra la última posición conocida antes de ella.",
   "moveRepaired": "Leída tras corregir un probable error de escaneo ({confidence} % de confianza)."

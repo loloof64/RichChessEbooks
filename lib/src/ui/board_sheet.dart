@@ -3,34 +3,39 @@ import 'dart:async';
 import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
-import '../../l10n/app_localizations.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../model/move.dart';
 import '../model/rce_book.dart';
 
-/// Shows the position a tapped move leads to, on a board that cannot be played
-/// on.
+/// Shows the position a tapped move leads to, or the one a tapped diagram
+/// prints, on a board that cannot be played on.
 ///
 /// The board is deliberately static: the point is to see what the page is
 /// talking about without losing your place in the book. Moving pieces around
 /// belongs to an analysis screen, not here.
 class BoardSheet extends StatefulWidget {
-  const BoardSheet({required this.book, required this.move, super.key});
+  const BoardSheet({required this.book, this.move, this.diagram, super.key})
+    : assert((move == null) != (diagram == null), 'a move or a diagram');
 
   final RceBook book;
-  final MoveNode move;
 
-  /// Opens the sheet for [move]. Returns when the user dismisses it.
+  /// What the board shows: one of the two.
+  final MoveNode? move;
+  final DiagramEntry? diagram;
+
+  /// Opens the sheet for [move] or [diagram]. Returns when it is dismissed.
   static Future<void> show(
     BuildContext context, {
     required RceBook book,
-    required MoveNode move,
+    MoveNode? move,
+    DiagramEntry? diagram,
   }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => BoardSheet(book: book, move: move),
+      builder: (_) => BoardSheet(book: book, move: move, diagram: diagram),
     );
   }
 
@@ -44,7 +49,8 @@ class _BoardSheetState extends State<BoardSheet> {
   /// How long the note about a move the pipeline could not read stays up.
   static const _noticeFor = Duration(seconds: 4);
 
-  late bool _noticeShown = widget.move.status != MoveStatus.ok;
+  late bool _noticeShown =
+      widget.move != null && widget.move!.status != MoveStatus.ok;
   Timer? _noticeTimer;
 
   @override
@@ -67,6 +73,16 @@ class _BoardSheetState extends State<BoardSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final move = widget.move;
+    final diagram = widget.diagram;
+    final label =
+        move?.label ??
+        AppLocalizations.of(context).diagramOnPage(diagram!.page);
+    final fen = move != null ? widget.book.lastKnownFen(move) : diagram!.fen;
+    // The UCI comes from the pipeline, so the highlight never depends on
+    // re-deriving squares from SAN disambiguation.
+    final lastMove = move?.uci == null || move?.fen == null
+        ? null
+        : Move.parse(move!.uci!);
 
     return SafeArea(
       child: Padding(
@@ -78,7 +94,7 @@ class _BoardSheetState extends State<BoardSheet> {
             Row(
               children: [
                 Expanded(
-                  child: Text(move.label, style: theme.textTheme.headlineSmall),
+                  child: Text(label, style: theme.textTheme.headlineSmall),
                 ),
                 IconButton(
                   tooltip: AppLocalizations.of(context).flipBoard,
@@ -95,21 +111,18 @@ class _BoardSheetState extends State<BoardSheet> {
             Stack(
               alignment: Alignment.bottomCenter,
               children: [
-                _Board(
-                  move: move,
-                  fen: widget.book.lastKnownFen(move),
-                  orientation: _orientation,
-                ),
-                IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: _noticeShown ? 1 : 0,
-                    duration: const Duration(milliseconds: 300),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: _StatusBanner(move: move),
+                _Board(fen: fen, lastMove: lastMove, orientation: _orientation),
+                if (move != null)
+                  IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: _noticeShown ? 1 : 0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: _StatusBanner(move: move),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ],
@@ -120,10 +133,14 @@ class _BoardSheetState extends State<BoardSheet> {
 }
 
 class _Board extends StatelessWidget {
-  const _Board({required this.move, required this.fen, required this.orientation});
+  const _Board({
+    required this.fen,
+    required this.lastMove,
+    required this.orientation,
+  });
 
-  final MoveNode move;
   final String? fen;
+  final Move? lastMove;
   final Side orientation;
 
   @override
@@ -143,9 +160,7 @@ class _Board extends StatelessWidget {
             size: size,
             orientation: orientation,
             fen: fen,
-            // The UCI comes from the pipeline, so the highlight never depends
-            // on re-deriving squares from SAN disambiguation.
-            lastMove: move.uci == null || move.fen == null ? null : Move.parse(move.uci!),
+            lastMove: lastMove,
             settings: const StaticChessboardSettings(
               enableCoordinates: true,
               animationDuration: Duration.zero,
@@ -190,8 +205,9 @@ class _StatusBanner extends StatelessWidget {
             child: Text(
               isBroken
                   ? AppLocalizations.of(context).moveUnreadable
-                  : AppLocalizations.of(context)
-                      .moveRepaired((move.confidence * 100).round()),
+                  : AppLocalizations.of(
+                      context,
+                    ).moveRepaired((move.confidence * 100).round()),
               style: theme.textTheme.bodySmall?.copyWith(color: colour),
             ),
           ),

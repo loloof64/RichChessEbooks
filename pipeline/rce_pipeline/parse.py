@@ -370,9 +370,22 @@ class ParseResult:
 
     def to_json(self) -> dict[str, Any]:
         return {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "games": [g.to_json() for g in self.games],
             "moves": [m.to_json() for m in self.moves],
+            # Every board the book printed that could be read, for the reader
+            # to open when it is tapped. Castling and en passant are not
+            # printed on a diagram, so they are not claimed.
+            "diagrams": [
+                {
+                    "page": check["page"],
+                    "bbox": check["bbox"],
+                    "fen": f"{check['printed']} "
+                           f"{'b' if check.get('white_to_move') is False else 'w'} - - 0 1",
+                }
+                for check in self.diagram_checks
+                if check.get("printed") and check.get("bbox")
+            ],
         }
 
 
@@ -808,6 +821,9 @@ def parse_tokens(
     #: Whether that diagram stood under the header of a new game, so the board
     #: it prints opens one rather than correcting the game still running.
     pending_opens_a_game = False
+    #: The check recorded for that diagram, told whose move it is once the
+    #: number under the board has said so.
+    pending_check: dict[str, Any] | None = None
     #: Whether the prose last read closed with a game header. Cleared by the
     #: first move read after it: a heading announces what comes next, and once
     #: the score has started the announcement is spent.
@@ -1250,6 +1266,17 @@ def parse_tokens(
                 # nobody is on.
                 pending_position = printed
                 pending_opens_a_game = header_read or names_a_game
+            # Whose move it is on the board printed, where the line it stands
+            # on says so; a board that seeds or corrects learns it from the
+            # number under it, below.
+            if verdict == "confirms":
+                on_the_board = stack[0].board
+            elif verdict == "shows_the_analysis":
+                on_the_board = next(
+                    level.board for level in stack[1:] if level.board.board_fen() == printed
+                )
+            else:
+                on_the_board = None
             result.diagram_checks.append(
                 {
                     "page": token.page,
@@ -1263,8 +1290,12 @@ def parse_tokens(
                     "printed": printed,
                     "sound": bool(stack) and line_sound,
                     "verdict": verdict,
+                    "bbox": token.bbox.to_json() if token.bbox is not None else None,
+                    "white_to_move": on_the_board.turn if on_the_board is not None else None,
                 }
             )
+            if pending_position == printed and printed is not None:
+                pending_check = result.diagram_checks[-1]
             continue
 
         if token.kind == "move_number":
@@ -1328,6 +1359,9 @@ def parse_tokens(
                     # on the board is the game starting where games start.
                     seeded = None
                 pending_position = None
+                if seeded is not None and pending_check is not None:
+                    pending_check["white_to_move"] = not is_black_only
+                pending_check = None
                 opens_on_a_header, pending_opens_a_game = pending_opens_a_game, False
                 if not chess.Board(seeded).is_valid():
                     # The board decoded, and it is not a position: the side the

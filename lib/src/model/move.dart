@@ -152,3 +152,21 @@ class GameEntry {
   final String? title;
   final int? pageStart;
 }
+
+/// A board the book printed, as the pipeline read it (`moves.json` since
+/// 1.1.0). Tapping it opens its position.
+class DiagramEntry {
+  const DiagramEntry({required this.page, required this.bbox, required this.fen});
+
+  factory DiagramEntry.fromJson(Map<String, dynamic> json) => DiagramEntry(
+    page: json['page'] as int,
+    bbox: RceBBox.fromJson(json['bbox'] as Map<String, dynamic>),
+    fen: json['fen'] as String,
+  );
+
+  final int page;
+  final RceBBox bbox;
+
+  /// The printed position. Castling and en passant are never claimed.
+  final String fen;
+}

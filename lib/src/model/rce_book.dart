@@ -13,7 +13,9 @@ class RceBook {
     required this.games,
     required List<MoveNode> moves,
     required this.sourceFilePath,
-  }) : _movesById = {for (final move in moves) move.id: move},
+    List<DiagramEntry> diagrams = const [],
+  }) : _diagramsByPage = _groupDiagrams(diagrams),
+       _movesById = {for (final move in moves) move.id: move},
        _gamesById = {for (final game in games) game.id: game},
        _movesByPage = _groupByPage(moves),
        allMoves = List.unmodifiable(moves);
@@ -28,6 +30,18 @@ class RceBook {
   final Map<String, MoveNode> _movesById;
   final Map<String, GameEntry> _gamesById;
   final Map<int, List<MoveNode>> _movesByPage;
+  final Map<int, List<DiagramEntry>> _diagramsByPage;
+
+  static Map<int, List<DiagramEntry>> _groupDiagrams(List<DiagramEntry> diagrams) {
+    final grouped = <int, List<DiagramEntry>>{};
+    for (final diagram in diagrams) {
+      (grouped[diagram.page] ??= <DiagramEntry>[]).add(diagram);
+    }
+    return grouped;
+  }
+
+  /// Diagrams printed on [page] (1-based) that the pipeline could read.
+  List<DiagramEntry> diagramsOnPage(int page) => _diagramsByPage[page] ?? const [];
 
   static Map<int, List<MoveNode>> _groupByPage(List<MoveNode> moves) {
     final grouped = <int, List<MoveNode>>{};

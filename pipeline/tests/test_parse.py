@@ -484,6 +484,35 @@ class TestBreakDiagnosis:
         assert [m.status for m in after] == ["ok", "ok"]
         assert result.break_diagnosis()["below_break"] == 0
 
+    def test_a_diagram_read_is_exported_with_its_box_and_position(self):
+        # The reader opens a diagram's position when it is tapped, so the
+        # contract carries every board that could be read, where it stands.
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6", "Bb5", "a6"):
+            board.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows, page=3), bbox=BBox(50, 400, 200, 200))
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                ("move_number", "3."), ("move", "Bb5"), ("move", "a6"),
+            ) + [diagram],
+            diagram_table=table,
+        )
+
+        (exported,) = result.to_json()["diagrams"]
+        assert exported["page"] == 3
+        assert exported["bbox"] == {"x": 50, "y": 400, "w": 200, "h": 200}
+        assert exported["fen"].split()[:2] == [board.board_fen(), "w"]
+
     def test_a_line_that_matches_again_stops_being_adrift(self):
         # A number the line does agree with clears it: whatever was lost, the
         # book and the board are on the same move again, and what follows

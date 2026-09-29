@@ -32,7 +32,8 @@
   "zoomLevel": "Niveau de zoom",
   "zoomWholePage": "Page entière",
   "zoomPageWidth": "Pleine largeur",
-  "panelHint": "Cliquez sur un coup de la page pour voir sa position ici.",
+  "panelHint": "Cliquez sur un coup ou un diagramme de la page pour voir sa position ici.",
+  "diagramOnPage": "Diagramme, page {page}",
   "flipBoard": "Retourner l'échiquier",
   "moveUnreadable": "Ce coup n'a pas pu être lu : l'échiquier montre la dernière position connue avant lui.",
   "moveRepaired": "Lu après correction d'une erreur de lecture probable ({confidence} % de confiance)."

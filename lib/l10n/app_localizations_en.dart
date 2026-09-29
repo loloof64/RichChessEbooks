@@ -115,7 +115,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zoomPageWidth => 'Page width';
 
   @override
-  String get panelHint => 'Tap a move on the page to see its position here.';
+  String get panelHint =>
+      'Tap a move or a diagram on the page to see its position here.';
+
+  @override
+  String diagramOnPage(int page) {
+    return 'Diagram, page $page';
+  }
 
   @override
   String get flipBoard => 'Flip the board';
