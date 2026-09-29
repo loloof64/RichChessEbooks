@@ -1673,6 +1673,21 @@ class TestALineFromTheStartCitedInsideAGame:
             (m.san, m.status) for m in result.moves
         ]
 
+class TestAGameHeaderIsFoundInTime:
+    def test_a_run_of_capitalised_names_does_not_hang_the_book(self):
+        # Grivas pages 1-65 never finished: the header pattern tried every
+        # way to split each name, and four names in a row took ten seconds.
+        import time
+
+        from rce_pipeline.parse import _ends_in_a_game_header
+
+        text = " ".join(["Karpov"] * 8) + " - " + " ".join(["Kasparov"] * 8) + " played on"
+        started = time.monotonic()
+        assert not _ends_in_a_game_header(text)
+        assert time.monotonic() - started < 1.0
+        assert _ends_in_a_game_header("Dominik Csiba - Jan Markos, Banska Stiavnica 2011")
+
+
 class TestAGameTheBookComesBackTo:
     def test_a_board_whose_game_never_starts_does_not_take_the_resumed_score(self):
         # Markos page 111-112: Velicka - Markos stops at `28...e6?`, the book

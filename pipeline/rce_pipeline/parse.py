@@ -465,7 +465,11 @@ def _ends_in_a_word(text: str) -> bool:
 #: "I. Zaitsev", three of SuperAttaquant's sixteen headings. Written without
 #: `\w` on purpose — a scanner leaves private-use characters in the text, and
 #: those must not read as letters.
-_HEADER_NAME = r"(?:[A-Z]\.\s*){0,3}[A-Z][^\W\d_]*[a-z][^\W\d_]*\.?"
+#: The word is matched in one piece, its lowercase letter asked for ahead:
+#: `[^\W\d_]*[a-z][^\W\d_]*` can split a word as many ways as it has
+#: lowercase letters, and a run of names multiplied them — four names took
+#: ten seconds and Grivas pages 1-65 never finished.
+_HEADER_NAME = r"(?:[A-Z]\.\s*){0,3}[A-Z](?=[^\W\d_]*[a-z])[^\W\d_]*\.?"
 
 #: The header a book prints above a game: two sides joined by a dash, then
 #: where it was played and the year. Anchored at the end of the text, because
@@ -479,6 +483,10 @@ _GAME_HEADER = re.compile(
 )
 
 
+#: How much of the end of a text a game heading can take up.
+_HEADER_REACH = 300
+
+
 def _ends_in_a_game_header(text: str) -> bool:
     """Whether this prose closes with the heading of a new game.
 
@@ -487,7 +495,8 @@ def _ends_in_a_game_header(text: str) -> bool:
     safe: two names joined by a dash is also how a book cites a game in
     passing, and a citation carries no date at the end of the line.
     """
-    return bool(_GAME_HEADER.search(re.sub(r"\W+$", "", text)))
+    # The heading closes the text, and no heading is longer than this.
+    return bool(_GAME_HEADER.search(re.sub(r"\W+$", "", text)[-_HEADER_REACH:]))
 
 
 #: The same heading at the head of the prose rather than at its end. A book
