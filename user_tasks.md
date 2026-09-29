@@ -1,5 +1,20 @@
 # What I have to do next
 
+> **Sixteenth session, 2026-09-29 — distribution, then back to the books.** A
+> reader has none of our tools, so the pipeline now installs with **pipx** as
+> an `rce` command (`rce book.pdf [--lang fr] [--first N --last M]` writes
+> `book.rce` beside the PDF). Instructions open the root `README.md`
+> ("Installing it"), with the dependency weight stated up front: full install
+> `[glyphs,pictures]` ~400 MB, minimal ~70 MB (measured under pipx). The
+> classifier ships inside the package (`rce_pipeline/data/classifier.pkl`,
+> 551 KB) and is the CLI's default. scikit-learn is **not pinned**: 1.9.1 gives
+> the same class and confidence as 1.6.1 (the pickling version) on all 8617
+> training glyphs; the version warning is silenced in `GlyphClassifier.load`.
+> On a minimal install a scan ends with the one `pipx install --force ...`
+> command that fixes it. The Colab notebook is now described as the
+> development bench only. Laurent turns to improving the books next: the
+> fifteenth session's block below still holds for that.
+
 > **Fifteenth session, 2026-09-29 — handoff.** Read this block first.
 >
 > **Waiting on branch `ocr-et-diagrammes-de-variante`** (commit `24ba3ee`,
@@ -2061,7 +2076,7 @@ without a new idea about the numbering itself** — not another rule about aside
 
 | Path | Use |
 | --- | --- |
-| `~/Documents/Programmation/entrainement_ocr_echecs/6class/chess_glyphs_classifier.zip` | the classifier |
+| `~/Documents/Programmation/entrainement_ocr_echecs/6class/chess_glyphs_classifier.zip` | the classifier with its training glyphs; the pickle alone ships in `pipeline/rce_pipeline/data/` |
 | `~/Documents/Echecs/Ebooks/` | the library, ~60 PDFs; `scripts/choose_pages.py` is how to pick from it |
 | `…/The complete manual of positional chess … 9789056916824 … .pdf` | Sakaev, **320 pages** — the 368-page edition of the same book is a different one and its range means nothing |
 | `…/Under the Surface -- Markos, Jan … .pdf` | Markos, 287 pages |
