@@ -44,6 +44,12 @@ class _ReaderPageState extends State<ReaderPage> {
       params: PdfViewerParams(
         onPageChanged: (page) =>
             setState(() => _currentPage = page ?? _currentPage),
+        viewerOverlayBuilder: (context, size, handleLinkTap) => [
+          PdfViewerScrollThumb(
+            controller: _controller,
+            orientation: ScrollbarOrientation.right,
+          ),
+        ],
         pageOverlaysBuilder: (context, pageRectInViewer, page) =>
             buildMoveOverlays(
               book: book,
