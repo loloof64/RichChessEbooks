@@ -17,6 +17,7 @@ class RichChessEbooksApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Rich Chess Ebooks',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF4E6E58),
         brightness: Brightness.light,

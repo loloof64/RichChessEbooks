@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../model/move.dart';
 import '../model/rce_book.dart';
 import 'board_sheet.dart';
 import 'move_overlay.dart';
@@ -19,17 +20,42 @@ class ReaderPage extends StatefulWidget {
 class _ReaderPageState extends State<ReaderPage> {
   final _controller = PdfViewerController();
 
-  /// Whether the tap zones are tinted. Off by default: the point is to read
-  /// the book, and a page speckled with coloured boxes is not a book. Turning
-  /// it on is how you check the pipeline's alignment, and how you find the
-  /// moves it flagged.
-  bool _showZones = false;
+  /// Whether the tap zones are tinted. On by default: without them nothing
+  /// says where to tap. Turning them off gives the page back as printed.
+  bool _showZones = true;
 
   int _currentPage = 1;
+
+  /// The move shown in the side panel, on a screen wide enough for one.
+  MoveNode? _selected;
+
+  /// Below this width the board opens as a bottom sheet over the page.
+  static const _sidePanelMinWidth = 900.0;
+  static const _sidePanelWidth = 400.0;
 
   @override
   Widget build(BuildContext context) {
     final book = widget.book;
+    final wide = MediaQuery.sizeOf(context).width >= _sidePanelMinWidth;
+
+    final viewer = PdfViewer.file(
+      book.sourceFilePath,
+      controller: _controller,
+      params: PdfViewerParams(
+        onPageChanged: (page) =>
+            setState(() => _currentPage = page ?? _currentPage),
+        pageOverlaysBuilder: (context, pageRectInViewer, page) =>
+            buildMoveOverlays(
+              book: book,
+              page: page,
+              pageRectInViewer: pageRectInViewer,
+              showZones: _showZones,
+              onMoveTap: (move) => wide
+                  ? setState(() => _selected = move)
+                  : BoardSheet.show(context, book: book, move: move),
+            ),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -39,6 +65,13 @@ class _ReaderPageState extends State<ReaderPage> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.menu_book),
+            label: Text(_controller.isReady
+                ? 'p. $_currentPage / ${_controller.pageCount}'
+                : 'p. $_currentPage'),
+            onPressed: () => _askPage(context),
+          ),
           IconButton(
             tooltip: _showZones ? 'Hide move zones' : 'Show move zones',
             icon: Icon(_showZones ? Icons.visibility : Icons.visibility_off),
@@ -56,26 +89,66 @@ class _ReaderPageState extends State<ReaderPage> {
           ),
         ],
       ),
-      body: PdfViewer.file(
-        book.sourceFilePath,
-        controller: _controller,
-        params: PdfViewerParams(
-          onPageChanged: (page) => _currentPage = page ?? _currentPage,
-          pageOverlaysBuilder: (context, pageRectInViewer, page) =>
-              buildMoveOverlays(
-                book: book,
-                page: page,
-                pageRectInViewer: pageRectInViewer,
-                showZones: _showZones,
-                onMoveTap: (move) =>
-                    BoardSheet.show(context, book: book, move: move),
-              ),
-        ),
-      ),
+      body: wide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: viewer),
+                const VerticalDivider(width: 1),
+                SizedBox(
+                  width: _sidePanelWidth,
+                  child: _selected == null
+                      ? const _PanelHint()
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: BoardSheet(
+                            key: ValueKey(_selected),
+                            book: book,
+                            move: _selected!,
+                          ),
+                        ),
+                ),
+              ],
+            )
+          : viewer,
       bottomNavigationBar: book.allMoves.isEmpty
           ? const _EmptyBookBanner()
           : null,
     );
+  }
+
+  Future<void> _askPage(BuildContext context) async {
+    final field = TextEditingController();
+    final count = _controller.isReady ? _controller.pageCount : null;
+    final page = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        void submit() => Navigator.of(context).pop(int.tryParse(field.text));
+        return AlertDialog(
+          title: const Text('Go to page'),
+          content: TextField(
+            controller: field,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              hintText: count == null ? 'Page number' : '1 – $count',
+            ),
+            onSubmitted: (_) => submit(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(onPressed: submit, child: const Text('Go')),
+          ],
+        );
+      },
+    );
+    field.dispose();
+    if (page == null) return;
+    final last = count ?? page;
+    await _controller.goToPage(pageNumber: page.clamp(1, last));
   }
 
   void _goToNextAnnotated() {
@@ -165,6 +238,25 @@ class _EmptyBookBanner extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PanelHint extends StatelessWidget {
+  const _PanelHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'Tap a move on the page to see its position here.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium,
         ),
       ),
     );
