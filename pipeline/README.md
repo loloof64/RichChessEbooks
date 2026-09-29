@@ -58,9 +58,10 @@ rce book.pdf --first 20 --last 40  # a range of pages, to try a book quickly
 Copy the `.rce` into the reader app. `pipx upgrade rce-pipeline` fetches a newer
 version; `pipx uninstall rce-pipeline` removes everything.
 
-## Running it
+## Developing it
 
-The normal front end is [`../notebooks/rce_pipeline.ipynb`](../notebooks/rce_pipeline.ipynb)
+To read a book, the `rce` command above is all there is to it. To work on the pipeline,
+the bench is [`../notebooks/rce_pipeline.ipynb`](../notebooks/rce_pipeline.ipynb)
 in Google Colab. The notebook holds no logic: it installs the dependencies, calls this
 package, and shows the results — including a rendered page with the extracted boxes
 drawn on top, which is the only check that really tells you whether a clickable zone
