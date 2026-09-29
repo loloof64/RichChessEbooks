@@ -85,18 +85,6 @@ class _BoardSheetState extends State<BoardSheet> {
               const SizedBox(height: 12),
               _StatusBanner(move: move),
             ],
-            if (move.comment != null) ...[
-              const SizedBox(height: 12),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 120),
-                child: SingleChildScrollView(
-                  child: Text(
-                    move.comment!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
