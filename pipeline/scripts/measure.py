@@ -98,12 +98,15 @@ def figures(parsed, first: int, last: int | None) -> dict[str, int]:
     unplaced = {game.id for game in parsed.games if not game.position_known}
     against = set(parsed.contradicted) | set(parsed.drifted)
 
+    reseeded = set(getattr(parsed, "reseeded", ()))
+
     def below_a_break(move) -> bool:
-        parent = move.parent_id
-        while parent is not None:
-            if by_id[parent].status == "broken":
+        # As `break_diagnosis`: up to the break, or to a board a diagram put back.
+        current = move
+        while current.parent_id is not None and current.id not in reseeded:
+            current = by_id[current.parent_id]
+            if current.status == "broken":
                 return True
-            parent = by_id[parent].parent_id
         return False
 
     # The same tests as `ParseResult.break_diagnosis`, move by move, so that

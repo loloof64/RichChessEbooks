@@ -232,6 +232,10 @@ class ParseResult:
     #: Moves a diagram below them proved wrong: they were legal, so nothing
     #: broke, but the position they left was not the one the book printed.
     contradicted: list[str] = field(default_factory=list)
+    #: The first move played on a position a diagram had just put back: the
+    #: board under it is the book's own, so a break above it does not reach it.
+    #: Diagnostics, like the fields around it.
+    reseeded: list[str] = field(default_factory=list)
     #: Moves standing on a main line whose count no longer matches the book's
     #: own numbering. Nothing is illegal there and no diagram need contradict
     #: them: the line simply lost a move it could not read, so it is a move
@@ -320,12 +324,16 @@ class ParseResult:
         by_id = {m.id: m for m in self.moves}
         unscored = {game.id for game in self.games if not game.position_known}
 
+        reseeded = set(self.reseeded)
+
         def below_a_break(move: MoveNode) -> bool:
-            parent = move.parent_id
-            while parent is not None:
-                if by_id[parent].status == "broken":
+            # Up to the break, or to a board a diagram put back: what stands
+            # on the book's printed position is not below what broke above it.
+            current = move
+            while current.parent_id is not None and current.id not in reseeded:
+                current = by_id[current.parent_id]
+                if current.status == "broken":
                     return True
-                parent = by_id[parent].parent_id
             return False
 
         contradicted = set(self.contradicted)
@@ -807,6 +815,9 @@ def parse_tokens(
     #: Whether the main line has been sound since the game began: a diagram is
     #: only allowed to teach the font from a board that can be believed.
     line_sound = True
+    #: Set when a diagram puts the line back on the printed board, until the
+    #: first move played there is recorded in `result.reseeded`.
+    on_printed_board = False
     #: The last main-line move a diagram agreed with. What follows it is what a
     #: later disagreement puts in doubt.
     agreed_at: str | None = None
@@ -1342,6 +1353,7 @@ def parse_tokens(
                     # had drifted to. The moves already read keep their place in
                     # the tree; what follows descends from the last of them.
                     stack[:] = [_Level(board=chess.Board(seeded), parent_id=stack[0].parent_id)]
+                    on_printed_board = True
                     main_history.clear()
                     line_sound = True
                 stack[-1].moves_allowed = 1 if is_black_only else 2
@@ -1640,6 +1652,9 @@ def parse_tokens(
             if len(stack) == 1:
                 result.main_lines.setdefault(game.id, []).append(level.board.board_fen())
 
+        if on_printed_board and len(stack) == 1:
+            result.reseeded.append(node.id)
+            on_printed_board = False
         if game.id in adrift:
             # What drifted is the line from its first move after the loss,
             # and what hangs from it — not a system the book cited from a

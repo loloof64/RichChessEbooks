@@ -453,6 +453,37 @@ class TestBreakDiagnosis:
         assert [m.status for m in cited] == ["ok", "ok"]
         assert not {m.id for m in cited} & set(result.drifted)
 
+    def test_the_board_a_diagram_puts_back_is_not_below_the_break_above_it(self):
+        # A line breaks, and the book then prints the position: the moves after
+        # it are played on the printed board, and stand whatever broke above.
+        # Counted below the break, Chess College 3's right table showed 156
+        # more moves "below a break" than reading no board at all.
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6", "Bb5", "a6"):
+            board.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                ("move_number", "3."), ("move", "Bb5"), ("move", "Qh8"),
+            ) + [tok("diagram", rows)] + moves(
+                ("move_number", "4."), ("move", "Ba4"), ("move", "Nf6"),
+            ),
+            diagram_table=table,
+        )
+
+        after = [m for m in result.moves if m.san in ("Ba4", "Nf6")]
+        assert [m.status for m in after] == ["ok", "ok"]
+        assert result.break_diagnosis()["below_break"] == 0
+
     def test_a_line_that_matches_again_stops_being_adrift(self):
         # A number the line does agree with clears it: whatever was lost, the
         # book and the board are on the same move again, and what follows

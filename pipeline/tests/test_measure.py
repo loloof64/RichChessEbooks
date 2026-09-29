@@ -57,6 +57,24 @@ def test_what_the_boards_said_is_counted_too():
     assert (counted["confirms"], counted["contradicted"]) == (1, 2)
 
 
+def test_a_board_put_back_ends_the_break_above_it_here_too():
+    # The window is counted move by move, so it must stop where
+    # `break_diagnosis` stops: at the first move played on a printed board.
+    board = chess.Board()
+    for san in ("e4", "e5", "Nf3", "Nc6", "Bb5", "a6"):
+        board.push_san(san)
+    rows = rows_of(board)
+    parsed = parse_tokens([
+        tok("move_number", "1.", 1), tok("move", "e4", 1), tok("move", "e5", 1),
+        tok("move_number", "2.", 1), tok("move", "Nf3", 1), tok("move", "Nc6", 1),
+        tok("move_number", "3.", 1), tok("move", "Bb5", 1), tok("move", "Qh8", 1),
+        tok("diagram", rows, 1),
+        tok("move_number", "4.", 1), tok("move", "Ba4", 1), tok("move", "Nf6", 1),
+    ], diagram_table={char: char for char in rows if char != "/"})
+
+    assert figures(parsed, first=1, last=1)["below_break"] == 0
+
+
 def test_the_figure_compared_does_not_punish_reading_a_board():
     # `sound` is `clean` with the contradicted moves put back: a move a board
     # proves wrong was wrong before the board was read, and counted clean
