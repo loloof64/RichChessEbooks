@@ -25,7 +25,7 @@ import argparse
 import glob
 import json
 import os
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 LIBRARY = os.environ.get("RCE_LIBRARY", os.path.expanduser("~/Documents/Echecs/Ebooks"))
 MODEL = os.environ.get(
@@ -162,15 +162,19 @@ def main() -> None:
     lead = args.lead if args.lead is not None else (60 if args.set == "heldout" else 0)
     windows = [w for w in (CORPUS if args.set == "corpus" else HELDOUT)
                if not args.only or w[0] in args.only]
+    results: dict[str, dict] = {}
+    # Each window is printed as it finishes: a held-out run takes hours, and
+    # a window that never ends is then the one missing from the list.
     with ProcessPoolExecutor(6) as pool:
-        results = dict(pool.map(measure, [(w, lead) for w in windows]))
-    for name, row in results.items():
-        if "error" in row:
-            print(f"{name:34} ERROR {row['error']}")
-        else:
-            print(f"{name:34} moves {row['moves']:5}  sound {row['sound']:5}  "
-                  f"clean {row['clean']:5}  broken {row['broken']:5}  "
-                  f"confirms {row['confirms']:3}  unplaced {row['unplaced']:5}")
+        for done in as_completed([pool.submit(measure, (w, lead)) for w in windows]):
+            name, row = done.result()
+            results[name] = row
+            if "error" in row:
+                print(f"{name:34} ERROR {row['error']}", flush=True)
+            else:
+                print(f"{name:34} moves {row['moves']:5}  sound {row['sound']:5}  "
+                      f"clean {row['clean']:5}  broken {row['broken']:5}  "
+                      f"confirms {row['confirms']:3}  unplaced {row['unplaced']:5}", flush=True)
     print(f"{'total':34} sound {sum(r.get('sound', 0) for r in results.values())}  "
           f"clean {sum(r.get('clean', 0) for r in results.values())}")
     if args.json:
