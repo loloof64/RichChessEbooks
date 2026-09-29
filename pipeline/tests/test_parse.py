@@ -2071,6 +2071,32 @@ class TestTheSideToMovePrintedBesideTheBoard:
         game = [m for m in result.moves if m.san in ("b5", "Nf3")]
         assert [m.status for m in game] == ["ok", "ok"]
 
+    def test_a_first_move_from_the_start_under_a_marked_board_starts_there(self):
+        # Markos page 241: a board marked ▼, then "After 1.e4, the most often
+        # played line is the Najdorf". The mark turned `1.` into Black's
+        # first on the board, and `1.e4` broke.
+        board = chess.Board("2q5/Qp2ppk1/6pp/2P5/4P3/2P2P2/P4P1P/3K4 b - - 0 1")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows), to_move="b")
+        result = parse_tokens(
+            [diagram] + weighed(
+                ("text", "After", False),
+                ("move_number", "1.", False), ("move", "e4", False),
+                ("text", ", the most often played line is the Najdorf.", False),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        assert [m.status for m in result.moves] == ["ok"]
+
     def test_a_number_citing_the_last_move_counts_the_move_after_it(self):
         # Markos page 128: △, then "Black's last move was 18...e6", then the
         # game's `19.♔h1!?`. The board is White's nineteenth, not eighteenth,

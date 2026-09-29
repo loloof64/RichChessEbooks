@@ -1545,6 +1545,9 @@ def parse_tokens(
                 # Markos marks every board ▼ or △, and the first number under
                 # Morovic Fernandez - Adams is the prose's "White's last move,
                 # 14.♗g2-h3": seeded for White, the game's `14...b5!` broke.
+                # What was printed, before the mark has its say: a white `1.`
+                # is also a game starting where games start (below).
+                printed_white_one = number == 1 and not is_black_only
                 if pending_to_move and (pending_to_move == "b") != is_black_only:
                     # A number the mark disagrees with cites the move just
                     # played — "Black's last move was 18...e6" under a △ — so
@@ -1571,7 +1574,7 @@ def parse_tokens(
                     if _plays(other, line[0].text):
                         seeded, is_black_only = other, not is_black_only
                 if (
-                    seeded is not None and number == 1 and not is_black_only and line
+                    seeded is not None and printed_white_one and line
                     and not _plays(seeded, line[0].text)
                     and _plays(chess.STARTING_FEN, line[0].text)
                 ):
@@ -1582,6 +1585,7 @@ def parse_tokens(
                     # `1.` whose move plays from the initial position and not
                     # on the board is the game starting where games start.
                     seeded = None
+                    number, is_black_only = 1, False
                 pending_position, pending_to_move = None, ""
                 if seeded is not None and pending_check is not None:
                     pending_check["white_to_move"] = not is_black_only
