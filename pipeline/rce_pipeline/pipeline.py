@@ -347,7 +347,9 @@ def run(
             # each is read with, and the one leaving the most moves standing
             # clean wins. That is `figurines.settle`'s argument, one level up.
             table = _best_table(
-                diagrams.settle([d.rows for d in drawn], reading.twins, reading.empty),
+                _settle_despite_strays(
+                    [d.rows for d in drawn], reading.twins, reading.empty, reading.neighbours
+                ),
                 tokens,
                 parsed,
                 strict_numbering=strict_numbering,
@@ -497,6 +499,32 @@ def _worth_reading(
     # only ever takes moves away. Boussole's table was taught by two boards.
     confirmed = sum(check["verdict"] == "confirms" for check in with_table.diagram_checks)
     return standing(with_table) >= standing(without) or confirmed >= _CONFIRMED_ENOUGH
+
+
+def _settle_despite_strays(
+    boards: list[tuple[str, ...]],
+    twins: list[tuple[str, str]],
+    empty: str,
+    neighbours: dict[str, list[str]],
+) -> list[dict[str, str]]:
+    """`diagrams.settle`, with each stray read as the piece it most resembles.
+
+    Clustering Silman's seventeen pages leaves about three singleton squares
+    on every board — 59 over 19 — and a board carrying one stands under no
+    table, so `settle` gave up on the whole book. Read as its nearest cluster
+    for the settling, and named that way in every table it returns, each stray
+    reads; `name_the_strays` may still correct it once a table is chosen.
+    """
+    tables = diagrams.settle(boards, twins, empty)
+    if tables or not neighbours:
+        return tables
+    nearest = {stray: near[0] for stray, near in neighbours.items() if near}
+    read = [tuple("".join(nearest.get(char, char) for char in row) for row in rows)
+            for rows in boards]
+    return [
+        {**table, **{stray: table[near] for stray, near in nearest.items() if near in table}}
+        for table in diagrams.settle(read, twins, empty)
+    ]
 
 
 def _best_table(

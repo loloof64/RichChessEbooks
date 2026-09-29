@@ -184,6 +184,25 @@ class TestInTheParser:
         assert opened.initial_fen.startswith(position)
         assert [m.status for m in result.moves if m.game_id == opened.id] == ["ok", "ok"]
 
+    def test_a_board_the_game_below_it_leads_to_does_not_seed_it(self):
+        """Silman prints the board and then the game that reaches it, from move
+        one: "Diagram 416 — Black to move — 1.e4 c5 2.Nf3…". Seeded on the
+        board, `1.e4` is played on a middlegame and the whole game breaks. A
+        white `1.` whose move plays from the initial position and not on the
+        board is that game starting where games start."""
+        middlegame = fen_after("e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6")
+        result = parse_tokens(
+            self.make_tokens(
+                ("diagram", "/".join(rows_of(middlegame))),
+                ("move_number", "1."), ("move", "e4"), ("move", "c5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "d6"),
+            ),
+            diagram_table=self.table(),
+        )
+
+        assert [m.status for m in result.moves] == ["ok"] * 4
+        assert result.games[-1].initial_fen.startswith(chess.STARTING_BOARD_FEN)
+
     def test_a_board_under_a_game_header_opens_a_game(self):
         """The board printed below a heading belongs to the game it names.
 
@@ -574,6 +593,26 @@ def test_the_colours_are_the_way_up_a_book_prints_them():
     first = diagrams.settle(boards, TWINS, ".")[0]
 
     assert all(first[char].isupper() == FONT[char].isupper() for char in first if char != ".")
+
+
+def test_strays_on_every_board_are_settled_as_what_they_most_resemble():
+    """Clustering Silman's 17 pages leaves about three singleton squares on
+    every board, so no board stands under any table and `settle` gives up.
+    Each stray is most likely the piece it looks most like: settled with that
+    reading, and carrying it in every table, the boards read."""
+    from rce_pipeline import pipeline
+
+    middlegame, endgame = list(rows_of(MIDDLEGAME)), list(rows_of(ENDGAME))
+    middlegame[1] = "" + middlegame[1][1:]   # the pawn on a7
+    endgame[6] = endgame[6][:5] + "" + endgame[6][6:]   # the pawn on f2
+    boards = [tuple(middlegame), tuple(endgame)]
+    neighbours = {"": ["J", "I"], "": ["I", "J"]}
+
+    assert diagrams.settle(boards, TWINS, ".") == []
+    tables = pipeline._settle_despite_strays(boards, TWINS, ".", neighbours)
+
+    assert tables
+    assert all(diagrams.decode(rows, tables[0]) for rows in boards)
 
 
 def test_a_character_no_twin_covers_leaves_nothing_to_settle():

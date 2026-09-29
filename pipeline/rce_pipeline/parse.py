@@ -1315,6 +1315,18 @@ def parse_tokens(
                     )
                     if _plays(other, line[0].text):
                         seeded, is_black_only = other, not is_black_only
+                if (
+                    seeded is not None and number == 1 and not is_black_only and line
+                    and not _plays(seeded, line[0].text)
+                    and _plays(chess.STARTING_FEN, line[0].text)
+                ):
+                    # The board is where the game below it is going, not where
+                    # it starts: Silman prints "Diagram 416 — Black to move"
+                    # and then the game that reaches it from move one. Seeded
+                    # on the board, `1.e4` is played on a middlegame; a white
+                    # `1.` whose move plays from the initial position and not
+                    # on the board is the game starting where games start.
+                    seeded = None
                 pending_position = None
                 opens_on_a_header, pending_opens_a_game = pending_opens_a_game, False
                 if not chess.Board(seeded).is_valid():
