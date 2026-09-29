@@ -16,7 +16,7 @@ image](#books-whose-symbols-are-only-in-the-image).
 
 ## Developing it
 
-To read a book, the `rce` command is all there is to it: see [Installing it](../README.md#installing-it). To work on the pipeline,
+To read a book, the `rce` command is all there is to it: see the [project README](../README.md), where installing it comes first. To work on the pipeline,
 the bench is [`../notebooks/rce_pipeline.ipynb`](../notebooks/rce_pipeline.ipynb)
 in Google Colab. The notebook holds no logic: it installs the dependencies, calls this
 package, and shows the results — including a rendered page with the extracted boxes

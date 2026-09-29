@@ -21,36 +21,6 @@ Two components, joined by one strict data contract:
 
 Neither side imports the other. The archive is the whole interface.
 
-## Current state
-
-Working, on PDFs that carry a **real text layer** — a book produced digitally rather
-than scanned — in either **figurine Unicode** or **plain letters** (`en`, `fr`, `de`,
-`es`, `it`, `nl`):
-
-- extraction of moves, variations and comments, with per-move page geometry
-- legality checking and FEN reconstruction, with conservative repair of scanning errors
-- `.rce` packaging, and import into the app
-- clickable zones that stay aligned at any zoom, and a static board on tap
-
-**Scanned books are half-way in, and they are the bulk of the target corpus.** A scan's
-text layer is OCR output: its prose is fine, its squares are 92% right, and its piece
-symbols are worthless — a knight has no OCR category, so it lands on whatever character
-looked closest. Those symbols are now read off the page images instead, by a trained
-classifier, and written back into the pages as figurines: **53 of the 54 printed on two
-hand-read pages, none invented**. A book set in a figurine *font* takes the same route
-and used to be unparseable too.
-
-What is not settled is where a recovered symbol belongs in the text, which depends on
-boxes the scanner placed, not the classifier: 77% of them land at the head of their move
-on a well-boxed book and 46% on a loosely boxed one. The pipeline measures and reports
-that share rather than assuming it. The reasoning and the numbers are in
-[`pipeline/README.md`](pipeline/README.md#books-whose-symbols-are-only-in-the-image).
-
-Also not built: the correction UI and `patches.json` writing (the format is specified
-and the reader is designed around it, but nothing writes patches yet), and EPUB, which
-is a separate v2 — a reflowable document has no stable coordinates, so its anchoring
-model is incompatible with this one.
-
 ## Installing it
 
 You need **Python 3.10 or later** and a terminal. The tool is installed with
@@ -100,6 +70,36 @@ removes everything.
 
 The Colab notebook (badge above) does the same run with a rendered page showing the
 extracted boxes on top of it: it is for developing the pipeline, not for reading a book.
+
+## Current state
+
+Working, on PDFs that carry a **real text layer** — a book produced digitally rather
+than scanned — in either **figurine Unicode** or **plain letters** (`en`, `fr`, `de`,
+`es`, `it`, `nl`):
+
+- extraction of moves, variations and comments, with per-move page geometry
+- legality checking and FEN reconstruction, with conservative repair of scanning errors
+- `.rce` packaging, and import into the app
+- clickable zones that stay aligned at any zoom, and a static board on tap
+
+**Scanned books are half-way in, and they are the bulk of the target corpus.** A scan's
+text layer is OCR output: its prose is fine, its squares are 92% right, and its piece
+symbols are worthless — a knight has no OCR category, so it lands on whatever character
+looked closest. Those symbols are now read off the page images instead, by a trained
+classifier, and written back into the pages as figurines: **53 of the 54 printed on two
+hand-read pages, none invented**. A book set in a figurine *font* takes the same route
+and used to be unparseable too.
+
+What is not settled is where a recovered symbol belongs in the text, which depends on
+boxes the scanner placed, not the classifier: 77% of them land at the head of their move
+on a well-boxed book and 46% on a loosely boxed one. The pipeline measures and reports
+that share rather than assuming it. The reasoning and the numbers are in
+[`pipeline/README.md`](pipeline/README.md#books-whose-symbols-are-only-in-the-image).
+
+Also not built: the correction UI and `patches.json` writing (the format is specified
+and the reader is designed around it, but nothing writes patches yet), and EPUB, which
+is a separate v2 — a reflowable document has no stable coordinates, so its anchoring
+model is incompatible with this one.
 
 ## Running the app
 
