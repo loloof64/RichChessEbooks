@@ -1281,8 +1281,11 @@ def parse_tokens(
         # one of the other side, it is not the position the book printed the
         # line from: Markos page 128, seeded at White's 19th, "instead of this
         # move he could have tried 18...e5" — played there by White's e-pawn.
+        # Only where the numbers can be believed: a scan's are misread ("1 1
+        # ..." for `11...`) as often as not, and on Grivas and Boussole this
+        # took real moves out that the citation repair used to place.
         awaited = _ply_awaited(stack[0].board)
-        nowhere = not inside and declared not in main_history and (
+        nowhere = moves_carry_the_weight and not inside and declared not in main_history and (
             declared < awaited or (declared - awaited) % 2 == 1
         )
         # Kept rather than dropped: a mark the ink measurement missed sends the
