@@ -85,6 +85,7 @@ class _ReaderPageState extends State<ReaderPage> {
                 ? () => _turn(1)
                 : null,
           ),
+          _ZoomControls(controller: _controller),
           IconButton(
             tooltip: _showZones ? 'Hide move zones' : 'Show move zones',
             icon: Icon(_showZones ? Icons.visibility : Icons.visibility_off),
@@ -234,6 +235,76 @@ class _EmptyBookBanner extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Zoom out, a menu of zoom levels showing the current one, zoom in.
+class _ZoomControls extends StatelessWidget {
+  const _ZoomControls({required this.controller});
+
+  final PdfViewerController controller;
+
+  static const _levels = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
+
+  Future<void> _set(double zoom) => controller.setZoom(
+        controller.centerPosition,
+        zoom.clamp(controller.minScale, controller.maxScale),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final ready = controller.isReady;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Zoom out',
+              icon: const Icon(Icons.zoom_out),
+              onPressed: ready ? () => controller.zoomDown() : null,
+            ),
+            PopupMenuButton<double>(
+              tooltip: 'Zoom level',
+              enabled: ready,
+              onSelected: _set,
+              itemBuilder: (context) {
+                final alternative = controller.alternativeFitScale;
+                final whole = alternative == null || alternative > controller.coverScale
+                    ? controller.coverScale
+                    : alternative;
+                final width = controller.viewSize.width / controller.documentSize.width;
+                return [
+                  PopupMenuItem(
+                    value: whole,
+                    child: const Text('Whole page'),
+                  ),
+                  PopupMenuItem(value: width, child: const Text('Page width')),
+                  const PopupMenuDivider(),
+                  for (final level in _levels)
+                    PopupMenuItem(
+                      value: level,
+                      child: Text('${(level * 100).round()} %'),
+                    ),
+                ];
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  ready ? '${(controller.currentZoom * 100).round()} %' : '– %',
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Zoom in',
+              icon: const Icon(Icons.zoom_in),
+              onPressed: ready ? () => controller.zoomUp() : null,
+            ),
+          ],
+        );
+      },
     );
   }
 }
