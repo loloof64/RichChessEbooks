@@ -42,6 +42,7 @@ import io
 import os
 import pickle
 import re
+import warnings
 import zipfile
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -185,8 +186,17 @@ class GlyphClassifier:
         All three forms are accepted so a Colab session can point at the file
         it just uploaded without unpacking it first.
         """
+        with warnings.catch_warnings():
+            # Pickled under scikit-learn 1.6.1; 1.9.1 returns the same class and
+            # the same confidence on all 8617 training glyphs checked, so the
+            # version-mismatch warning is noise to someone installing it today.
+            warnings.filterwarnings("ignore", message="Trying to unpickle estimator")
+            return cls._load(path)
+
+    @classmethod
+    def _load(cls, path: str) -> "GlyphClassifier":
         if os.path.isdir(path):
-            return cls.load(os.path.join(path, "classifier.pkl"))
+            return cls._load(os.path.join(path, "classifier.pkl"))
         if zipfile.is_zipfile(path):
             with zipfile.ZipFile(path) as archive:
                 names = [n for n in archive.namelist() if n.endswith("classifier.pkl")]
