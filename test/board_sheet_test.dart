@@ -1,3 +1,5 @@
+import 'package:chessground/chessground.dart';
+import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rich_chess_ebooks/l10n/app_localizations.dart';
@@ -79,5 +81,26 @@ void main() {
     }
     await show(null, diagram);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('draws an arrow for the move just played', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: BoardSheet(book: book, move: book.allMoves.first),
+          ),
+        ),
+      ),
+    );
+
+    final board = tester.widget<StaticChessboard>(find.byType(StaticChessboard));
+    expect(board.shapes, {
+      isA<Arrow>()
+          .having((a) => a.orig, 'orig', Square.e2)
+          .having((a) => a.dest, 'dest', Square.e4),
+    });
   });
 }

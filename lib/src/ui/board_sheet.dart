@@ -165,6 +165,11 @@ class _Board extends StatelessWidget {
             orientation: orientation,
             fen: fen,
             lastMove: lastMove,
+            // The move just played, drawn over its two highlighted squares.
+            shapes: {
+              if (lastMove case NormalMove(:final from, :final to))
+                Arrow(color: const Color(0x9915781B), orig: from, dest: to),
+            },
             settings: const StaticChessboardSettings(
               enableCoordinates: true,
               animationDuration: Duration.zero,
