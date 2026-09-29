@@ -132,6 +132,19 @@ class TestDetection:
         # Which is what lets the drawn-symbol conclusion through.
         assert report.needs_glyph_recovery
 
+    def test_a_winner_standing_on_a_handful_of_letters_is_no_language(self):
+        # *The Critical Moment*, a scan whose OCR spelled every figurine as
+        # debris (`Ji.xe4`, `'ii'c2`) under generated font names: 35 piece
+        # letters against 693 moves naming no piece, and English "won" on
+        # them at 19%. A book written in letters names a piece about as often
+        # as it moves a pawn; one in five is already far below any of them.
+        moves = " ".join(f"{n}.e4 d5 c4 e6" for n in range(1, 15)) + " Nf3 Nf3 Nf3"
+
+        report = detect_notation([page_of(moves)])
+
+        assert report.language is None
+        assert report.needs_glyph_recovery
+
     def test_a_clear_winner_stands_on_two_letters(self):
         # The rule above must not punish a genuine book for being short. A
         # two-page English tactics collection scored en=25 against fr=17 on

@@ -69,6 +69,13 @@ _LANGUAGE_NEUTRAL_MOVE = re.compile(
 )
 
 
+#: The fewest piece moves, as a share of the moves naming no piece, that a book
+#: written in letters prints. Every letters book measured names pieces about as
+#: often as it moves pawns — Silman 1.76, Pachman 0.94 — and a scan whose
+#: symbols came out as debris lands near nothing: The Critical Moment 0.04.
+_LEAST_PIECE_SHARE = 0.2
+
+
 @dataclass
 class NotationReport:
     style: str
@@ -362,7 +369,12 @@ def detect_notation(pages: list[Page]) -> NotationReport:
         default=0,
     )
 
-    if runner_up >= best_score:
+    if runner_up >= best_score or best_score < neutral_moves * _LEAST_PIECE_SHARE:
+        # Or the winner stands on a handful of letters against a page of pawn
+        # moves: *The Critical Moment*'s OCR spelled every figurine as debris
+        # under generated font names, and English won on 35 letters against
+        # 693 moves naming no piece. A book in letters names a piece about as
+        # often as it moves a pawn.
         # Nothing unique to the winner was ever seen. `fr` and `es` differ only
         # in the bishop (F against A), so a dead heat between them means both
         # scored on R, D, T and C alone and the choice would be a coin toss —
