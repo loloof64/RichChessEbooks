@@ -674,6 +674,26 @@ class TestAPlanIsNotAMove:
 
         assert [t.raw for t in tokens if t.kind == "move"] == ["b3", "Nc6", "Bb2", "e5"]
 
+    def test_moves_listed_with_commas_are_a_plan(self):
+        # Page 150, "played in succession, Nf3, g2-g3, Bg2"; page 157, "the
+        # Torre Attack: 1.d4, 2.Nf3, 3.Bg5"; page 186, "decide between Bf1,
+        # b2-b4 or h2-h3". A line of play never puts a comma between moves.
+        for text in (
+            "10.Bd3 Nc6 White played in succession, Nf3, g2-g3, Bg2 because 11.Qe2 e5",
+            "10.Bd3 Nc6 the Torre Attack: 1.d4, 2.Nf3, 3.Bg5 (or the London) 11.Qe2 e5",
+            "10.Bd3 Nc6 then decide between Bf1, b2-b4 or h2-h3. 11.Qe2 e5",
+        ):
+            tokens = tokenize_pages([page_of(text)])
+            assert [t.raw for t in tokens if t.kind == "move"] == ["Bd3", "Nc6", "Qe2", "e5"], text
+
+    def test_commas_between_alternatives_or_a_move_and_its_reply_are_kept(self):
+        for text, kept in (
+            ("10.Bd3 Nc6 White can play 11.Qe2, 11.Nf3 or 11.h3 here.", ["Qe2", "Nf3", "h3"]),
+            ("1. e4, e5; 2. Nf3, Nc6", ["e4", "e5", "Nf3", "Nc6"]),
+        ):
+            tokens = tokenize_pages([page_of(text)])
+            assert [t.raw for t in tokens if t.kind == "move"][-len(kept):] == kept, text
+
     def test_a_single_move_the_prose_announces_is_still_a_move(self):
         text = "12.Bd3 Qc7 Black threatens ...Nd7 here. 13.Qf3"
         tokens = tokenize_pages([page_of(text)])

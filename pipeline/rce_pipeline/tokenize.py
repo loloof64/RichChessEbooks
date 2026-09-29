@@ -578,6 +578,9 @@ _PLACE_WORDS = {
 }
 _JOINING_WORDS = {"or", "and", "ou", "et"}
 
+#: What joins the last option of a list to the one before it.
+_NEXT_OPTION = re.compile(r"\s*,?\s*(?:or|and|ou|et)\s+")
+
 #: What joins two intentions in a list: "…♘g6, …♘e4", "…♘d7 and …0-0-0".
 _NEXT_INTENTION = re.compile(r"\s*(?:,|and|or|,\s*and)?\s*(?:\.\.\.|\u2026)\s*")
 
@@ -615,6 +618,39 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
             plan.update(run)
         announced = at is not None and text[:tokens[at].start].rstrip().endswith(("...", "\u2026"))
         run = [at] if announced else []
+    # Moves listed with commas — "in succession, ♘f3, g2-g3, ♗g2" (page
+    # 150), "the Torre Attack: 1.d4, 2.♘f3, 3.♗g5" (page 157), "between ♗f1,
+    # b2-b4 or h2-h3" (page 186). A line of play never puts a comma between
+    # its moves. Two readings of a comma stay moves: alternatives at one
+    # number ("12.♗e2, 12.g4"), and the old French "1. e4, e5", where it
+    # stands between a numbered White move and Black's reply.
+    def number_before(at: int) -> str | None:
+        return tokens[at - 1].text if at and tokens[at - 1].kind == "move_number" else None
+
+    listed: list[int] = []
+    comma = False
+    for previous, at in zip(moves, moves[1:] + [None]):
+        joint = None if at is None else text[
+            tokens[previous].end:tokens[at - 1].start if number_before(at) else tokens[at].start
+        ]
+        joined = joint is not None and (
+            (joint.strip() == "," or (comma and _NEXT_OPTION.fullmatch(joint)))
+            and not (number_before(previous) and number_before(previous) == number_before(at))
+            and not (number_before(previous) and not number_before(at) and joint.strip() == ",")
+            and all(t.kind in ("move", "move_number", "text") for t in tokens[previous + 1:at])
+        )
+        if joined:
+            listed = listed or [previous]
+            listed.append(at)
+            comma = comma or joint.strip() == ","
+            continue
+        if comma and len(listed) > 1:
+            plan.update(listed)
+        listed, comma = [], False
+    for at in list(plan):
+        if at and tokens[at - 1].kind == "move_number":
+            plan.add(at - 1)
+
     # A square the prose names: "either from b2 or a3" (page 56). A bare
     # square behind a preposition is a place, and so is one behind "or" or
     # "and" when what it is joined to was one.
