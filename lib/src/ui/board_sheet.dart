@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../model/move.dart';
 import '../model/rce_book.dart';
@@ -80,7 +81,7 @@ class _BoardSheetState extends State<BoardSheet> {
                   child: Text(move.label, style: theme.textTheme.headlineSmall),
                 ),
                 IconButton(
-                  tooltip: 'Flip the board',
+                  tooltip: AppLocalizations.of(context).flipBoard,
                   icon: const Icon(Icons.swap_vert),
                   onPressed: () => setState(() {
                     _orientation = _orientation == Side.white
@@ -188,10 +189,9 @@ class _StatusBanner extends StatelessWidget {
           Expanded(
             child: Text(
               isBroken
-                  ? 'This move could not be read: the board shows the last '
-                        'position before it.'
-                  : 'Read after repairing a likely scanning error '
-                        '(${(move.confidence * 100).round()}% confidence).',
+                  ? AppLocalizations.of(context).moveUnreadable
+                  : AppLocalizations.of(context)
+                      .moveRepaired((move.confidence * 100).round()),
               style: theme.textTheme.bodySmall?.copyWith(color: colour),
             ),
           ),

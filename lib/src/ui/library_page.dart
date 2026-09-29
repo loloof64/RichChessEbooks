@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:path/path.dart' as p;
 
 import '../model/rce_book.dart';
@@ -21,9 +22,10 @@ class _LibraryPageState extends State<LibraryPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Rich Chess Ebooks')),
+      appBar: AppBar(title: Text(l10n.appTitle)),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
@@ -39,14 +41,13 @@ class _LibraryPageState extends State<LibraryPage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Open a .rce archive',
+                  l10n.openArchive,
                   style: theme.textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'An archive holds the book as it was published, plus the '
-                  'moves the pipeline extracted from it.',
+                  l10n.archiveExplanation,
                   style: theme.textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -59,7 +60,7 @@ class _LibraryPageState extends State<LibraryPage> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.folder_open),
-                  label: Text(_loading ? 'Opening…' : 'Choose a file'),
+                  label: Text(_loading ? l10n.opening : l10n.chooseFile),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 24),
@@ -74,6 +75,7 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   Future<void> _pickArchive() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _loading = true;
       _error = null;
@@ -83,7 +85,7 @@ class _LibraryPageState extends State<LibraryPage> {
       // Filtering by extension is unreliable on several platforms — Android
       // in particular has no MIME type for .rce — so anything can be picked
       // and the archive itself decides whether it is valid.
-      final selection = await FilePicker.pickFiles(dialogTitle: 'Open a .rce archive');
+      final selection = await FilePicker.pickFiles(dialogTitle: l10n.openArchive);
       final file = selection?.files.singleOrNull;
       if (file == null) return; // cancelled
 
@@ -95,7 +97,7 @@ class _LibraryPageState extends State<LibraryPage> {
     } on RceFormatException catch (error) {
       setState(() => _error = error.message);
     } catch (error) {
-      setState(() => _error = 'Could not open this file: $error');
+      setState(() => _error = l10n.couldNotOpen('$error'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

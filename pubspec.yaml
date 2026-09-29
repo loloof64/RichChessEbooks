@@ -10,6 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Interface in the reader's language
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
   # .rce archive handling
   archive: ^4.0.9
   crypto: ^3.0.7
@@ -34,4 +39,5 @@ dev_dependencies:
   plugin_platform_interface: ^2.1.8
 
 flutter:
+  generate: true
   uses-material-design: true
