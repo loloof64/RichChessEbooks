@@ -65,12 +65,25 @@ class _ReaderPageState extends State<ReaderPage> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          IconButton(
+            tooltip: 'Previous page',
+            icon: const Icon(Icons.chevron_left),
+            onPressed: _currentPage > 1 ? () => _turn(-1) : null,
+          ),
           TextButton.icon(
             icon: const Icon(Icons.menu_book),
             label: Text(_controller.isReady
                 ? 'p. $_currentPage / ${_controller.pageCount}'
                 : 'p. $_currentPage'),
             onPressed: () => _askPage(context),
+          ),
+          IconButton(
+            tooltip: 'Next page',
+            icon: const Icon(Icons.chevron_right),
+            onPressed: !_controller.isReady ||
+                    _currentPage < _controller.pageCount
+                ? () => _turn(1)
+                : null,
           ),
           IconButton(
             tooltip: _showZones ? 'Hide move zones' : 'Show move zones',
@@ -125,6 +138,11 @@ class _ReaderPageState extends State<ReaderPage> {
     );
     if (page == null) return;
     await _controller.goToPage(pageNumber: page.clamp(1, count ?? page));
+  }
+
+  void _turn(int by) {
+    final last = _controller.isReady ? _controller.pageCount : _currentPage + by;
+    _controller.goToPage(pageNumber: (_currentPage + by).clamp(1, last));
   }
 
   void _goToNextAnnotated() {
