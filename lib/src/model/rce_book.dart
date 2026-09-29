@@ -59,6 +59,16 @@ class RceBook {
     return _movesById[parentId]?.fen;
   }
 
+  /// The position to show for [move]: its own, or where the pipeline could
+  /// not read it, the one of the nearest move above it that it could — and
+  /// the game's start when none could.
+  String? lastKnownFen(MoveNode move) {
+    for (final m in lineTo(move).reversed) {
+      if (m.fen != null) return m.fen;
+    }
+    return _gamesById[move.gameId]?.initialFen;
+  }
+
   /// The line leading to [move], root first, [move] last.
   List<MoveNode> lineTo(MoveNode move) {
     final line = <MoveNode>[move];

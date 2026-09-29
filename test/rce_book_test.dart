@@ -82,6 +82,14 @@ void main() {
     });
   });
 
+  group('lastKnownFen', () {
+    test('falls back to the nearest move above that has a position', () {
+      final broken = book.moveById('g1-m5')!;
+
+      expect(book.lastKnownFen(broken), book.moveById('g1-m4')!.fen);
+    });
+  });
+
   group('tree navigation', () {
     test('walks the line back to the root, root first', () {
       final last = book.moveById('g1-m4')!;

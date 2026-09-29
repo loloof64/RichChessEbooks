@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:chessground/chessground.dart';
 import 'package:dartchess/dartchess.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +39,28 @@ class BoardSheet extends StatefulWidget {
 
 class _BoardSheetState extends State<BoardSheet> {
   Side _orientation = Side.white;
+
+  /// How long the note about a move the pipeline could not read stays up.
+  static const _noticeFor = Duration(seconds: 4);
+
+  late bool _noticeShown = widget.move.status != MoveStatus.ok;
+  Timer? _noticeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_noticeShown) {
+      _noticeTimer = Timer(_noticeFor, () {
+        if (mounted) setState(() => _noticeShown = false);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _noticeTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,11 +104,26 @@ class _BoardSheetState extends State<BoardSheet> {
               ],
             ),
             const SizedBox(height: 12),
-            _Board(move: move, orientation: _orientation),
-            if (move.status != MoveStatus.ok) ...[
-              const SizedBox(height: 12),
-              _StatusBanner(move: move),
-            ],
+            Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                _Board(
+                  move: move,
+                  fen: widget.book.lastKnownFen(move),
+                  orientation: _orientation,
+                ),
+                IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: _noticeShown ? 1 : 0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: _StatusBanner(move: move),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -93,16 +132,17 @@ class _BoardSheetState extends State<BoardSheet> {
 }
 
 class _Board extends StatelessWidget {
-  const _Board({required this.move, required this.orientation});
+  const _Board({required this.move, required this.fen, required this.orientation});
 
   final MoveNode move;
+  final String? fen;
   final Side orientation;
 
   @override
   Widget build(BuildContext context) {
-    final fen = move.fen;
+    final fen = this.fen;
     if (fen == null) {
-      return const _NoPosition();
+      return const SizedBox.shrink();
     }
 
     return LayoutBuilder(
@@ -117,7 +157,7 @@ class _Board extends StatelessWidget {
             fen: fen,
             // The UCI comes from the pipeline, so the highlight never depends
             // on re-deriving squares from SAN disambiguation.
-            lastMove: move.uci == null ? null : Move.parse(move.uci!),
+            lastMove: move.uci == null || move.fen == null ? null : Move.parse(move.uci!),
             settings: const StaticChessboardSettings(
               enableCoordinates: true,
               animationDuration: Duration.zero,
@@ -125,40 +165,6 @@ class _Board extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _NoPosition extends StatelessWidget {
-  const _NoPosition();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.help_outline, color: theme.colorScheme.error),
-          const SizedBox(height: 8),
-          Text(
-            'No position for this move',
-            style: theme.textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'The pipeline could not read it as a legal move, so it has no '
-            'board to show yet.',
-            style: theme.textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -179,7 +185,9 @@ class _StatusBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: colour.withValues(alpha: 0.12),
+        // Opaque: it stands over the board.
+        color: theme.colorScheme.surfaceContainerHighest,
+        border: Border.all(color: colour),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -193,7 +201,8 @@ class _StatusBanner extends StatelessWidget {
           Expanded(
             child: Text(
               isBroken
-                  ? 'This move could not be read; check it against the page.'
+                  ? 'This move could not be read: the board shows the last '
+                        'position before it.'
                   : 'Read after repairing a likely scanning error '
                         '(${(move.confidence * 100).round()}% confidence).',
               style: theme.textTheme.bodySmall?.copyWith(color: colour),
