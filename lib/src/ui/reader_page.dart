@@ -118,37 +118,13 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Future<void> _askPage(BuildContext context) async {
-    final field = TextEditingController();
     final count = _controller.isReady ? _controller.pageCount : null;
     final page = await showDialog<int>(
       context: context,
-      builder: (context) {
-        void submit() => Navigator.of(context).pop(int.tryParse(field.text));
-        return AlertDialog(
-          title: const Text('Go to page'),
-          content: TextField(
-            controller: field,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              hintText: count == null ? 'Page number' : '1 – $count',
-            ),
-            onSubmitted: (_) => submit(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(onPressed: submit, child: const Text('Go')),
-          ],
-        );
-      },
+      builder: (context) => _GoToPageDialog(pageCount: count),
     );
-    field.dispose();
     if (page == null) return;
-    final last = count ?? page;
-    await _controller.goToPage(pageNumber: page.clamp(1, last));
+    await _controller.goToPage(pageNumber: page.clamp(1, count ?? page));
   }
 
   void _goToNextAnnotated() {
@@ -259,6 +235,53 @@ class _PanelHint extends StatelessWidget {
           style: theme.textTheme.bodyMedium,
         ),
       ),
+    );
+  }
+}
+
+/// Asks for a page number. Owns its text controller, so that the controller
+/// outlives the dialog's closing animation.
+class _GoToPageDialog extends StatefulWidget {
+  const _GoToPageDialog({required this.pageCount});
+
+  final int? pageCount;
+
+  @override
+  State<_GoToPageDialog> createState() => _GoToPageDialogState();
+}
+
+class _GoToPageDialogState extends State<_GoToPageDialog> {
+  final _field = TextEditingController();
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(int.tryParse(_field.text));
+
+  @override
+  Widget build(BuildContext context) {
+    final count = widget.pageCount;
+    return AlertDialog(
+      title: const Text('Go to page'),
+      content: TextField(
+        controller: _field,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          hintText: count == null ? 'Page number' : '1 – $count',
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Go')),
+      ],
     );
   }
 }
