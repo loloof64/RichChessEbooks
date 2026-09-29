@@ -66,7 +66,6 @@ class _BoardSheetState extends State<BoardSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final move = widget.move;
-    final game = widget.book.gameById(move.gameId);
 
     return SafeArea(
       child: Padding(
@@ -78,19 +77,7 @@ class _BoardSheetState extends State<BoardSheet> {
             Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(move.label, style: theme.textTheme.headlineSmall),
-                      if (game?.title != null)
-                        Text(
-                          game!.title!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall,
-                        ),
-                    ],
-                  ),
+                  child: Text(move.label, style: theme.textTheme.headlineSmall),
                 ),
                 IconButton(
                   tooltip: 'Flip the board',
