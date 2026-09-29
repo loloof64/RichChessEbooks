@@ -1618,6 +1618,32 @@ class TestAnalysisInsideAnalysis:
         assert by_id[bc4.parent_id].san == "d6"
 
 
+class TestALineFromTheStartCitedInsideAGame:
+    def test_a_first_move_that_only_plays_from_the_start_is_played_from_there(self):
+        # Markos page 105: "similar to the Exchange Variation of the Spanish
+        # Opening (1.e4 e5 2.♘f3 ♘c6 3.♗b5 a6 4.♗xc6 dxc6 …)" — cited in the
+        # middle of another game, and read on its board every move broke.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "d4", True), ("move", "d5", True),
+                ("move_number", "2.", True), ("move", "e4", True), ("move", "dxe4", True),
+                ("text", "similar to the Spanish", False),
+                ("var_open", "(", False),
+                ("move_number", "1.", False), ("move", "e4", False), ("move", "e5", False),
+                ("move_number", "2.", False), ("move", "Nf3", False), ("move", "Nc6", False),
+                ("var_close", ")", False),
+                ("move_number", "3.", True), ("move", "Nc3", True),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+        cited = [m for m in result.moves if m.san in ("e5", "Nc6")]
+        assert all(not on_the_main_line(result, m) for m in cited)
+
+
 class TestTheSideToMovePrintedBesideTheBoard:
     def test_a_black_triangle_beats_the_number_the_prose_cites(self):
         # Markos page 48: the board of Morovic Fernandez - Adams carries a ▼,

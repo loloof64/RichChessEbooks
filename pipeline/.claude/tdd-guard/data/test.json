@@ -1144,6 +1144,11 @@
           "state": "passed"
         },
         {
+          "name": "test_a_first_move_that_only_plays_from_the_start_is_played_from_there",
+          "fullName": "tests/test_parse.py::TestALineFromTheStartCitedInsideAGame::test_a_first_move_that_only_plays_from_the_start_is_played_from_there",
+          "state": "passed"
+        },
+        {
           "name": "test_a_black_triangle_beats_the_number_the_prose_cites",
           "fullName": "tests/test_parse.py::TestTheSideToMovePrintedBesideTheBoard::test_a_black_triangle_beats_the_number_the_prose_cites",
           "state": "passed"

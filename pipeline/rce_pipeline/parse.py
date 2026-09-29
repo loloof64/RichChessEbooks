@@ -1563,6 +1563,18 @@ def parse_tokens(
                     _place_by_weight(token.bold, last_declared, at)
                 else:
                     _place_by_number(last_declared)
+                if number == 1 and not is_black_only and len(stack) > 1:
+                    # A line from the start cited inside a game: Markos page
+                    # 105, "similar to the Exchange Variation of the Spanish
+                    # Opening (1.e4 e5 2.♘f3 ♘c6 …)". Where its first move
+                    # does not play on the board it was placed on and does
+                    # from the initial position, it is played from there.
+                    line = _the_line_after(tokens, at)
+                    if (
+                        line and not _plays(stack[-1].board.fen(), line[0].text)
+                        and _plays(chess.STARTING_FEN, line[0].text)
+                    ):
+                        stack[-1].board, stack[-1].parent_id = chess.Board(), None
                 stack[-1].declared_at = last_declared
                 if len(stack) == 1 and game is not None and game.position_known:
                     # Once the placement has had its say: a number that opened
