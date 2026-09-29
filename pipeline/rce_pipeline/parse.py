@@ -443,6 +443,10 @@ class _Level:
     #: other side than the only board at hand. Its moves are read for their
     #: boxes and none is played.
     nowhere: bool = False
+    #: Whether the first move played at this depth was in the score's own
+    #: weight: the book going back to an earlier move of the line it prints
+    #: bold, not analysis beside it.
+    opened_bold: bool = False
 
 
 #: The last word of a comment, when the comment really ends in one: letters
@@ -1164,6 +1168,17 @@ def parse_tokens(
             return
         nonlocal closed_aside
         if _take_the_score_back(declared):
+            return
+        if (
+            declared == _ply_awaited(stack[-1].board)
+            and declared != _ply_awaited(stack[0].board)
+            and not stack[-1].board_lost
+            and stack[-1].opened_bold
+        ):
+            # The line in progress waits for this very number and the game
+            # does not: the book has gone back to an earlier move in its own
+            # weight and goes on there — Markos page 192, "Returning to the
+            # 50th move, Black has to play: 50...♔h3! 51.♖h8†", all bold.
             return
         # A prose variation has no closing bracket: the end of one is only
         # ever visible as the game picking up again.
@@ -1971,6 +1986,8 @@ def parse_tokens(
 
         level.board_before_last = board_before
         level.parent_of_last = level.parent_id
+        if level.last_move_id is None:
+            level.opened_bold = token.bold
         level.last_move_id = node.id
         level.parent_id = node.id
         level.moves_allowed -= 1

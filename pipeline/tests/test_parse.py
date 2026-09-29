@@ -1447,6 +1447,32 @@ class TestTheWeightOfTheType:
         assert by_san["Nf3"].parent_id == by_san["e5"].id
 
 
+class TestTheScoreGoingBackToAnEarlierMove:
+    def test_its_next_number_carries_on_the_line_it_went_back_to(self):
+        # Markos pages 192-193, all in bold: "50...f3? 51.♖f8 … 59.♔f2+–
+        # Returning to the 50th move, Black, therefore, has to play: 50...♔h3!
+        # 51.♖h8† ♔g2 52.h4". `50...♔h3` was placed at the 50th, and `51.`,
+        # bold, was read as the score resuming after 59.♔f2.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("move_number", "3.", True), ("move", "Bb5", True), ("move", "a6", True),
+                ("text", "Returning to the second move, Black has to play:", False),
+                ("move_number", "2...", True), ("move", "d6", True),
+                ("move_number", "3.", True), ("move", "d4", True), ("move", "exd4", True),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+        by_id = {m.id: m for m in result.moves}
+        d4 = next(m for m in result.moves if m.san == "d4")
+        assert by_id[d4.parent_id].san == "d6"
+
+
 class TestAnalysisInsideAnalysis:
     """Markos page 22: the plain analysis branches inside itself.
 
