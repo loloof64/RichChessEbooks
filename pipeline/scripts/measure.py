@@ -106,18 +106,34 @@ def figures(parsed, first: int, last: int | None) -> dict[str, int]:
             parent = by_id[parent].parent_id
         return False
 
-    # The same test as `ParseResult.break_diagnosis`'s `clean`, move by move,
-    # so that only the window's pages are counted.
-    moves = [m for m in parsed.moves if m.page >= first and (last is None or m.page <= last)]
+    # The same tests as `ParseResult.break_diagnosis`, move by move, so that
+    # only the window's pages are counted.
+    in_window = lambda page: page >= first and (last is None or page <= last)
+    moves = [m for m in parsed.moves if in_window(m.page)]
+    scored_ok = [m for m in moves if m.status == "ok" and m.game_id not in unplaced]
+    below = {m.id for m in scored_ok if below_a_break(m)}
+    contradicted, drifted = set(parsed.contradicted), set(parsed.drifted)
     return {
         "moves": len(moves),
         **{status: sum(m.status == status for m in moves)
            for status in ("ok", "uncertain", "broken")},
         "unplaced": sum(m.game_id in unplaced for m in moves),
-        "clean": sum(
-            m.status == "ok" and m.game_id not in unplaced and m.id not in against
-            and not below_a_break(m)
-            for m in moves
+        "clean": sum(m.id not in against and m.id not in below for m in scored_ok),
+        # What the boards said. `clean` only ever loses moves to a board that
+        # is read — a book whose boards stay unread keeps the same wrong moves
+        # clean — so the verdicts are reported beside it.
+        "below_break": len(below),
+        "contradicted": sum(m.id in contradicted and m.id not in below for m in scored_ok),
+        "drifted": sum(
+            m.id in drifted and m.id not in contradicted and m.id not in below for m in scored_ok
+        ),
+        "confirms": sum(
+            check["verdict"] == "confirms" and in_window(check["page"])
+            for check in parsed.diagram_checks
+        ),
+        "boards_read": sum(
+            check["verdict"] not in ("unread", "unreadable") and in_window(check["page"])
+            for check in parsed.diagram_checks
         ),
     }
 
