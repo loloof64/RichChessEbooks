@@ -12,6 +12,11 @@ zone should cover the move alone.
 
 from __future__ import annotations
 
+import csv
+import io
+import shutil
+import subprocess
+import warnings
 from dataclasses import dataclass, field, asdict
 from typing import Any, Iterator
 
@@ -36,6 +41,23 @@ FIGURINE_FONT_HINTS = (
 #: font; it lives here, beside the other font constants, so that the notation
 #: detector can recognise a repaired page without importing the recogniser.
 GLYPH_FONT = "rce-glyph"
+
+#: Font name carried by characters read by Tesseract off a page that is a
+#: picture. Not the `GlyphLessFont` of a scanner's layer on purpose: that one
+#: says the pieces are drawn and need recovering, and these pages print letters.
+OCR_FONT = "rce-ocr"
+
+#: A page is a picture of a page when its text layer holds fewer characters
+#: than this and one image covers at least a third of it. Fabrice's documents
+#: split cleanly: their picture pages carry 0 to 24 characters (a title, a tab
+#: label) under an image over half the page; their typed pages 450 and up.
+_PICTURE_PAGE_TEXT = 50
+_PICTURE_PAGE_COVER = 1 / 3
+
+#: What Tesseract reads a picture page at. French and English cover the
+#: library; a German book would need `deu` installed and added.
+OCR_LANGUAGES = "fra+eng"
+OCR_DPI = 300
 
 #: MuPDF's "serifed" flag is bit 2 and its "bold" flag is bit 4; only the
 #: second one is wanted here.
@@ -212,6 +234,17 @@ def _extract_page(page: "fitz.Page", number: int, *, sort_blocks: bool) -> Page:
     # expressed in that same space, so rotated pages need no special handling.
     width, height = page.rect.width, page.rect.height
 
+    if _is_picture_page(page):
+        chars = _read_picture(page)
+        if chars is not None:
+            return Page(
+                number=number,
+                width=round(width, 2),
+                height=round(height, 2),
+                text="".join(c.char for c in chars),
+                chars=chars,
+            )
+
     raw = page.get_text("rawdict")
     blocks = [b for b in raw["blocks"] if b.get("type") == 0]  # 0 = text
     if sort_blocks:
@@ -246,6 +279,69 @@ def _extract_page(page: "fitz.Page", number: int, *, sort_blocks: bool) -> Page:
         text="".join(c.char for c in chars),
         chars=chars,
     )
+
+
+def _is_picture_page(page: "fitz.Page") -> bool:
+    """Whether `page` is a picture of a page, with next to no text laid over it."""
+    if len("".join(page.get_text().split())) >= _PICTURE_PAGE_TEXT:
+        return False
+    area = page.rect.width * page.rect.height
+    return any(
+        (x1 - x0) * (y1 - y0) >= _PICTURE_PAGE_COVER * area
+        for x0, y0, x1, y1 in (info["bbox"] for info in page.get_image_info())
+    )
+
+
+def _read_picture(page: "fitz.Page") -> list[Char] | None:
+    """The characters Tesseract reads on a picture page, or None without it.
+
+    Tesseract is run on the rendering directly rather than through MuPDF's own
+    OCR text page: its layout analysis keeps two columns apart, and MuPDF's
+    regrouping of the lines it returns interleaves them line by line.
+
+    A word's box is Tesseract's; each letter gets an equal share of its width.
+    """
+    tesseract = shutil.which("tesseract")
+    if tesseract is None:
+        warnings.warn(
+            f"page {page.number + 1} is a picture and tesseract is not installed: "
+            "it is read as the few characters laid over it.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return None
+    png = page.get_pixmap(dpi=OCR_DPI, colorspace=fitz.csGRAY).tobytes("png")
+    tsv = subprocess.run(
+        [tesseract, "stdin", "stdout", "-l", OCR_LANGUAGES, "--psm", "3", "tsv"],
+        input=png, capture_output=True, check=True,
+    ).stdout.decode("utf-8")
+
+    scale = 72 / OCR_DPI
+    height = page.rect.height
+    chars: list[Char] = []
+    previous: tuple[str, str, str] | None = None
+    for row in csv.DictReader(io.StringIO(tsv), delimiter="\t", quoting=csv.QUOTE_NONE):
+        word = (row.get("text") or "").strip()
+        if row["level"] != "5" or not word:
+            continue
+        line = (row["block_num"], row["par_num"], row["line_num"])
+        if previous is not None:
+            joint = (
+                _BLOCK_BREAK if line[0] != previous[0]
+                else _LINE_BREAK if line != previous
+                else " "
+            )
+            chars.extend(_filler(joint))
+        previous = line
+        left, top = int(row["left"]) * scale, int(row["top"]) * scale
+        w, h = int(row["width"]) * scale, int(row["height"]) * scale
+        step = w / len(word)
+        for i, ch in enumerate(word):
+            box = (left + i * step, top, left + (i + 1) * step, top + h)
+            chars.append(
+                Char(char=ch, bbox=BBox.from_mupdf(box, height), font=OCR_FONT, size=round(h, 1))
+            )
+    return chars
 
 
 def font_inventory(pages: list[Page]) -> dict[str, int]:

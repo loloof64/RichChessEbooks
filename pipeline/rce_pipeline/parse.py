@@ -1213,6 +1213,13 @@ def parse_tokens(
                 verdict = "seeds"
             elif printed == reached:
                 verdict = "confirms"
+            elif any(level.board.board_fen() == printed for level in stack[1:]):
+                # The board of the analysis in progress, not the game's: Markos
+                # ends a prose variation on its diagram — "he has a beautiful
+                # move. Can you see it?" — and only then goes "back to the
+                # game". Read as a correction it put the score on the
+                # variation, twice in that book, and every move below broke.
+                verdict = "shows_the_analysis"
             elif header_read or names_a_game:
                 # The book has printed the heading of another game beside this
                 # board, so the board is that game's opening position and not a

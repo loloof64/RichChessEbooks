@@ -484,6 +484,45 @@ class TestBreakDiagnosis:
         assert [m.status for m in after] == ["ok", "ok"]
         assert result.break_diagnosis()["below_break"] == 0
 
+    def test_a_diagram_of_the_analysis_does_not_move_the_game(self):
+        # Markos page 82: a variation in plain prose ends on a diagram of the
+        # position it reached ("he has a beautiful move. Can you see it?"),
+        # then "let's get back to the game" and the score resumes in bold.
+        # Read as a correction of the game, the board put the score on the
+        # variation, and the game's `20.Qg3` was played by Black's queen.
+        aside = chess.Board()
+        for san in ("e4", "e5", "Nf3", "d6", "d4"):
+            aside.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := aside.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("text", "Also possible is", False),
+                ("move_number", "2...", False), ("move", "d6", False),
+                ("move_number", "3.", False), ("move", "d4", False),
+            ) + [tok("diagram", rows)] + weighed(
+                ("text", "After", False),
+                ("move_number", "3...", False), ("move", "exd4", False),
+                ("text", "Black is fine. Back to the game:", False),
+                ("move_number", "3.", True), ("move", "Bb5", True), ("move", "a6", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        game = [m for m in result.moves if m.san in ("Bb5", "a6")]
+        assert [m.status for m in game] == ["ok", "ok"]
+        assert all(on_the_main_line(result, m) for m in game)
+        assert not result.contradicted
+
     def test_a_line_that_matches_again_stops_being_adrift(self):
         # A number the line does agree with clears it: whatever was lost, the
         # book and the board are on the same move again, and what follows
