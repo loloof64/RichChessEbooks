@@ -1,5 +1,25 @@
 # What I have to do next
 
+> **FIRST PRIORITY (Laurent, 2026-09-29): read the documents whose pages are
+> images.** Fabrice's documents (`DeFabrice/`, 23 PDFs, French letters,
+> clean typesetting: bold main line, variations in `[ ]`) give no or almost
+> no moves because **their pages are pictures** — the text layer holds a few
+> spaces and a title (`structure_carlsbad_t2.pdf` p2: three images, no text).
+> Nothing downstream can help until they are OCR'd. What was checked:
+> - Tesseract 5.5 is installed with `fra` and `eng`; PyMuPDF does it in place
+>   with word boxes: `page.get_textpage_ocr(language="fra+eng", dpi=300,
+>   full=True)`, then `page.get_text(textpage=...)`.
+> - Raw, the result is unusable: **the two columns come out interleaved**
+>   line by line (the column rule reads as `|`), and moves carry OCR damage
+>   (`ed` for `e4`, `g57!` for `g5?!`, `fred` for `fxe4`).
+> - `notation.detect_notation` treats an OCR layer as symbols drawn in the
+>   image (`is_ocr_layer` -> `needs_glyph_recovery`): wrong here, these are
+>   letters — the language must be detected and no figurine sought.
+> Plan: an extraction step for image-only pages (OCR per column, or by
+> blocks sorted into columns, keeping word boxes for the tap zones), feeding
+> the letters path; then the existing repairs. Measure on the `Fab:` windows
+> of `measure.py heldout` (and look at pages as images to check).
+
 > **Fourteenth session, 2026-09-29 — the figure compared is now `sound`.**
 > `sound` = `clean` + contradicted (`88c4d8c`, decided with Laurent): `clean`
 > punished reading a board, since a board that is read marks wrong moves
