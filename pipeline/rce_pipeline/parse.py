@@ -1027,6 +1027,33 @@ def parse_tokens(
             # one inside the other.
             stack[1:] = [_Level(board=board.copy(), parent_id=parent)]
 
+    def _the_score_resumes(
+        position: str, number: int, is_black: bool, tokens: Sequence[Token], at: int
+    ) -> bool:
+        """Whether this number carries on the game, not the board just printed.
+
+        The number is the one the game awaits, or one it has played — "After
+        28...e6? the conclusion was: 29.f4" cites the game's last move again —
+        the move after it plays there, and it plays on the board for neither
+        side.
+        """
+        if game is None or not game.position_known or not stack:
+            return False
+        line = _the_line_after(tokens, at)
+        declared = _ply_of(number, is_black)
+        if declared == _ply_awaited(stack[0].board):
+            board = stack[0].board
+        elif declared in main_history:
+            board = main_history[declared][0]
+        else:
+            return False
+        if not line or not _plays(board.fen(), line[0].text):
+            return False
+        return not any(
+            _plays(diagrams.initial_fen(position, number=number, black_to_move=black), line[0].text)
+            for black in (False, True)
+        )
+
     def _open_the_bracket_on_the_right_side(declared: int) -> None:
         """A bracket branches before the move it follows — unless it says not.
 
@@ -1443,6 +1470,16 @@ def parse_tokens(
                             last_kind = "move_number"
             seeded = None
             opens_on_a_header = False
+            if pending_position is not None and pending_opens_a_game and _the_score_resumes(
+                pending_position, number, is_black_only, tokens, at
+            ):
+                # The board was another game's, shown and never played — Markos
+                # page 111, "Ostenstad - Hracek, Plovdiv 2010" — and this number
+                # is the book coming back to its own: "Let's return now to my
+                # game. After 28...e6?". Seeded with it, the board took the
+                # score and every move of the resumed game broke.
+                pending_position, pending_to_move = None, ""
+                pending_check, pending_opens_a_game = None, False
             if pending_position is not None:
                 # The diagram gave the placement and this number gives the rest
                 # of the position: whose move it is, and which move it is —

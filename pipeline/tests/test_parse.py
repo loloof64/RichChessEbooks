@@ -1644,6 +1644,73 @@ class TestALineFromTheStartCitedInsideAGame:
         assert all(not on_the_main_line(result, m) for m in cited)
 
 
+class TestAGameTheBookComesBackTo:
+    def test_a_board_whose_game_never_starts_does_not_take_the_resumed_score(self):
+        # Markos page 111-112: Velicka - Markos stops at `28...e6?`, the book
+        # shows "Ostenstad - Hracek, Plovdiv 2010" on a board and plays no move
+        # of it, then "Let's return now to my game. After 28...e6? the
+        # conclusion was: 29.f4". The board took `28...` and every move broke.
+        other = chess.Board("r2q1rk1/pp2bppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R2QK2R w KQ - 0 1")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := other.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True),
+                ("text", "My inspiration was a game by a colleague. Ostenstad - Hracek, Plovdiv 2010", False),
+            ) + [dataclasses.replace(tok("diagram", rows), to_move="w")] + weighed(
+                ("text", "He succeeded in drawing the game. Let's return now to my game. After", False),
+                ("move_number", "2...", False), ("move", "Nc6", False),
+                ("text", "the conclusion was:", False),
+                ("move_number", "3.", True), ("move", "Bb5", True), ("move", "a6", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        game = [m for m in result.moves if m.san in ("Nc6", "Bb5", "a6")]
+        assert [m.status for m in game] == ["ok", "ok", "ok"], [
+            (m.san, m.status) for m in result.moves
+        ]
+
+    def test_nor_when_the_book_comes_back_citing_the_move_the_game_played(self):
+        # The page itself: `28...e6?` was the game's, in bold, before the
+        # board; "After 28...e6? the conclusion was: 29.f4" cites it again.
+        other = chess.Board("r2q1rk1/pp2bppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R2QK2R w KQ - 0 1")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := other.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("text", "My inspiration was a game by a colleague. Ostenstad - Hracek, Plovdiv 2010", False),
+            ) + [dataclasses.replace(tok("diagram", rows), to_move="w")] + weighed(
+                ("text", "He succeeded in drawing the game. Let's return now to my game. After", False),
+                ("move_number", "2...", False), ("move", "Nc6", False),
+                ("text", "the conclusion was:", False),
+                ("move_number", "3.", True), ("move", "Bb5", True), ("move", "a6", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+
+
 class TestTheSideToMoveOfAnExportedDiagram:
     def test_a_board_whose_side_nothing_says_is_exported_as_unknown(self):
         # The reader shows whose move it is beside the board, and must not
