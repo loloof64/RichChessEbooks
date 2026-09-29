@@ -1416,6 +1416,301 @@ class TestTheWeightOfTheType:
         assert by_san["Nf3"].parent_id == by_san["e5"].id
 
 
+class TestAnalysisInsideAnalysis:
+    """Markos page 22: the plain analysis branches inside itself.
+
+    "Ribli's recommendation was: 17...♖g8 18.fxe6 fxe6 / 18...♗xe6 19.♘d5 ♕d8
+    20.♘xe6 fxe6 21.e5!+– / 19.e5! dxe5 […] 20.♗g5! Ribli analysed only
+    20.♘e4. There is now a forced line: 20...♗c6 21.♗xf6 …" — the game stands
+    at 17...♕d8, and every one of these numbers names a ply only Ribli's line
+    has reached. Played on the game's board, `18...♗xe6` broke and `19.e5` was
+    legal there by chance: a wrong position marked right.
+    """
+
+    def test_a_sub_variation_branches_from_the_analysis_and_the_analysis_resumes(self):
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                # The analysis: an alternative to the game's second move…
+                ("move_number", "2...", False), ("move", "Nf6", False),
+                ("move_number", "3.", False), ("move", "Nxe5", False), ("move", "d6", False),
+                # …an alternative inside it, at a ply the game never reached…
+                ("move_number", "3...", False), ("move", "Qe7", False),
+                ("move_number", "4.", False), ("move", "d4", False), ("move", "d6", False),
+                # …and the analysis again, where it stopped.
+                ("move_number", "4.", False), ("move", "Nf3", False), ("move", "Nxe4", False),
+                ("move_number", "3.", True), ("move", "Bc4", True), ("move", "Bc5", True),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+        by_id = {m.id: m for m in result.moves}
+        qe7 = next(m for m in result.moves if m.san == "Qe7")
+        assert by_id[qe7.parent_id].san == "Nxe5"
+        knight_back = [m for m in result.moves if m.san == "Nf3"][-1]
+        first_d6 = next(m for m in result.moves if m.san == "d6")
+        assert knight_back.parent_id == first_d6.id
+        bc4 = next(m for m in result.moves if m.san == "Bc4")
+        assert by_id[bc4.parent_id].san == "Nc6"
+        assert on_the_main_line(result, bc4)
+
+    def test_of_two_lines_awaiting_a_move_the_one_the_score_carries_is_taken(self):
+        # "20.♗g5! Ribli analysed only 20.♘e4. There is now a forced line:
+        # 20...♗c6 21.♗xf6" — `20...♗c6` plays after either, and the move
+        # after it only after the one the book was printing before.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("move_number", "2...", False), ("move", "Nf6", False),
+                ("move_number", "3.", False), ("move", "Nc3", False),
+                ("text", "Ribli analysed only", False),
+                ("move_number", "3.", False), ("move", "d3", False),
+                ("text", "There is now a forced line:", False),
+                ("move_number", "3...", False), ("move", "Bb4", False),
+                ("move_number", "4.", False), ("move", "Nd5", False),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+        by_id = {m.id: m for m in result.moves}
+        d3 = next(m for m in result.moves if m.san == "d3")
+        assert by_id[d3.parent_id].san == "Nf6"
+        bb4 = next(m for m in result.moves if m.san == "Bb4")
+        assert by_id[bb4.parent_id].san == "Nc3"
+
+    def test_after_prose_a_number_both_await_goes_back_to_the_game(self):
+        # Markos page 61, the game at 38...♖xd8: "38...d2?! is inaccurate,
+        # because […] 39.♖d1? ♘b2 40.♖d2 ♗c3 leads to the capture of the
+        # rook. 39.b6 gives away a pawn […]: 39...d2" — the aside awaits
+        # White's 39th as the game does, and the prose between says it ended.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("move_number", "2...", False), ("move", "Nf6", False),
+                ("text", "is inaccurate, because it would give White the e5-pawn.", False),
+                ("move_number", "3.", False), ("move", "Bb5", False),
+                ("text", "gives away a pawn:", False),
+                ("move_number", "3...", False), ("move", "Nd4", False),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+        by_id = {m.id: m for m in result.moves}
+        bb5 = next(m for m in result.moves if m.san == "Bb5")
+        assert by_id[bb5.parent_id].san == "Nc6"
+
+    def test_prose_that_does_not_end_a_sentence_does_not_end_the_aside(self):
+        # Markos page 82, the game at 19...♖e5: "Black could maintain an equal
+        # game only with the accurate 19...♗xc3! because after 20.♖xf5?" —
+        # the sentence runs on into the aside's next move.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("text", "Black could hold with the accurate", False),
+                ("move_number", "2...", False), ("move", "d6", False),
+                ("annotation", "!", False),
+                ("text", "because after", False),
+                ("move_number", "3.", False), ("move", "d4", False),
+            ),
+            weighted=True,
+        )
+
+        by_id = {m.id: m for m in result.moves}
+        d4 = next(m for m in result.moves if m.san == "d4")
+        assert by_id[d4.parent_id].san == "d6"
+
+    def test_the_reply_to_an_alternative_at_its_own_number_carries_it_on(self):
+        # Markos page 50, the game at 36.♗g5: "36.♗e3 is best, but still does
+        # not save White: 36...♖e2 37.♘f5" — prose between, the game waiting
+        # for Black's 36th too, and the moves after playing on both boards.
+        # The reply at the alternative's own number is its reply.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True),
+                ("move_number", "2.", False), ("move", "Bc4", False),
+                ("text", "is best, but still does not save White:", False),
+                ("move_number", "2...", False), ("move", "Nf6", False),
+                ("move_number", "3.", False), ("move", "d3", False),
+            ),
+            weighted=True,
+        )
+
+        by_id = {m.id: m for m in result.moves}
+        nf6 = next(m for m in result.moves if m.san == "Nf6")
+        assert by_id[nf6.parent_id].san == "Bc4"
+
+    def test_the_moves_are_tried_on_past_the_prose_that_interrupts_them(self):
+        # Markos page 98, the game at 17.♘h3!?: "However, even better is the
+        # straightforward: 17.♖h3! … 17...e5 […] 18.♖xh7" — `17...e5` plays
+        # after either, and only the move after the prose tells them apart.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Bc4", True),
+                ("text", "Even better is the straightforward:", False),
+                ("move_number", "2.", False), ("move", "Qh5", False),
+                ("text", "and now after", False),
+                ("move_number", "2...", False), ("move", "Nc6", False),
+                ("text", "White goes", False),
+                ("move_number", "3.", False), ("move", "Qxf7+", False),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+
+    def test_and_past_the_board_printed_between_them(self):
+        # The same page: a diagram stands between `17...e5?` and `18.♖xh7`.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Bc4", True),
+                ("text", "Even better is the straightforward:", False),
+                ("move_number", "2.", False), ("move", "Qh5", False),
+                ("text", "and now after", False),
+                ("move_number", "2...", False), ("move", "Nc6", False),
+                ("text", "Black is in grave danger.", False),
+            ) + [tok("diagram", "/".join(["........"] * 8))] + weighed(
+                ("move_number", "3.", False), ("move", "Qxf7+", False),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+
+    def test_a_number_the_book_skipped_does_not_send_the_line_to_the_game(self):
+        # "22.♘xf3 gxf6 24.♕xf6† ♖g7" — the book's own slip, no 23. On the
+        # game's board `♕xf6` happened to be legal and was marked right.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("move_number", "2...", False), ("move", "Nf6", False),
+                ("move_number", "3.", False), ("move", "Nxe5", False), ("move", "d6", False),
+                ("move_number", "5.", False), ("move", "Bc4", False), ("move", "Nxe4", False),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+        by_id = {m.id: m for m in result.moves}
+        bc4 = next(m for m in result.moves if m.san == "Bc4")
+        assert by_id[bc4.parent_id].san == "d6"
+
+
+class TestTheSideToMovePrintedBesideTheBoard:
+    def test_a_black_triangle_beats_the_number_the_prose_cites(self):
+        # Markos page 48: the board of Morovic Fernandez - Adams carries a ▼,
+        # and the first number under it is the prose's "White's last move,
+        # 14.♗g2-h3". Seeded for White, the game's own `14...b5! 15.♘d2` broke.
+        board = chess.Board()
+        board.push_san("e4")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows), to_move="b")
+        result = parse_tokens(
+            [diagram] + weighed(
+                ("text", "White's last move,", False),
+                ("move_number", "14.", False), ("move", "Bh3", False),
+                ("text", "signals an expansion.", False),
+                ("move_number", "14...", True), ("move", "b5", True),
+                ("move_number", "15.", True), ("move", "Nf3", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        game = [m for m in result.moves if m.san in ("b5", "Nf3")]
+        assert [m.status for m in game] == ["ok", "ok"]
+
+    def test_the_triangle_is_believed_over_a_citation_the_other_side_can_play(self):
+        # The move the prose cites is White's own last move, and White could
+        # play one like it: that says nothing against the ▼.
+        board = chess.Board()
+        board.push_san("e4")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows), to_move="b")
+        result = parse_tokens(
+            [diagram] + weighed(
+                ("text", "White's plan is", False),
+                ("move_number", "14.", False), ("move", "Nc3", False),
+                ("text", "and then more.", False),
+                ("move_number", "14...", True), ("move", "b5", True),
+                ("move_number", "15.", True), ("move", "Nf3", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        game = [m for m in result.moves if m.san in ("b5", "Nf3")]
+        assert [m.status for m in game] == ["ok", "ok"]
+
+    def test_a_number_citing_the_last_move_counts_the_move_after_it(self):
+        # Markos page 128: △, then "Black's last move was 18...e6", then the
+        # game's `19.♔h1!?`. The board is White's nineteenth, not eighteenth,
+        # or every number of the game disagrees with it and the game drifts.
+        board = chess.Board()
+        board.push_san("e4")
+        board.push_san("e6")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows), to_move="w")
+        result = parse_tokens(
+            [diagram] + weighed(
+                ("text", "Black's last move was", False),
+                ("move_number", "18...", False), ("move", "e6", False),
+                ("text", "Of course.", False),
+                ("move_number", "19.", True), ("move", "Nf3", True),
+                ("move_number", "19...", True), ("move", "Nc6", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        game = [m for m in result.moves if m.san in ("Nf3", "Nc6")]
+        assert [m.status for m in game] == ["ok", "ok"]
+        assert result.break_diagnosis()["drifted"] == 0
+
+
 class TestANumberAScanWeldedALostMoveOnto:
     """"18.exd5 f5 19.d6" comes off the page as `exd5` and then **519**."""
 

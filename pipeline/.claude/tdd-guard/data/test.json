@@ -1,0 +1,2104 @@
+{
+  "testModules": [
+    {
+      "moduleId": "tests/test_boxes.py",
+      "tests": [
+        {
+          "name": "test_a_word_is_what_stands_between_two_spaces",
+          "fullName": "tests/test_boxes.py::TestWords::test_a_word_is_what_stands_between_two_spaces",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_character_with_no_geometry_ends_a_word",
+          "fullName": "tests/test_boxes.py::TestWords::test_a_character_with_no_geometry_ends_a_word",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_ink_is_found_where_the_layer_says_the_word_is",
+          "fullName": "tests/test_boxes.py::TestTheInkOfAWord::test_the_ink_is_found_where_the_layer_says_the_word_is",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_word_before_is_not_this_word",
+          "fullName": "tests/test_boxes.py::TestTheInkOfAWord::test_the_word_before_is_not_this_word",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_gap_inside_the_word_is_crossed",
+          "fullName": "tests/test_boxes.py::TestTheInkOfAWord::test_a_gap_inside_the_word_is_crossed",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_printed_words_the_layer_reports_as_one",
+          "fullName": "tests/test_boxes.py::TestTheInkOfAWord::test_two_printed_words_the_layer_reports_as_one",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_word_with_no_ink_at_all_is_left_alone",
+          "fullName": "tests/test_boxes.py::TestTheInkOfAWord::test_a_word_with_no_ink_at_all_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_ink_nothing_like_the_layer_s_word_is_refused",
+          "fullName": "tests/test_boxes.py::TestTheInkOfAWord::test_ink_nothing_like_the_layer_s_word_is_refused",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_box_keeps_its_place_within_the_word",
+          "fullName": "tests/test_boxes.py::TestRemapped::test_a_box_keeps_its_place_within_the_word",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_height_is_the_layer_s",
+          "fullName": "tests/test_boxes.py::TestRemapped::test_the_height_is_the_layer_s",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_choose_pages.py",
+      "tests": [
+        {
+          "name": "test_a_page_opening_a_game_does_not_continue_one",
+          "fullName": "tests/test_choose_pages.py::test_a_page_opening_a_game_does_not_continue_one",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_page_whose_score_runs_above_its_first_game_continues_one",
+          "fullName": "tests/test_choose_pages.py::test_a_page_whose_score_runs_above_its_first_game_continues_one",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_cross_reference_is_not_a_tail",
+          "fullName": "tests/test_choose_pages.py::test_a_cross_reference_is_not_a_tail",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_first_page_moves_back_to_where_its_game_began",
+          "fullName": "tests/test_choose_pages.py::test_the_first_page_moves_back_to_where_its_game_began",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_page_that_opens_its_own_game_stays_put",
+          "fullName": "tests/test_choose_pages.py::test_a_page_that_opens_its_own_game_stays_put",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_last_page_moves_forward_to_the_end_of_its_game",
+          "fullName": "tests/test_choose_pages.py::test_the_last_page_moves_forward_to_the_end_of_its_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_game_ending_exactly_on_the_last_page_is_not_grown",
+          "fullName": "tests/test_choose_pages.py::test_a_game_ending_exactly_on_the_last_page_is_not_grown",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_book_that_never_opens_a_game_keeps_its_window",
+          "fullName": "tests/test_choose_pages.py::test_a_book_that_never_opens_a_game_keeps_its_window",
+          "state": "passed"
+        },
+        {
+          "name": "test_neither_edge_reaches_further_than_the_budget",
+          "fullName": "tests/test_choose_pages.py::test_neither_edge_reaches_further_than_the_budget",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_diagrams.py",
+      "tests": [
+        {
+          "name": "test_reads_a_block_of_eight_rows",
+          "fullName": "tests/test_diagrams.py::TestFinding::test_reads_a_block_of_eight_rows",
+          "state": "passed"
+        },
+        {
+          "name": "test_folds_a_row_the_book_prints_twice",
+          "fullName": "tests/test_diagrams.py::TestFinding::test_folds_a_row_the_book_prints_twice",
+          "state": "passed"
+        },
+        {
+          "name": "test_ignores_eight_short_lines_of_prose",
+          "fullName": "tests/test_diagrams.py::TestFinding::test_ignores_eight_short_lines_of_prose",
+          "state": "passed"
+        },
+        {
+          "name": "test_recovers_the_font_from_one_known_position",
+          "fullName": "tests/test_diagrams.py::TestLearning::test_recovers_the_font_from_one_known_position",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_diagram_read_on_a_drifted_board_does_not_teach",
+          "fullName": "tests/test_diagrams.py::TestLearning::test_a_diagram_read_on_a_drifted_board_does_not_teach",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_other_case_is_found_through_the_private_use_area",
+          "fullName": "tests/test_diagrams.py::TestLearning::test_the_other_case_is_found_through_the_private_use_area",
+          "state": "passed"
+        },
+        {
+          "name": "test_learns_the_letter_it_never_saw_from_its_other_case",
+          "fullName": "tests/test_diagrams.py::TestLearning::test_learns_the_letter_it_never_saw_from_its_other_case",
+          "state": "passed"
+        },
+        {
+          "name": "test_refuses_a_diagram_holding_a_character_it_has_not_learned",
+          "fullName": "tests/test_diagrams.py::TestDecoding::test_refuses_a_diagram_holding_a_character_it_has_not_learned",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_full_fen_takes_its_turn_from_the_number_under_it",
+          "fullName": "tests/test_diagrams.py::TestDecoding::test_a_full_fen_takes_its_turn_from_the_number_under_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_castling_is_credited_where_the_pieces_have_not_moved",
+          "fullName": "tests/test_diagrams.py::TestDecoding::test_castling_is_credited_where_the_pieces_have_not_moved",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_diagram_gives_a_game_the_position_it_opens_on",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_diagram_gives_a_game_the_position_it_opens_on",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_diagram_opens_a_game_on_any_number_it_likes",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_diagram_opens_a_game_on_any_number_it_likes",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_board_the_game_below_it_leads_to_does_not_seed_it",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_board_the_game_below_it_leads_to_does_not_seed_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_board_under_a_game_header_opens_a_game",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_board_under_a_game_header_opens_a_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_game_cited_in_prose_is_not_a_heading",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_game_cited_in_prose_is_not_a_heading",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_board_that_is_not_a_position_seeds_nothing",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_board_that_is_not_a_position_seeds_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_board_opens_a_game_the_book_never_placed",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_board_opens_a_game_the_book_never_placed",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_board_is_believed_over_a_number_that_lost_its_ellipsis",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_the_board_is_believed_over_a_number_that_lost_its_ellipsis",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_the_board_agrees_with_is_left_alone",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_number_the_board_agrees_with_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_diagram_puts_a_line_that_drifted_back_on_the_board",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_diagram_puts_a_line_that_drifted_back_on_the_board",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_diagram_inside_a_bracket_does_not_take_the_variation_away",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_diagram_inside_a_bracket_does_not_take_the_variation_away",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_correction_puts_the_moves_above_it_in_doubt",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_correction_puts_the_moves_above_it_in_doubt",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_confirmation_clears_what_stands_above_it",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_confirmation_clears_what_stands_above_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_correction_clears_what_stands_above_it_too",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_correction_clears_what_stands_above_it_too",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_diagram_that_agrees_says_so_and_changes_nothing",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_a_diagram_that_agrees_says_so_and_changes_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_without_the_font_a_diagram_is_only_recorded",
+          "fullName": "tests/test_diagrams.py::TestInTheParser::test_without_the_font_a_diagram_is_only_recorded",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_rows_become_one_token_and_not_prose",
+          "fullName": "tests/test_diagrams.py::TestInTheTokeniser::test_the_rows_become_one_token_and_not_prose",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_stray_square_is_named_by_the_nearest_piece_that_can_stand_there",
+          "fullName": "tests/test_diagrams.py::test_a_stray_square_is_named_by_the_nearest_piece_that_can_stand_there",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_strays_on_one_board_are_named_together",
+          "fullName": "tests/test_diagrams.py::test_two_strays_on_one_board_are_named_together",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_stray_no_piece_can_explain_keeps_its_own_character",
+          "fullName": "tests/test_diagrams.py::test_a_stray_no_piece_can_explain_keeps_its_own_character",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_boards_name_the_characters_when_no_game_can",
+          "fullName": "tests/test_diagrams.py::test_the_boards_name_the_characters_when_no_game_can",
+          "state": "passed"
+        },
+        {
+          "name": "test_legality_cannot_do_it_alone_and_says_so_by_leaving_a_tie",
+          "fullName": "tests/test_diagrams.py::test_legality_cannot_do_it_alone_and_says_so_by_leaving_a_tie",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_colours_are_the_way_up_a_book_prints_them",
+          "fullName": "tests/test_diagrams.py::test_the_colours_are_the_way_up_a_book_prints_them",
+          "state": "passed"
+        },
+        {
+          "name": "test_strays_on_every_board_are_settled_as_what_they_most_resemble",
+          "fullName": "tests/test_diagrams.py::test_strays_on_every_board_are_settled_as_what_they_most_resemble",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_character_no_twin_covers_leaves_nothing_to_settle",
+          "fullName": "tests/test_diagrams.py::test_a_character_no_twin_covers_leaves_nothing_to_settle",
+          "state": "passed"
+        },
+        {
+          "name": "test_three_rooks_beside_eight_pawns_never_happened",
+          "fullName": "tests/test_diagrams.py::test_three_rooks_beside_eight_pawns_never_happened",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_extract.py",
+      "tests": [
+        {
+          "name": "test_a_picture_page_is_read_column_by_column",
+          "fullName": "tests/test_extract.py::test_a_picture_page_is_read_column_by_column",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_figurines.py",
+      "tests": [
+        {
+          "name": "test_a_symbol_is_found_by_where_it_stands",
+          "fullName": "tests/test_figurines.py::TestFinding::test_a_symbol_is_found_by_where_it_stands",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_character_of_the_prose_font_is_not_one",
+          "fullName": "tests/test_figurines.py::TestFinding::test_a_character_of_the_prose_font_is_not_one",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_unicode_figurine_is_left_to_the_pipeline_that_reads_it",
+          "fullName": "tests/test_figurines.py::TestFinding::test_a_unicode_figurine_is_left_to_the_pipeline_that_reads_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_symbol_printed_twice_is_not_worth_settling",
+          "fullName": "tests/test_figurines.py::TestFinding::test_a_symbol_printed_twice_is_not_worth_settling",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_board_decides_which_symbol_is_which_piece",
+          "fullName": "tests/test_figurines.py::TestSettling::test_the_board_decides_which_symbol_is_which_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_book_with_no_symbols_is_left_alone",
+          "fullName": "tests/test_figurines.py::TestSettling::test_a_book_with_no_symbols_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_symbol_takes_the_figurine_place_and_keeps_its_box",
+          "fullName": "tests/test_figurines.py::TestRewriting::test_the_symbol_takes_the_figurine_place_and_keeps_its_box",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_glyphs.py",
+      "tests": [
+        {
+          "name": "test_replaces_what_the_scanner_read_under_the_symbol",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_replaces_what_the_scanner_read_under_the_symbol",
+          "state": "passed"
+        },
+        {
+          "name": "test_keeps_a_character_the_symbol_only_half_covers",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_keeps_a_character_the_symbol_only_half_covers",
+          "state": "passed"
+        },
+        {
+          "name": "test_keeps_the_letter_it_covered_for_the_parser",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_keeps_the_letter_it_covered_for_the_parser",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_covered_letter_reaches_the_move_token",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_the_covered_letter_reaches_the_move_token",
+          "state": "passed"
+        },
+        {
+          "name": "test_it_puts_back_the_file_it_reached_past_its_own_ink",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_it_puts_back_the_file_it_reached_past_its_own_ink",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_file_it_gives_back_is_no_longer_part_of_the_ink",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_the_file_it_gives_back_is_no_longer_part_of_the_ink",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_file_keeps_the_box_it_was_printed_in",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_the_file_keeps_the_box_it_was_printed_in",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_whole_square_behind_the_symbol_settles_nothing",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_a_whole_square_behind_the_symbol_settles_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_symbol_carries_its_own_box_and_font",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_symbol_carries_its_own_box_and_font",
+          "state": "passed"
+        },
+        {
+          "name": "test_inserts_a_symbol_the_scanner_dropped",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_inserts_a_symbol_the_scanner_dropped",
+          "state": "passed"
+        },
+        {
+          "name": "test_leaves_other_pages_alone",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_leaves_other_pages_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_applies_several_symbols_to_one_line",
+          "fullName": "tests/test_glyphs.py::TestRepair::test_applies_several_symbols_to_one_line",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_ink_under_a_symbol_is_how_the_book_spells_it",
+          "fullName": "tests/test_glyphs.py::TestSpellings::test_the_ink_under_a_symbol_is_how_the_book_spells_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_spelling_seen_twice_is_not_believed",
+          "fullName": "tests/test_glyphs.py::TestSpellings::test_a_spelling_seen_twice_is_not_believed",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_spelling_the_book_uses_for_two_pieces_is_dropped",
+          "fullName": "tests/test_glyphs.py::TestSpellings::test_a_spelling_the_book_uses_for_two_pieces_is_dropped",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_odd_misreading_does_not_unseat_a_spelling",
+          "fullName": "tests/test_glyphs.py::TestSpellings::test_the_odd_misreading_does_not_unseat_a_spelling",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_ink_is_keyed_as_the_tokeniser_reads_it",
+          "fullName": "tests/test_glyphs.py::TestSpellings::test_the_ink_is_keyed_as_the_tokeniser_reads_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_symbol_goes_back_onto_its_own_ink",
+          "fullName": "tests/test_glyphs.py::TestUnshiftSymbols::test_the_symbol_goes_back_onto_its_own_ink",
+          "state": "passed"
+        },
+        {
+          "name": "test_what_stands_between_the_ink_and_the_symbol_is_the_move",
+          "fullName": "tests/test_glyphs.py::TestUnshiftSymbols::test_what_stands_between_the_ink_and_the_symbol_is_the_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_spelling_naming_another_piece_is_not_this_symbol_s_ink",
+          "fullName": "tests/test_glyphs.py::TestUnshiftSymbols::test_a_spelling_naming_another_piece_is_not_this_symbol_s_ink",
+          "state": "passed"
+        },
+        {
+          "name": "test_ink_the_book_never_taught_is_left_alone",
+          "fullName": "tests/test_glyphs.py::TestUnshiftSymbols::test_ink_the_book_never_taught_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_move_number_keeps_its_dot",
+          "fullName": "tests/test_glyphs.py::TestUnshiftSymbols::test_the_move_number_keeps_its_dot",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_symbol_that_ate_no_move_is_left_where_it_is",
+          "fullName": "tests/test_glyphs.py::TestUnshiftSymbols::test_a_symbol_that_ate_no_move_is_left_where_it_is",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_rest_of_a_multi_character_mapping_is_taken",
+          "fullName": "tests/test_glyphs.py::TestBrokenFontLeftovers::test_the_rest_of_a_multi_character_mapping_is_taken",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_disambiguating_letter_is_never_eaten",
+          "fullName": "tests/test_glyphs.py::TestBrokenFontLeftovers::test_a_disambiguating_letter_is_never_eaten",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_single_character_mapping_is_untouched",
+          "fullName": "tests/test_glyphs.py::TestBrokenFontLeftovers::test_a_single_character_mapping_is_untouched",
+          "state": "passed"
+        },
+        {
+          "name": "test_leftovers_stop_at_a_space",
+          "fullName": "tests/test_glyphs.py::TestBrokenFontLeftovers::test_leftovers_stop_at_a_space",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_leftover_beginning_on_a_file_is_still_a_leftover",
+          "fullName": "tests/test_glyphs.py::TestBrokenFontLeftovers::test_a_leftover_beginning_on_a_file_is_still_a_leftover",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_run_stops_as_soon_as_a_move_stands_behind_it",
+          "fullName": "tests/test_glyphs.py::TestBrokenFontLeftovers::test_the_run_stops_as_soon_as_a_move_stands_behind_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_square_the_scan_spoiled_keeps_its_file",
+          "fullName": "tests/test_glyphs.py::TestBrokenFontLeftovers::test_a_square_the_scan_spoiled_keeps_its_file",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_longest_mapping_a_book_prints_is_taken_whole",
+          "fullName": "tests/test_glyphs.py::TestBrokenFontLeftovers::test_the_longest_mapping_a_book_prints_is_taken_whole",
+          "state": "passed"
+        },
+        {
+          "name": "test_counts_symbols_that_landed_inside_a_move",
+          "fullName": "tests/test_glyphs.py::TestPlacementScore::test_counts_symbols_that_landed_inside_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_reports_symbols_spliced_into_the_wrong_place",
+          "fullName": "tests/test_glyphs.py::TestPlacementScore::test_reports_symbols_spliced_into_the_wrong_place",
+          "state": "passed"
+        },
+        {
+          "name": "test_offers_the_wide_square_blob_and_not_the_letters",
+          "fullName": "tests/test_glyphs.py::TestCandidates::test_offers_the_wide_square_blob_and_not_the_letters",
+          "state": "passed"
+        },
+        {
+          "name": "test_rejects_a_run_of_touching_letters",
+          "fullName": "tests/test_glyphs.py::TestCandidates::test_rejects_a_run_of_touching_letters",
+          "state": "passed"
+        },
+        {
+          "name": "test_rejects_a_symbol_the_model_is_unsure_about",
+          "fullName": "tests/test_glyphs.py::TestCandidates::test_rejects_a_symbol_the_model_is_unsure_about",
+          "state": "passed"
+        },
+        {
+          "name": "test_maps_the_symbol_back_to_page_coordinates",
+          "fullName": "tests/test_glyphs.py::TestCandidates::test_maps_the_symbol_back_to_page_coordinates",
+          "state": "passed"
+        },
+        {
+          "name": "test_refuses_a_model_expecting_other_features",
+          "fullName": "tests/test_glyphs.py::TestModelGuard::test_refuses_a_model_expecting_other_features",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_letters_notation.py",
+      "tests": [
+        {
+          "name": "test_translates_french_initials_to_san",
+          "fullName": "tests/test_letters_notation.py::TestFrench::test_translates_french_initials_to_san",
+          "state": "passed"
+        },
+        {
+          "name": "test_king_and_rook_do_not_collide",
+          "fullName": "tests/test_letters_notation.py::TestFrench::test_king_and_rook_do_not_collide",
+          "state": "passed"
+        },
+        {
+          "name": "test_queen_and_promotion",
+          "fullName": "tests/test_letters_notation.py::TestFrench::test_queen_and_promotion",
+          "state": "passed"
+        },
+        {
+          "name": "test_prose_is_left_alone",
+          "fullName": "tests/test_letters_notation.py::TestFrench::test_prose_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_reading_a_french_book_as_english_is_caught_by_legality",
+          "fullName": "tests/test_letters_notation.py::TestFrench::test_reading_a_french_book_as_english_is_caught_by_legality",
+          "state": "passed"
+        },
+        {
+          "name": "test_reads_each_alphabet[en-1.e4 e5 2.Nf3 Nc6 3.Bb5-expected0]",
+          "fullName": "tests/test_letters_notation.py::TestOtherLanguages::test_reads_each_alphabet[en-1.e4 e5 2.Nf3 Nc6 3.Bb5-expected0]",
+          "state": "passed"
+        },
+        {
+          "name": "test_reads_each_alphabet[de-1.e4 e5 2.Sf3 Sc6 3.Lb5-expected1]",
+          "fullName": "tests/test_letters_notation.py::TestOtherLanguages::test_reads_each_alphabet[de-1.e4 e5 2.Sf3 Sc6 3.Lb5-expected1]",
+          "state": "passed"
+        },
+        {
+          "name": "test_reads_each_alphabet[es-1.e4 e5 2.Cf3 Cc6 3.Ab5-expected2]",
+          "fullName": "tests/test_letters_notation.py::TestOtherLanguages::test_reads_each_alphabet[es-1.e4 e5 2.Cf3 Cc6 3.Ab5-expected2]",
+          "state": "passed"
+        },
+        {
+          "name": "test_reads_each_alphabet[nl-1.e4 e5 2.Pf3 Pc6 3.Lb5-expected3]",
+          "fullName": "tests/test_letters_notation.py::TestOtherLanguages::test_reads_each_alphabet[nl-1.e4 e5 2.Pf3 Pc6 3.Lb5-expected3]",
+          "state": "passed"
+        },
+        {
+          "name": "test_spots_french_piece_letters",
+          "fullName": "tests/test_letters_notation.py::TestDetection::test_spots_french_piece_letters",
+          "state": "passed"
+        },
+        {
+          "name": "test_alphabets_tying_exactly_name_no_language",
+          "fullName": "tests/test_letters_notation.py::TestDetection::test_alphabets_tying_exactly_name_no_language",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_winner_standing_on_a_handful_of_letters_is_no_language",
+          "fullName": "tests/test_letters_notation.py::TestDetection::test_a_winner_standing_on_a_handful_of_letters_is_no_language",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_clear_winner_stands_on_two_letters",
+          "fullName": "tests/test_letters_notation.py::TestDetection::test_a_clear_winner_stands_on_two_letters",
+          "state": "passed"
+        },
+        {
+          "name": "test_letters_with_no_language_is_not_parseable",
+          "fullName": "tests/test_letters_notation.py::TestDetection::test_letters_with_no_language_is_not_parseable",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_figurine_font_is_detected_but_not_parseable",
+          "fullName": "tests/test_letters_notation.py::TestDetection::test_a_figurine_font_is_detected_but_not_parseable",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_ocr_layer_is_identified_by_its_font",
+          "fullName": "tests/test_letters_notation.py::TestScanDetection::test_an_ocr_layer_is_identified_by_its_font",
+          "state": "passed"
+        },
+        {
+          "name": "test_it_refuses_to_name_a_language_from_scanner_noise",
+          "fullName": "tests/test_letters_notation.py::TestScanDetection::test_it_refuses_to_name_a_language_from_scanner_noise",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_ordinary_text_layer_is_not_flagged",
+          "fullName": "tests/test_letters_notation.py::TestScanDetection::test_an_ordinary_text_layer_is_not_flagged",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_measure.py",
+      "tests": [
+        {
+          "name": "test_what_the_boards_said_is_counted_too",
+          "fullName": "tests/test_measure.py::test_what_the_boards_said_is_counted_too",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_board_put_back_ends_the_break_above_it_here_too",
+          "fullName": "tests/test_measure.py::test_a_board_put_back_ends_the_break_above_it_here_too",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_figure_compared_does_not_punish_reading_a_board",
+          "fullName": "tests/test_measure.py::test_the_figure_compared_does_not_punish_reading_a_board",
+          "state": "passed"
+        },
+        {
+          "name": "test_only_the_window_is_counted_and_the_lead_still_places_its_game",
+          "fullName": "tests/test_measure.py::test_only_the_window_is_counted_and_the_lead_still_places_its_game",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_parse.py",
+      "tests": [
+        {
+          "name": "test_reads_a_numbered_sequence",
+          "fullName": "tests/test_parse.py::TestMainLine::test_reads_a_numbered_sequence",
+          "state": "passed"
+        },
+        {
+          "name": "test_links_each_move_to_the_one_before",
+          "fullName": "tests/test_parse.py::TestMainLine::test_links_each_move_to_the_one_before",
+          "state": "passed"
+        },
+        {
+          "name": "test_records_the_position_after_the_move",
+          "fullName": "tests/test_parse.py::TestMainLine::test_records_the_position_after_the_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_licence_is_spent_on_prose_and_not_on_the_move_beside_it",
+          "fullName": "tests/test_parse.py::TestMainLine::test_a_licence_is_spent_on_prose_and_not_on_the_move_beside_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_word_after_the_licence_is_spent_is_still_refused",
+          "fullName": "tests/test_parse.py::TestMainLine::test_a_word_after_the_licence_is_spent_is_still_refused",
+          "state": "passed"
+        },
+        {
+          "name": "test_branches_from_the_position_before_the_replaced_move",
+          "fullName": "tests/test_parse.py::TestVariations::test_branches_from_the_position_before_the_replaced_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_resumes_the_main_line_after_the_closing_bracket",
+          "fullName": "tests/test_parse.py::TestVariations::test_resumes_the_main_line_after_the_closing_bracket",
+          "state": "passed"
+        },
+        {
+          "name": "test_brackets_with_no_preceding_move_are_just_prose",
+          "fullName": "tests/test_parse.py::TestVariations::test_brackets_with_no_preceding_move_are_just_prose",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_that_does_not_continue_the_line_opens_a_variation",
+          "fullName": "tests/test_parse.py::TestVariationsWrittenInProse::test_a_number_that_does_not_continue_the_line_opens_a_variation",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_alternatives_to_one_move_are_siblings",
+          "fullName": "tests/test_parse.py::TestVariationsWrittenInProse::test_two_alternatives_to_one_move_are_siblings",
+          "state": "passed"
+        },
+        {
+          "name": "test_brackets_still_win",
+          "fullName": "tests/test_parse.py::TestVariationsWrittenInProse::test_brackets_still_win",
+          "state": "passed"
+        },
+        {
+          "name": "test_attaches_prose_to_the_move_it_follows",
+          "fullName": "tests/test_parse.py::TestComments::test_attaches_prose_to_the_move_it_follows",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_comment_after_a_variation_belongs_to_the_move_before_it",
+          "fullName": "tests/test_parse.py::TestComments::test_a_comment_after_a_variation_belongs_to_the_move_before_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_square_named_in_prose_is_not_black_s_reply",
+          "fullName": "tests/test_parse.py::TestProseEndsTheNumbersLicence::test_a_square_named_in_prose_is_not_black_s_reply",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_score_resumes_on_its_number",
+          "fullName": "tests/test_parse.py::TestProseEndsTheNumbersLicence::test_the_score_resumes_on_its_number",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_wreck_of_a_move_does_not_end_it",
+          "fullName": "tests/test_parse.py::TestProseEndsTheNumbersLicence::test_the_wreck_of_a_move_does_not_end_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_analysis_quoted_after_a_result_is_read_but_not_scored",
+          "fullName": "tests/test_parse.py::TestAGameWithNoStartingPosition::test_analysis_quoted_after_a_result_is_read_but_not_scored",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_moves_keep_their_boxes",
+          "fullName": "tests/test_parse.py::TestAGameWithNoStartingPosition::test_the_moves_keep_their_boxes",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_wreck_between_the_piece_and_the_square_is_dropped",
+          "fullName": "tests/test_parse.py::TestAFalseDisambiguator::test_the_wreck_between_the_piece_and_the_square_is_dropped",
+          "state": "passed"
+        },
+        {
+          "name": "test_nothing_is_dropped_where_the_board_cannot_settle_it",
+          "fullName": "tests/test_parse.py::TestAFalseDisambiguator::test_nothing_is_dropped_where_the_board_cannot_settle_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_square_is_never_repaired_this_way",
+          "fullName": "tests/test_parse.py::TestAFalseDisambiguator::test_a_square_is_never_repaired_this_way",
+          "state": "passed"
+        },
+        {
+          "name": "test_separates_the_line_that_died_from_what_was_read_below_it",
+          "fullName": "tests/test_parse.py::TestBreakDiagnosis::test_separates_the_line_that_died_from_what_was_read_below_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_counts_the_moves_below_a_number_the_line_no_longer_matches",
+          "fullName": "tests/test_parse.py::TestBreakDiagnosis::test_counts_the_moves_below_a_number_the_line_no_longer_matches",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_aside_from_before_the_line_drifted_is_not_adrift",
+          "fullName": "tests/test_parse.py::TestBreakDiagnosis::test_an_aside_from_before_the_line_drifted_is_not_adrift",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_board_a_diagram_puts_back_is_not_below_the_break_above_it",
+          "fullName": "tests/test_parse.py::TestBreakDiagnosis::test_the_board_a_diagram_puts_back_is_not_below_the_break_above_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_diagram_of_the_analysis_does_not_move_the_game",
+          "fullName": "tests/test_parse.py::TestBreakDiagnosis::test_a_diagram_of_the_analysis_does_not_move_the_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_diagram_read_is_exported_with_its_box_and_position",
+          "fullName": "tests/test_parse.py::TestBreakDiagnosis::test_a_diagram_read_is_exported_with_its_box_and_position",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_line_that_matches_again_stops_being_adrift",
+          "fullName": "tests/test_parse.py::TestBreakDiagnosis::test_a_line_that_matches_again_stops_being_adrift",
+          "state": "passed"
+        },
+        {
+          "name": "test_castling_written_with_zeros_is_not_treated_as_an_error",
+          "fullName": "tests/test_parse.py::TestLegality::test_castling_written_with_zeros_is_not_treated_as_an_error",
+          "state": "passed"
+        },
+        {
+          "name": "test_repairs_a_piece_letter_read_as_a_digit",
+          "fullName": "tests/test_parse.py::TestLegality::test_repairs_a_piece_letter_read_as_a_digit",
+          "state": "passed"
+        },
+        {
+          "name": "test_refuses_to_guess_between_two_equally_plausible_moves",
+          "fullName": "tests/test_parse.py::TestLegality::test_refuses_to_guess_between_two_equally_plausible_moves",
+          "state": "passed"
+        },
+        {
+          "name": "test_settles_an_ambiguity_from_the_letter_the_figurine_covered",
+          "fullName": "tests/test_parse.py::TestLegality::test_settles_an_ambiguity_from_the_letter_the_figurine_covered",
+          "state": "passed"
+        },
+        {
+          "name": "test_stays_broken_when_the_covered_letter_names_no_candidate",
+          "fullName": "tests/test_parse.py::TestLegality::test_stays_broken_when_the_covered_letter_names_no_candidate",
+          "state": "passed"
+        },
+        {
+          "name": "test_stays_broken_when_the_covered_letters_name_both_candidates",
+          "fullName": "tests/test_parse.py::TestLegality::test_stays_broken_when_the_covered_letters_name_both_candidates",
+          "state": "passed"
+        },
+        {
+          "name": "test_keeps_an_explicit_disambiguation",
+          "fullName": "tests/test_parse.py::TestLegality::test_keeps_an_explicit_disambiguation",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_broken_move_keeps_its_geometry_and_empties_the_line",
+          "fullName": "tests/test_parse.py::TestLegality::test_a_broken_move_keeps_its_geometry_and_empties_the_line",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_next_number_starts_the_line_again",
+          "fullName": "tests/test_parse.py::TestLegality::test_the_next_number_starts_the_line_again",
+          "state": "passed"
+        },
+        {
+          "name": "test_promotion_is_recorded_in_uci",
+          "fullName": "tests/test_parse.py::TestLegality::test_promotion_is_recorded_in_uci",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_look_alike_is_repaired_on_a_checking_move",
+          "fullName": "tests/test_parse.py::TestCheckMarkIsNotAnError::test_a_look_alike_is_repaired_on_a_checking_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_missing_check_mark_alone_is_not_a_repair",
+          "fullName": "tests/test_parse.py::TestCheckMarkIsNotAnError::test_a_missing_check_mark_alone_is_not_a_repair",
+          "state": "passed"
+        },
+        {
+          "name": "test_move_shaped_prose_is_skipped_when_no_number_announces_it",
+          "fullName": "tests/test_parse.py::TestStrayTokens::test_move_shaped_prose_is_skipped_when_no_number_announces_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_relaxed_mode_reads_unnumbered_sequences",
+          "fullName": "tests/test_parse.py::TestStrayTokens::test_relaxed_mode_reads_unnumbered_sequences",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_result_ends_the_game",
+          "fullName": "tests/test_parse.py::TestStrayTokens::test_a_result_ends_the_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_scores_edits[Bb5-Bb5-0.0]",
+          "fullName": "tests/test_parse.py::TestConfusableDistance::test_scores_edits[Bb5-Bb5-0.0]",
+          "state": "passed"
+        },
+        {
+          "name": "test_scores_edits[8b5-Bb5-0.5]",
+          "fullName": "tests/test_parse.py::TestConfusableDistance::test_scores_edits[8b5-Bb5-0.5]",
+          "state": "passed"
+        },
+        {
+          "name": "test_scores_edits[Nf3-Nf4-1.0]",
+          "fullName": "tests/test_parse.py::TestConfusableDistance::test_scores_edits[Nf3-Nf4-1.0]",
+          "state": "passed"
+        },
+        {
+          "name": "test_scores_edits[O-O-0-0-1.0]",
+          "fullName": "tests/test_parse.py::TestConfusableDistance::test_scores_edits[O-O-0-0-1.0]",
+          "state": "passed"
+        },
+        {
+          "name": "test_scores_edits[Nd2-Nbd2-1.0]",
+          "fullName": "tests/test_parse.py::TestConfusableDistance::test_scores_edits[Nd2-Nbd2-1.0]",
+          "state": "passed"
+        },
+        {
+          "name": "test_is_symmetric",
+          "fullName": "tests/test_parse.py::TestConfusableDistance::test_is_symmetric",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_wrong_rank_digit_is_not_repaired_into_a_legal_move",
+          "fullName": "tests/test_parse.py::TestConfusableDistance::test_a_wrong_rank_digit_is_not_repaired_into_a_legal_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_counts_an_ambiguity_standing_below_a_repair",
+          "fullName": "tests/test_parse.py::TestAmbiguityDiagnosis::test_counts_an_ambiguity_standing_below_a_repair",
+          "state": "passed"
+        },
+        {
+          "name": "test_counts_an_ambiguity_on_a_line_with_no_repair_above_it",
+          "fullName": "tests/test_parse.py::TestAmbiguityDiagnosis::test_counts_an_ambiguity_on_a_line_with_no_repair_above_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_unambiguous_book_reports_nothing",
+          "fullName": "tests/test_parse.py::TestAmbiguityDiagnosis::test_an_unambiguous_book_reports_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_ambiguities_stay_out_of_the_contract_file",
+          "fullName": "tests/test_parse.py::TestAmbiguityDiagnosis::test_ambiguities_stay_out_of_the_contract_file",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_partial_disambiguation_narrows_the_set",
+          "fullName": "tests/test_parse.py::TestAmbiguousCandidates::test_a_partial_disambiguation_narrows_the_set",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_capture_reads_the_same_with_or_without_the_x",
+          "fullName": "tests/test_parse.py::TestAmbiguousCandidates::test_a_capture_reads_the_same_with_or_without_the_x",
+          "state": "passed"
+        },
+        {
+          "name": "test_starting_position_is_the_default",
+          "fullName": "tests/test_parse.py::test_starting_position_is_the_default",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_board_names_the_piece_when_only_one_can_reach",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_the_board_names_the_piece_when_only_one_can_reach",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_pawn_move_it_spells_is_never_the_answer",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_the_pawn_move_it_spells_is_never_the_answer",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_square_may_be_wrecked_as_well_as_the_symbol",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_the_square_may_be_wrecked_as_well_as_the_symbol",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_pieces_reaching_the_square_are_left_to_the_reader",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_two_pieces_reaching_the_square_are_left_to_the_reader",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_move_with_no_wreck_is_read_as_printed",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_a_move_with_no_wreck_is_read_as_printed",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_capture_with_nothing_in_front_of_it_is_a_lost_piece",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_a_capture_with_nothing_in_front_of_it_is_a_lost_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_capture_two_pieces_could_have_made_is_left_to_the_reader",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_a_capture_two_pieces_could_have_made_is_left_to_the_reader",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_piece_that_only_walks_there_is_not_the_capture_printed",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_a_piece_that_only_walks_there_is_not_the_capture_printed",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_letter_left_in_the_wreck_names_the_piece",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_the_letter_left_in_the_wreck_names_the_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_same_wreck_with_the_other_letter_names_the_other_piece",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_the_same_wreck_with_the_other_letter_names_the_other_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_letter_no_move_of_that_piece_fits_leaves_it_to_the_board",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_a_letter_no_move_of_that_piece_fits_leaves_it_to_the_board",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_books_own_spelling_names_the_piece",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_the_books_own_spelling_names_the_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_letter_in_the_wreck_comes_before_the_spelling",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_the_letter_in_the_wreck_comes_before_the_spelling",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_spelling_no_move_of_that_piece_fits_leaves_it_to_the_board",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_a_spelling_no_move_of_that_piece_fits_leaves_it_to_the_board",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_letters_in_the_wreck_name_nothing",
+          "fullName": "tests/test_parse.py::TestLostSymbol::test_two_letters_in_the_wreck_name_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_game_picking_up_again_closes_it",
+          "fullName": "tests/test_parse.py::TestABracketAScanInvented::test_the_game_picking_up_again_closes_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_bracket_own_line_is_still_left_alone",
+          "fullName": "tests/test_parse.py::TestABracketAScanInvented::test_the_bracket_own_line_is_still_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_bracket_naming_the_ply_awaited_continues_the_move",
+          "fullName": "tests/test_parse.py::TestWhichSideOfTheMoveABracketOpensOn::test_a_bracket_naming_the_ply_awaited_continues_the_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_alternative_to_the_move_still_replaces_it",
+          "fullName": "tests/test_parse.py::TestWhichSideOfTheMoveABracketOpensOn::test_an_alternative_to_the_move_still_replaces_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_second_alternative_stands_beside_the_first",
+          "fullName": "tests/test_parse.py::TestTwoAlternativesCitedTogether::test_the_second_alternative_stands_beside_the_first",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_main_line_still_picks_up_where_it_left_off",
+          "fullName": "tests/test_parse.py::TestTwoAlternativesCitedTogether::test_the_main_line_still_picks_up_where_it_left_off",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_moves_own_weight_is_not_asked",
+          "fullName": "tests/test_parse.py::TestWeightMarksTheLine::test_the_moves_own_weight_is_not_asked",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_book_setting_its_score_apart_is_read",
+          "fullName": "tests/test_parse.py::TestWeightMarksTheLine::test_a_book_setting_its_score_apart_is_read",
+          "state": "passed"
+        },
+        {
+          "name": "test_one_weight_throughout_says_nothing",
+          "fullName": "tests/test_parse.py::TestWeightMarksTheLine::test_one_weight_throughout_says_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_handful_of_the_other_weight_is_not_a_convention",
+          "fullName": "tests/test_parse.py::TestWeightMarksTheLine::test_a_handful_of_the_other_weight_is_not_a_convention",
+          "state": "passed"
+        },
+        {
+          "name": "test_too_few_moves_to_tell",
+          "fullName": "tests/test_parse.py::TestWeightMarksTheLine::test_too_few_moves_to_tell",
+          "state": "passed"
+        },
+        {
+          "name": "test_analysis_agreeing_with_the_line_still_opens_a_variation",
+          "fullName": "tests/test_parse.py::TestTheWeightOfTheType::test_analysis_agreeing_with_the_line_still_opens_a_variation",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_move_in_the_analysis_weight_never_stands_on_the_game",
+          "fullName": "tests/test_parse.py::TestTheWeightOfTheType::test_a_move_in_the_analysis_weight_never_stands_on_the_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_arithmetic_reads_the_same_line_as_the_continuation",
+          "fullName": "tests/test_parse.py::TestTheWeightOfTheType::test_the_arithmetic_reads_the_same_line_as_the_continuation",
+          "state": "passed"
+        },
+        {
+          "name": "test_analysis_of_several_moves_is_not_restarted_at_each_number",
+          "fullName": "tests/test_parse.py::TestTheWeightOfTheType::test_analysis_of_several_moves_is_not_restarted_at_each_number",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_score_resuming_ends_the_analysis_before_a_new_game_opens",
+          "fullName": "tests/test_parse.py::TestTheWeightOfTheType::test_the_score_resuming_ends_the_analysis_before_a_new_game_opens",
+          "state": "passed"
+        },
+        {
+          "name": "test_brackets_still_win",
+          "fullName": "tests/test_parse.py::TestTheWeightOfTheType::test_brackets_still_win",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_sub_variation_branches_from_the_analysis_and_the_analysis_resumes",
+          "fullName": "tests/test_parse.py::TestAnalysisInsideAnalysis::test_a_sub_variation_branches_from_the_analysis_and_the_analysis_resumes",
+          "state": "passed"
+        },
+        {
+          "name": "test_of_two_lines_awaiting_a_move_the_one_the_score_carries_is_taken",
+          "fullName": "tests/test_parse.py::TestAnalysisInsideAnalysis::test_of_two_lines_awaiting_a_move_the_one_the_score_carries_is_taken",
+          "state": "passed"
+        },
+        {
+          "name": "test_after_prose_a_number_both_await_goes_back_to_the_game",
+          "fullName": "tests/test_parse.py::TestAnalysisInsideAnalysis::test_after_prose_a_number_both_await_goes_back_to_the_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_prose_that_does_not_end_a_sentence_does_not_end_the_aside",
+          "fullName": "tests/test_parse.py::TestAnalysisInsideAnalysis::test_prose_that_does_not_end_a_sentence_does_not_end_the_aside",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_reply_to_an_alternative_at_its_own_number_carries_it_on",
+          "fullName": "tests/test_parse.py::TestAnalysisInsideAnalysis::test_the_reply_to_an_alternative_at_its_own_number_carries_it_on",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_moves_are_tried_on_past_the_prose_that_interrupts_them",
+          "fullName": "tests/test_parse.py::TestAnalysisInsideAnalysis::test_the_moves_are_tried_on_past_the_prose_that_interrupts_them",
+          "state": "passed"
+        },
+        {
+          "name": "test_and_past_the_board_printed_between_them",
+          "fullName": "tests/test_parse.py::TestAnalysisInsideAnalysis::test_and_past_the_board_printed_between_them",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_the_book_skipped_does_not_send_the_line_to_the_game",
+          "fullName": "tests/test_parse.py::TestAnalysisInsideAnalysis::test_a_number_the_book_skipped_does_not_send_the_line_to_the_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_black_triangle_beats_the_number_the_prose_cites",
+          "fullName": "tests/test_parse.py::TestTheSideToMovePrintedBesideTheBoard::test_a_black_triangle_beats_the_number_the_prose_cites",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_triangle_is_believed_over_a_citation_the_other_side_can_play",
+          "fullName": "tests/test_parse.py::TestTheSideToMovePrintedBesideTheBoard::test_the_triangle_is_believed_over_a_citation_the_other_side_can_play",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_citing_the_last_move_counts_the_move_after_it",
+          "fullName": "tests/test_parse.py::TestTheSideToMovePrintedBesideTheBoard::test_a_number_citing_the_last_move_counts_the_move_after_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_digits_come_off_where_the_game_is_waiting",
+          "fullName": "tests/test_parse.py::TestANumberAScanWeldedALostMoveOnto::test_the_digits_come_off_where_the_game_is_waiting",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_helper_takes_the_digits_the_count_names",
+          "fullName": "tests/test_parse.py::TestANumberAScanWeldedALostMoveOnto::test_the_helper_takes_the_digits_the_count_names",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_page_number_in_the_score_is_left_alone",
+          "fullName": "tests/test_parse.py::TestANumberAScanWeldedALostMoveOnto::test_a_page_number_in_the_score_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_number_that_resumes_the_score_takes_the_aside_back",
+          "fullName": "tests/test_parse.py::TestAMarkTheInkMissed::test_the_number_that_resumes_the_score_takes_the_aside_back",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_citation_of_analysis_still_to_come_is_not_taken_back",
+          "fullName": "tests/test_parse.py::TestAMarkTheInkMissed::test_a_citation_of_analysis_still_to_come_is_not_taken_back",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_analysis_the_weight_diverts_is_still_diverted",
+          "fullName": "tests/test_parse.py::TestAMarkTheInkMissed::test_the_analysis_the_weight_diverts_is_still_diverted",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_aside_whose_number_stood_nearest_the_game_is_the_one_taken",
+          "fullName": "tests/test_parse.py::TestAMarkTheInkMissed::test_the_aside_whose_number_stood_nearest_the_game_is_the_one_taken",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_aside_taken_back_carries_its_positions_to_the_diagrams",
+          "fullName": "tests/test_parse.py::TestAMarkTheInkMissed::test_an_aside_taken_back_carries_its_positions_to_the_diagrams",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_second_alternative_branches_where_the_first_did",
+          "fullName": "tests/test_parse.py::TestTwoAlternativeVariationsAtOneNumber::test_the_second_alternative_branches_where_the_first_did",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_move_legal_where_it_stands_is_left_alone",
+          "fullName": "tests/test_parse.py::TestTwoAlternativeVariationsAtOneNumber::test_a_move_legal_where_it_stands_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_line_after_the_result_is_the_game_that_just_ended",
+          "fullName": "tests/test_parse.py::TestTheGameGoesOnPastItsResult::test_the_line_after_the_result_is_the_game_that_just_ended",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_that_starts_over_starts_a_game",
+          "fullName": "tests/test_parse.py::TestTheGameGoesOnPastItsResult::test_a_number_that_starts_over_starts_a_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_neither_continuing_nor_starting_still_opens_nothing_known",
+          "fullName": "tests/test_parse.py::TestTheGameGoesOnPastItsResult::test_a_number_neither_continuing_nor_starting_still_opens_nothing_known",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_game_takes_the_number_back",
+          "fullName": "tests/test_parse.py::TestAnAsideThatCaughtTheGameUp::test_the_game_takes_the_number_back",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_citation_is_still_beside_the_game",
+          "fullName": "tests/test_parse.py::TestAnAsideThatCaughtTheGameUp::test_the_citation_is_still_beside_the_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_citation_does_not_take_the_score",
+          "fullName": "tests/test_parse.py::TestAnAsideThatLostItsFirstMove::test_the_citation_does_not_take_the_score",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_citation_stays_beside_the_game",
+          "fullName": "tests/test_parse.py::TestAnAsideThatLostItsFirstMove::test_the_citation_stays_beside_the_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_board_names_the_file_when_only_one_move_fits",
+          "fullName": "tests/test_parse.py::TestAFileTheScannerReadAsADigit::test_the_board_names_the_file_when_only_one_move_fits",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_readings_are_left_for_the_reader",
+          "fullName": "tests/test_parse.py::TestAFileTheScannerReadAsADigit::test_two_readings_are_left_for_the_reader",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_check_mark_the_page_printed_has_to_hold",
+          "fullName": "tests/test_parse.py::TestAFileTheScannerReadAsADigit::test_the_check_mark_the_page_printed_has_to_hold",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_file_that_left_no_character_is_read_the_same_way",
+          "fullName": "tests/test_parse.py::TestAFileTheScannerReadAsADigit::test_a_file_that_left_no_character_is_read_the_same_way",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_move_is_put_back_from_the_line_after_the_prose",
+          "fullName": "tests/test_parse.py::TestALostMoveTheProseSeparatesFromItsLine::test_the_move_is_put_back_from_the_line_after_the_prose",
+          "state": "passed"
+        },
+        {
+          "name": "test_nothing_is_put_back_where_the_number_is_not_the_next_ply",
+          "fullName": "tests/test_parse.py::TestALostMoveTheProseSeparatesFromItsLine::test_nothing_is_put_back_where_the_number_is_not_the_next_ply",
+          "state": "passed"
+        },
+        {
+          "name": "test_it_is_the_look_alike_it_is",
+          "fullName": "tests/test_parse.py::TestAFiveReadAsASmallS::test_it_is_the_look_alike_it_is",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_second_is_played_where_the_first_began",
+          "fullName": "tests/test_parse.py::TestTwoAlternativesInOneBracket::test_the_second_is_played_where_the_first_began",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_line_names_the_square",
+          "fullName": "tests/test_parse.py::TestAPieceWhoseSquareWasLost::test_the_line_names_the_square",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_move_the_line_only_finds_ambiguous_is_not_ruled_out",
+          "fullName": "tests/test_parse.py::TestAPieceWhoseSquareWasLost::test_a_move_the_line_only_finds_ambiguous_is_not_ruled_out",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_line_is_followed_until_it_tells_the_knights_apart",
+          "fullName": "tests/test_parse.py::TestAPieceWhoseSquareWasLost::test_the_line_is_followed_until_it_tells_the_knights_apart",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_moves_before_the_positions_meet_are_left_to_check",
+          "fullName": "tests/test_parse.py::TestALostMoveTwoMovesExplainAlike::test_the_moves_before_the_positions_meet_are_left_to_check",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_pictures.py",
+      "tests": [
+        {
+          "name": "test_a_piece_reads_the_same_on_a_light_and_on_a_dark_square",
+          "fullName": "tests/test_pictures.py::test_a_piece_reads_the_same_on_a_light_and_on_a_dark_square",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_dithered_dark_square_is_not_a_body",
+          "fullName": "tests/test_pictures.py::test_a_dithered_dark_square_is_not_a_body",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_empty_squares_of_a_dithered_board_are_one_character",
+          "fullName": "tests/test_pictures.py::test_the_empty_squares_of_a_dithered_board_are_one_character",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_empty_square_is_the_same_character_whatever_its_colour",
+          "fullName": "tests/test_pictures.py::test_an_empty_square_is_the_same_character_whatever_its_colour",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_different_pieces_are_two_characters",
+          "fullName": "tests/test_pictures.py::test_two_different_pieces_are_two_characters",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_filled_piece_and_an_outlined_one_are_two_characters",
+          "fullName": "tests/test_pictures.py::test_a_filled_piece_and_an_outlined_one_are_two_characters",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_plain_scaling_leaves_the_picture_alone",
+          "fullName": "tests/test_pictures.py::TestAsPlaced::test_a_plain_scaling_leaves_the_picture_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_negative_height_turns_the_ranks_back_over",
+          "fullName": "tests/test_pictures.py::TestAsPlaced::test_a_negative_height_turns_the_ranks_back_over",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_negative_width_turns_the_files_back_over",
+          "fullName": "tests/test_pictures.py::TestAsPlaced::test_a_negative_width_turns_the_files_back_over",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_picture_set_at_an_angle_is_left_as_it_is",
+          "fullName": "tests/test_pictures.py::TestAsPlaced::test_a_picture_set_at_an_angle_is_left_as_it_is",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_frame_is_peeled_and_a_speck_above_it_ignored",
+          "fullName": "tests/test_pictures.py::test_the_frame_is_peeled_and_a_speck_above_it_ignored",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_picture_that_is_not_a_board_is_not_read",
+          "fullName": "tests/test_pictures.py::test_a_picture_that_is_not_a_board_is_not_read",
+          "state": "passed"
+        },
+        {
+          "name": "test_one_board_teaches_the_others",
+          "fullName": "tests/test_pictures.py::test_one_board_teaches_the_others",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_board_is_met_where_it_was_printed",
+          "fullName": "tests/test_pictures.py::test_a_board_is_met_where_it_was_printed",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_offset_never_lands_inside_a_word",
+          "fullName": "tests/test_pictures.py::test_the_offset_never_lands_inside_a_word",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_clustering_is_held_to_the_thirteen_things_a_board_can_carry",
+          "fullName": "tests/test_pictures.py::test_the_clustering_is_held_to_the_thirteen_things_a_board_can_carry",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_board_inside_a_scan_is_found_by_its_frame",
+          "fullName": "tests/test_pictures.py::test_a_board_inside_a_scan_is_found_by_its_frame",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_tilted_scan_is_still_found",
+          "fullName": "tests/test_pictures.py::test_a_tilted_scan_is_still_found",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_scan_tilted_further_than_the_smear_is_still_found",
+          "fullName": "tests/test_pictures.py::test_a_scan_tilted_further_than_the_smear_is_still_found",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_rule_reaches_as_far_as_its_rows_reach_between_them",
+          "fullName": "tests/test_pictures.py::test_a_rule_reaches_as_far_as_its_rows_reach_between_them",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_second_rule_on_the_same_rows_stays_its_own",
+          "fullName": "tests/test_pictures.py::test_a_second_rule_on_the_same_rows_stays_its_own",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_page_already_read_is_not_read_again",
+          "fullName": "tests/test_pictures.py::test_a_page_already_read_is_not_read_again",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_two_colours_of_a_piece_are_paired_by_their_silhouette",
+          "fullName": "tests/test_pictures.py::test_the_two_colours_of_a_piece_are_paired_by_their_silhouette",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_pipeline.py",
+      "tests": [
+        {
+          "name": "test_the_table_the_book_reads_best_is_the_one_taken",
+          "fullName": "tests/test_pipeline.py::test_the_table_the_book_reads_best_is_the_one_taken",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_table_that_leaves_the_book_worse_is_refused",
+          "fullName": "tests/test_pipeline.py::test_a_table_that_leaves_the_book_worse_is_refused",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_learned_table_is_asked_only_not_to_break_the_book",
+          "fullName": "tests/test_pipeline.py::test_a_learned_table_is_asked_only_not_to_break_the_book",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_learned_table_many_boards_confirm_is_kept_on_a_near_tie",
+          "fullName": "tests/test_pipeline.py::test_a_learned_table_many_boards_confirm_is_kept_on_a_near_tie",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_learned_table_that_breaks_the_book_is_refused",
+          "fullName": "tests/test_pipeline.py::test_a_learned_table_that_breaks_the_book_is_refused",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_table_is_weighed_at_the_weight_the_book_would_ship_it_in",
+          "fullName": "tests/test_pipeline.py::test_a_table_is_weighed_at_the_weight_the_book_would_ship_it_in",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_right_table_still_wins_when_the_weight_is_in_doubt",
+          "fullName": "tests/test_pipeline.py::test_the_right_table_still_wins_when_the_weight_is_in_doubt",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_scan.py",
+      "tests": [
+        {
+          "name": "test_joins_pieces_of_one_printed_line",
+          "fullName": "tests/test_scan.py::TestFragments::test_joins_pieces_of_one_printed_line",
+          "state": "passed"
+        },
+        {
+          "name": "test_keeps_separate_lines_apart",
+          "fullName": "tests/test_scan.py::TestFragments::test_keeps_separate_lines_apart",
+          "state": "passed"
+        },
+        {
+          "name": "test_reads_a_line_left_to_right_whatever_the_order_of_the_boxes",
+          "fullName": "tests/test_scan.py::TestFragments::test_reads_a_line_left_to_right_whatever_the_order_of_the_boxes",
+          "state": "passed"
+        },
+        {
+          "name": "test_orders_lines_down_the_page",
+          "fullName": "tests/test_scan.py::TestFragments::test_orders_lines_down_the_page",
+          "state": "passed"
+        },
+        {
+          "name": "test_never_joins_a_line_to_the_column_beside_it[True]",
+          "fullName": "tests/test_scan.py::TestColumns::test_never_joins_a_line_to_the_column_beside_it[True]",
+          "state": "passed"
+        },
+        {
+          "name": "test_never_joins_a_line_to_the_column_beside_it[False]",
+          "fullName": "tests/test_scan.py::TestColumns::test_never_joins_a_line_to_the_column_beside_it[False]",
+          "state": "passed"
+        },
+        {
+          "name": "test_reads_one_column_before_the_next",
+          "fullName": "tests/test_scan.py::TestColumns::test_reads_one_column_before_the_next",
+          "state": "passed"
+        },
+        {
+          "name": "test_finds_the_gutter",
+          "fullName": "tests/test_scan.py::TestColumns::test_finds_the_gutter",
+          "state": "passed"
+        },
+        {
+          "name": "test_reports_no_column_on_a_page_of_full_width_lines",
+          "fullName": "tests/test_scan.py::TestColumns::test_reports_no_column_on_a_page_of_full_width_lines",
+          "state": "passed"
+        },
+        {
+          "name": "test_leaves_a_running_head_out_of_both_columns",
+          "fullName": "tests/test_scan.py::TestColumns::test_leaves_a_running_head_out_of_both_columns",
+          "state": "passed"
+        },
+        {
+          "name": "test_gives_the_overlap_to_the_line_above",
+          "fullName": "tests/test_scan.py::TestOverlappingBoxes::test_gives_the_overlap_to_the_line_above",
+          "state": "passed"
+        },
+        {
+          "name": "test_leaves_lines_that_do_not_overlap_alone",
+          "fullName": "tests/test_scan.py::TestOverlappingBoxes::test_leaves_lines_that_do_not_overlap_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_drops_a_row_of_a_chessboard",
+          "fullName": "tests/test_scan.py::TestDiagramDebris::test_drops_a_row_of_a_chessboard",
+          "state": "passed"
+        },
+        {
+          "name": "test_drops_bleed_through_from_the_facing_page",
+          "fullName": "tests/test_scan.py::TestDiagramDebris::test_drops_bleed_through_from_the_facing_page",
+          "state": "passed"
+        },
+        {
+          "name": "test_selects_a_line_carrying_a_move_number",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_selects_a_line_carrying_a_move_number",
+          "state": "passed"
+        },
+        {
+          "name": "test_ignores_a_square_named_in_prose",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_ignores_a_square_named_in_prose",
+          "state": "passed"
+        },
+        {
+          "name": "test_selects_a_line_whose_numbers_carry_no_dot",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_selects_a_line_whose_numbers_carry_no_dot",
+          "state": "passed"
+        },
+        {
+          "name": "test_selects_a_line_opening_on_a_castling",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_selects_a_line_opening_on_a_castling",
+          "state": "passed"
+        },
+        {
+          "name": "test_selects_a_line_whose_symbol_broke_between_number_and_square",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_selects_a_line_whose_symbol_broke_between_number_and_square",
+          "state": "passed"
+        },
+        {
+          "name": "test_ignores_prose_that_counts_things",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_ignores_prose_that_counts_things",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_bare_number_needs_a_move_behind_it",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_a_bare_number_needs_a_move_behind_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_takes_the_line_below_along",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_takes_the_line_below_along",
+          "state": "passed"
+        },
+        {
+          "name": "test_does_not_take_the_line_below_across_a_column",
+          "fullName": "tests/test_scan.py::TestNotationLines::test_does_not_take_the_line_below_across_a_column",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_tokenize.py",
+      "tests": [
+        {
+          "name": "test_an_angle_is_part_of_a_broken_king",
+          "fullName": "tests/test_tokenize.py::TestTheWreckOfASymbol::test_an_angle_is_part_of_a_broken_king",
+          "state": "passed"
+        },
+        {
+          "name": "test_it_gives_the_move_number_back_its_dot",
+          "fullName": "tests/test_tokenize.py::TestTheWreckOfASymbol::test_it_gives_the_move_number_back_its_dot",
+          "state": "passed"
+        },
+        {
+          "name": "test_nothing_is_left_of_a_wreck_that_was_only_the_number",
+          "fullName": "tests/test_tokenize.py::TestTheWreckOfASymbol::test_nothing_is_left_of_a_wreck_that_was_only_the_number",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_number_a_wreck_hid_still_announces_the_move",
+          "fullName": "tests/test_tokenize.py::TestTheWreckOfASymbol::test_the_number_a_wreck_hid_still_announces_the_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_space_between_the_number_and_the_wreck_changes_nothing",
+          "fullName": "tests/test_tokenize.py::TestTheWreckOfASymbol::test_a_space_between_the_number_and_the_wreck_changes_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_letter_the_book_spells_survives_the_take_back",
+          "fullName": "tests/test_tokenize.py::TestAWreckAMoveNumberRunsInto::test_a_letter_the_book_spells_survives_the_take_back",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_run_the_book_never_spelled_is_no_wreck",
+          "fullName": "tests/test_tokenize.py::TestAWreckAMoveNumberRunsInto::test_a_run_the_book_never_spelled_is_no_wreck",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_piece_after_the_square_is_the_promotion",
+          "fullName": "tests/test_tokenize.py::TestPromotion::test_the_piece_after_the_square_is_the_promotion",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_moves_run_together_are_not_a_promotion",
+          "fullName": "tests/test_tokenize.py::TestPromotion::test_two_moves_run_together_are_not_a_promotion",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_equals_sign_form_still_reads",
+          "fullName": "tests/test_tokenize.py::TestPromotion::test_the_equals_sign_form_still_reads",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_spelling_names_the_piece",
+          "fullName": "tests/test_tokenize.py::TestTheBooksOwnSpelling::test_the_spelling_names_the_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_spelling_the_book_never_taught_names_nothing",
+          "fullName": "tests/test_tokenize.py::TestTheBooksOwnSpelling::test_a_spelling_the_book_never_taught_names_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_longest_ending_the_book_taught_is_the_one_read",
+          "fullName": "tests/test_tokenize.py::TestTheBooksOwnSpelling::test_the_longest_ending_the_book_taught_is_the_one_read",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_welded_to_its_move_is_a_number",
+          "fullName": "tests/test_tokenize.py::TestANumberTheScannerSpelled::test_a_number_welded_to_its_move_is_a_number",
+          "state": "passed"
+        },
+        {
+          "name": "test_it_is_a_move_with_its_square_lost",
+          "fullName": "tests/test_tokenize.py::TestAPieceWhoseSquareTheScannerLost::test_it_is_a_move_with_its_square_lost",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_capture_is_one_move",
+          "fullName": "tests/test_tokenize.py::TestACaptureSetWithSpaces::test_the_capture_is_one_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_line_may_break_behind_the_sign",
+          "fullName": "tests/test_tokenize.py::TestACaptureSetWithSpaces::test_a_line_may_break_behind_the_sign",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_five_read_as_a_small_s_behind_the_sign",
+          "fullName": "tests/test_tokenize.py::TestACaptureSetWithSpaces::test_a_five_read_as_a_small_s_behind_the_sign",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_dots_announce_a_black_move",
+          "fullName": "tests/test_tokenize.py::TestANumberThatLostADot::test_two_dots_announce_a_black_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_side_it_names_is_black",
+          "fullName": "tests/test_tokenize.py::TestANumberThatLostADot::test_the_side_it_names_is_black",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_second_dot_may_not_stand_off",
+          "fullName": "tests/test_tokenize.py::TestANumberThatLostADot::test_the_second_dot_may_not_stand_off",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_rank_is_the_wreck_of_the_piece",
+          "fullName": "tests/test_tokenize.py::TestARankNoMoveCanCarry::test_the_rank_is_the_wreck_of_the_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_number_that_announced_it_keeps_its_own_digits",
+          "fullName": "tests/test_tokenize.py::TestARankNoMoveCanCarry::test_the_number_that_announced_it_keeps_its_own_digits",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_board_names_the_piece",
+          "fullName": "tests/test_tokenize.py::TestARankNoMoveCanCarry::test_the_board_names_the_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_move_that_names_its_piece_keeps_its_rank",
+          "fullName": "tests/test_tokenize.py::TestARankNoMoveCanCarry::test_a_move_that_names_its_piece_keeps_its_rank",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_letter_the_book_spells_is_a_wreck",
+          "fullName": "tests/test_tokenize.py::TestASpellingWithNoMarkInIt::test_a_letter_the_book_spells_is_a_wreck",
+          "state": "passed"
+        },
+        {
+          "name": "test_without_the_spelling_the_move_is_not_read_at_all",
+          "fullName": "tests/test_tokenize.py::TestASpellingWithNoMarkInIt::test_without_the_spelling_the_move_is_not_read_at_all",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_word_may_not_stand_in_front_of_the_ink",
+          "fullName": "tests/test_tokenize.py::TestASpellingWithNoMarkInIt::test_a_word_may_not_stand_in_front_of_the_ink",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_spelling_of_nothing_but_dots_is_refused",
+          "fullName": "tests/test_tokenize.py::TestASpellingWithNoMarkInIt::test_a_spelling_of_nothing_but_dots_is_refused",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_rank_read_as_a_letter_still_becomes_a_move",
+          "fullName": "tests/test_tokenize.py::TestALetterWhereARankBelongs::test_a_rank_read_as_a_letter_still_becomes_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_position_is_what_reads_it",
+          "fullName": "tests/test_tokenize.py::TestALetterWhereARankBelongs::test_the_position_is_what_reads_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_first_rank_is_a_letter_too",
+          "fullName": "tests/test_tokenize.py::TestALetterWhereARankBelongs::test_the_first_rank_is_a_letter_too",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_elided_article_is_not_a_move",
+          "fullName": "tests/test_tokenize.py::TestALetterWhereARankBelongs::test_an_elided_article_is_not_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_letter_the_book_uses_for_a_piece_is_not_a_rank",
+          "fullName": "tests/test_tokenize.py::TestALetterWhereARankBelongs::test_a_letter_the_book_uses_for_a_piece_is_not_a_rank",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_destination_is_the_move",
+          "fullName": "tests/test_tokenize.py::TestTheMoveWrittenFromSquareToSquare::test_the_destination_is_the_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_piece_carries_over",
+          "fullName": "tests/test_tokenize.py::TestTheMoveWrittenFromSquareToSquare::test_the_piece_carries_over",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_reader_taps_the_whole_journey",
+          "fullName": "tests/test_tokenize.py::TestTheMoveWrittenFromSquareToSquare::test_the_reader_taps_the_whole_journey",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_move_keeps_the_stump_of_the_symbol_it_names",
+          "fullName": "tests/test_tokenize.py::TestTheStumpOfARestoredSymbol::test_a_move_keeps_the_stump_of_the_symbol_it_names",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_tap_zone_covers_the_stump_as_well",
+          "fullName": "tests/test_tokenize.py::TestTheStumpOfARestoredSymbol::test_the_tap_zone_covers_the_stump_as_well",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_stump_names_no_second_piece",
+          "fullName": "tests/test_tokenize.py::TestTheStumpOfARestoredSymbol::test_a_stump_names_no_second_piece",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_space_between_the_file_and_the_rank",
+          "fullName": "tests/test_tokenize.py::TestASquareBrokenInTwo::test_a_space_between_the_file_and_the_rank",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_preposition_before_a_number_is_not_a_square",
+          "fullName": "tests/test_tokenize.py::TestASquareBrokenInTwo::test_a_preposition_before_a_number_is_not_a_square",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_word_carried_over_from_the_line_above_swallows_nothing",
+          "fullName": "tests/test_tokenize.py::TestASquareBrokenInTwo::test_a_word_carried_over_from_the_line_above_swallows_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_tail_of_a_word_does_not_swallow_the_number",
+          "fullName": "tests/test_tokenize.py::TestASquareBrokenInTwo::test_the_tail_of_a_word_does_not_swallow_the_number",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_dot_is_not_required_to_announce_a_move",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_a_dot_is_not_required_to_announce_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_opening_score_with_no_dots_starts_a_game",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_an_opening_score_with_no_dots_starts_a_game",
+          "state": "passed"
+        },
+        {
+          "name": "test_figures_in_prose_are_not_move_numbers",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_figures_in_prose_are_not_move_numbers",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_bare_number_announces_a_move_whose_rank_is_a_letter",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_a_bare_number_announces_a_move_whose_rank_is_a_letter",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_word_after_a_figure_does_not_announce_a_move",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_a_word_after_a_figure_does_not_announce_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_dotted_forms_still_work",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_the_dotted_forms_still_work",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_the_font_broke_in_two_is_read_whole",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_a_number_the_font_broke_in_two_is_read_whole",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_run_into_its_own_move_still_announces_it",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_a_number_run_into_its_own_move_still_announces_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_move_growing_out_of_a_word_is_still_not_one",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_a_move_growing_out_of_a_word_is_still_not_one",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_does_not_reach_into_the_word_before_it",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_a_number_does_not_reach_into_the_word_before_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_does_not_swallow_the_digit_below_it",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_a_number_does_not_swallow_the_digit_below_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_ellipsis_printed_as_bullets_still_announces_black",
+          "fullName": "tests/test_tokenize.py::TestMoveNumbers::test_an_ellipsis_printed_as_bullets_still_announces_black",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_bulleted_ellipsis_keeps_the_line_on_the_right_side",
+          "fullName": "tests/test_tokenize.py::TestBrokenTypography::test_a_bulleted_ellipsis_keeps_the_line_on_the_right_side",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_move_inside_a_broken_symbol_is_marked_not_dropped",
+          "fullName": "tests/test_tokenize.py::TestBrokenTypography::test_a_move_inside_a_broken_symbol_is_marked_not_dropped",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_word_run_into_an_ellipsis_is_not_a_broken_symbol",
+          "fullName": "tests/test_tokenize.py::TestBrokenTypography::test_a_word_run_into_an_ellipsis_is_not_a_broken_symbol",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_tap_zone_covers_the_symbol_and_not_only_the_square",
+          "fullName": "tests/test_tokenize.py::TestBrokenTypography::test_the_tap_zone_covers_the_symbol_and_not_only_the_square",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_dot_still_opens_a_move",
+          "fullName": "tests/test_tokenize.py::TestBrokenTypography::test_a_dot_still_opens_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_black_triangle_at_the_board_s_corner_is_black_to_move",
+          "fullName": "tests/test_tokenize.py::TestTheSideToMoveBesideTheBoard::test_a_black_triangle_at_the_board_s_corner_is_black_to_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_drawn_board_between_the_number_and_its_move",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_a_drawn_board_between_the_number_and_its_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_figure_ending_prose_anywhere_else_is_a_figure",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_a_figure_ending_prose_anywhere_else_is_a_figure",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_figure_before_a_board_with_no_move_after_it_is_a_figure",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_a_figure_before_a_board_with_no_move_after_it_is_a_figure",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_number_printed_as_letters",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_the_number_printed_as_letters",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_word_ending_in_l_is_not_a_number",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_a_word_ending_in_l_is_not_a_number",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_letters_and_the_digits_mix",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_the_letters_and_the_digits_mix",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_number_split_by_a_subset_font",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_the_number_split_by_a_subset_font",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_figure_in_front_of_an_ellipsis_is_left_alone",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_a_figure_in_front_of_an_ellipsis_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_letters_that_read_as_no_move_number_are_letters",
+          "fullName": "tests/test_tokenize.py::TestANumberSeparatedFromItsMove::test_letters_that_read_as_no_move_number_are_letters",
+          "state": "passed"
+        },
+        {
+          "name": "test_both_moves_are_read",
+          "fullName": "tests/test_tokenize.py::TestTwoMovesRunTogether::test_both_moves_are_read",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_number_welded_in_front_still_stands_on_its_own",
+          "fullName": "tests/test_tokenize.py::TestTwoMovesRunTogether::test_the_number_welded_in_front_still_stands_on_its_own",
+          "state": "passed"
+        },
+        {
+          "name": "test_only_a_move_may_run_into_a_move",
+          "fullName": "tests/test_tokenize.py::TestTwoMovesRunTogether::test_only_a_move_may_run_into_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_an_open_nothing_closes_is_dropped",
+          "fullName": "tests/test_tokenize.py::TestABracketNothingCloses::test_an_open_nothing_closes_is_dropped",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_bracket_the_book_closed_is_kept",
+          "fullName": "tests/test_tokenize.py::TestABracketNothingCloses::test_a_bracket_the_book_closed_is_kept",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_game_is_as_far_as_a_bracket_reaches",
+          "fullName": "tests/test_tokenize.py::TestABracketNothingCloses::test_a_game_is_as_far_as_a_bracket_reaches",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_lettered_label_closes_nothing",
+          "fullName": "tests/test_tokenize.py::TestALabelIsNotACloseBracket::test_a_lettered_label_closes_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_capital_label_closes_nothing",
+          "fullName": "tests/test_tokenize.py::TestALabelIsNotACloseBracket::test_a_capital_label_closes_nothing",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_variation_ending_in_a_move_still_closes",
+          "fullName": "tests/test_tokenize.py::TestALabelIsNotACloseBracket::test_a_variation_ending_in_a_move_still_closes",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_piece_and_two_digits_are_a_move",
+          "fullName": "tests/test_tokenize.py::TestAFileTheScannerReadAsADigit::test_the_piece_and_two_digits_are_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_digit_running_on_into_the_next_number_is_left_alone",
+          "fullName": "tests/test_tokenize.py::TestAFileTheScannerReadAsADigit::test_a_digit_running_on_into_the_next_number_is_left_alone",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_move_carries_the_box_of_what_was_printed",
+          "fullName": "tests/test_tokenize.py::TestAFileTheScannerReadAsADigit::test_the_move_carries_the_box_of_what_was_printed",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_piece_and_a_rank_a_number_announced_are_a_move",
+          "fullName": "tests/test_tokenize.py::TestAFileThatLeftNoCharacter::test_a_piece_and_a_rank_a_number_announced_are_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_same_shape_in_prose_is_not_a_move",
+          "fullName": "tests/test_tokenize.py::TestAFileThatLeftNoCharacter::test_the_same_shape_in_prose_is_not_a_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_check_mark_stays_on_the_move",
+          "fullName": "tests/test_tokenize.py::TestAFileThatLeftNoCharacter::test_the_check_mark_stays_on_the_move",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_digits_are_kept_on_the_number",
+          "fullName": "tests/test_tokenize.py::TestTheMoveANumberAnnouncedAndTheScanDestroyed::test_the_digits_are_kept_on_the_number",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_paragraph_the_digits_open_keeps_everything_but_them",
+          "fullName": "tests/test_tokenize.py::TestTheMoveANumberAnnouncedAndTheScanDestroyed::test_the_paragraph_the_digits_open_keeps_everything_but_them",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_number_printed_hard_against_another_one_goes_with_it",
+          "fullName": "tests/test_tokenize.py::TestTheMoveANumberAnnouncedAndTheScanDestroyed::test_a_number_printed_hard_against_another_one_goes_with_it",
+          "state": "passed"
+        },
+        {
+          "name": "test_nothing_is_kept_where_a_move_does_follow",
+          "fullName": "tests/test_tokenize.py::TestTheMoveANumberAnnouncedAndTheScanDestroyed::test_nothing_is_kept_where_a_move_does_follow",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_figure_a_space_away_is_not_the_wreck_of_this_move",
+          "fullName": "tests/test_tokenize.py::TestTheMoveANumberAnnouncedAndTheScanDestroyed::test_a_figure_a_space_away_is_not_the_wreck_of_this_move",
+          "state": "passed"
+        }
+      ]
+    },
+    {
+      "moduleId": "tests/test_weight.py",
+      "tests": [
+        {
+          "name": "test_a_pixel_survives_only_with_all_eight_neighbours",
+          "fullName": "tests/test_weight.py::TestErosion::test_a_pixel_survives_only_with_all_eight_neighbours",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_hairline_disappears",
+          "fullName": "tests/test_weight.py::TestErosion::test_a_hairline_disappears",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_stem_keeps_its_core",
+          "fullName": "tests/test_weight.py::TestErosion::test_a_stem_keeps_its_core",
+          "state": "passed"
+        },
+        {
+          "name": "test_the_page_beyond_the_box_is_not_ink",
+          "fullName": "tests/test_weight.py::TestErosion::test_the_page_beyond_the_box_is_not_ink",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_weights_are_separated",
+          "fullName": "tests/test_weight.py::TestSplit::test_two_weights_are_separated",
+          "state": "passed"
+        },
+        {
+          "name": "test_one_weight_throughout_is_refused",
+          "fullName": "tests/test_weight.py::TestSplit::test_one_weight_throughout_is_refused",
+          "state": "passed"
+        },
+        {
+          "name": "test_two_groups_that_touch_are_refused",
+          "fullName": "tests/test_weight.py::TestSplit::test_two_groups_that_touch_are_refused",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_tail_of_bad_boxes_does_not_hide_two_weights",
+          "fullName": "tests/test_weight.py::TestSplit::test_a_tail_of_bad_boxes_does_not_hide_two_weights",
+          "state": "passed"
+        },
+        {
+          "name": "test_a_weight_that_erodes_away_entirely_is_the_cleanest_split",
+          "fullName": "tests/test_weight.py::TestSplit::test_a_weight_that_erodes_away_entirely_is_the_cleanest_split",
+          "state": "passed"
+        },
+        {
+          "name": "test_no_ink_anywhere_is_refused",
+          "fullName": "tests/test_weight.py::TestSplit::test_no_ink_anywhere_is_refused",
+          "state": "passed"
+        }
+      ]
+    }
+  ]
+}

@@ -431,6 +431,10 @@ class _Level:
     #: brings its positions with it and the diagrams can still be read against
     #: the line.
     line: list[str] = field(default_factory=list)
+    #: The game and the game's move this analysis was opened on. Analysis
+    #: opened on the same move of the game is one piece of commentary, and a
+    #: number can go back into any line of it — see `_place_by_weight`.
+    game_at: tuple[str, str | None] | None = None
 
 
 #: The last word of a comment, when the comment really ends in one: letters
@@ -530,6 +534,31 @@ def _plays(fen: str, text: str) -> bool:
     return True
 
 
+def _prose_before(tokens: Sequence[Token], at: int) -> bool:
+    """Whether a finished sentence stands between the token at `at` and the move before it.
+
+    Only a sentence the book ended: "because after 20.♖xf5?" (Markos page 82)
+    runs on into the move it names, "…the e2-square. 39.♖d1?" (page 61) does not.
+    """
+    for token in reversed(tokens[:at]):
+        if token.kind == "move":
+            return False
+        if token.kind == "text" and token.raw.strip():
+            return token.raw.rstrip()[-1] in ".!?"
+    return False
+
+
+def _plies_played(board: chess.Board, line: Sequence[Token]) -> int:
+    """How many of these moves play one after the other from this position."""
+    board = board.copy(stack=False)
+    for played, token in enumerate(line):
+        try:
+            board.push_san(_TRAILING_ANNOTATION.sub("", token.text.strip()))
+        except ValueError:
+            return played
+    return len(line)
+
+
 def _the_line_after(tokens: Sequence[Token], at: int, most: int = 6) -> list[Token]:
     """The run of moves printed after this point, as far as the score runs.
 
@@ -561,7 +590,9 @@ _SQUARE_LOOKAHEAD = 20
 _PROSE_CROSSED = 8
 
 
-def _the_score_after(tokens: Sequence[Token], at: int, ply: int, most: int = 6) -> list[Token]:
+def _the_score_after(
+    tokens: Sequence[Token], at: int, ply: int, most: int = 6, through_boards: bool = False
+) -> list[Token]:
     """The moves the book prints after ply `ply`, across its comments on them.
 
     "16.e6 Le pion e6 assure la protection… 16...♗f6 17.♘e5! Les Blancs sont
@@ -583,7 +614,10 @@ def _the_score_after(tokens: Sequence[Token], at: int, ply: int, most: int = 6) 
             if _ply_of(number, token.text.count(".") > 1) != ply + 1 + len(out):
                 break
             prose_from = None
-        elif token.kind == "text":
+        elif token.kind == "text" or (through_boards and token.kind == "diagram"):
+            # A board interrupts the score as a paragraph does — where the
+            # caller asks: Markos page 98 prints one between `17...e5?` and
+            # the `18.♖xh7` that tells the two lines it may continue apart.
             if prose_from is None:
                 prose_from = index
         elif token.kind == "move":
@@ -818,6 +852,8 @@ def parse_tokens(
     #: A position read from a diagram, waiting for the number printed under it
     #: to say whose move it is.
     pending_position: str | None = None
+    #: The side to move printed beside that diagram, where the book prints one.
+    pending_to_move = ""
     #: Whether that diagram stood under the header of a new game, so the board
     #: it prints opens one rather than correcting the game still running.
     pending_opens_a_game = False
@@ -1088,7 +1124,7 @@ def parse_tokens(
         )
         del stack[1:]
 
-    def _place_by_weight(bold: bool, declared: int) -> None:
+    def _place_by_weight(bold: bool, declared: int, at: int) -> None:
         """Send what follows to the line the book's own typesetting names.
 
         Where a publisher sets the game score bold and the analysis around it
@@ -1107,26 +1143,92 @@ def parse_tokens(
             # A bold number has already had `_resume_the_score`, above.
             return
         nonlocal closed_aside
-        if len(stack) > 1 and declared == _ply_awaited(stack[-1].board):
-            # The variation in progress is waiting for exactly this number, so
-            # this continues it. Without the test, an analysis two plies long
-            # restarts at every number it prints — "3.Qh5+ Kg8 4.Ng5" branched
-            # afresh at the `4`, from a board its own first move had left.
+        here = (game.id, stack[0].parent_id)
+        open_here = [
+            level for level in reversed(asides + stack[1:])
+            if level.game_at == here and not level.board_lost
+        ]
+        # The variation in progress waiting for exactly this number is carried
+        # on by it. Without that, an analysis two plies long restarts at every
+        # number it prints — "3.Qh5+ Kg8 4.Ng5" branched afresh at the `4`,
+        # from a board its own first move had left.
+        #
+        # And a line opened on this same move of the game, stopped where this
+        # number picks up, is carried on as well — Markos page 22, "17...♖g8
+        # 18.fxe6 fxe6 / 18...♗xe6 19.♘d5 … / 19.e5! dxe5", Ribli's line
+        # resumed after the alternative inside it. Where two lines wait for
+        # the number, the one the moves printed after it play furthest on is
+        # the book's: "20.♗g5! Ribli analysed only 20.♘e4. There is now a
+        # forced line: 20...♗c6 21.♗xf6" plays after `♗g5` alone.
+        current = stack[-1:] if len(stack) > 1 else []
+        waiting = [
+            level for level in current + [lvl for lvl in open_here if lvl is not stack[-1]]
+            if _ply_awaited(level.board) == declared
+        ]
+        # The moves to try the candidates on run past the prose while the book's
+        # count carries on: Markos page 98's `17...e5` plays after the game and
+        # after the aside alike, and only the `18.♖xh7` a sentence later does
+        # not.
+        line = _the_score_after(tokens, at, declared - 1, through_boards=True) if waiting else []
+        carried_on = max(waiting, key=lambda level: _plies_played(level.board, line), default=None)
+        if carried_on is not None and declared == _ply_awaited(stack[0].board):
+            # The game waits for this number too. An aside the book has closed
+            # with prose is over — Markos page 61, "38...d2?! is inaccurate,
+            # because it would give White's king access to the e2-square.
+            # 39.♖d1? ♘b2 40.♖d2" — and what comes next is another answer to
+            # the game's move, unless the moves after the number only play on.
+            on_the_game = _plies_played(stack[0].board, line)
+            on_the_aside = _plies_played(carried_on.board, line)
+            # Only a number past the aside's own: "36.♗e3 is best, but still
+            # does not save White: 36...♖e2" (Markos page 50) is the aside's
+            # reply, however much prose stands between.
+            moved_on = carried_on.opened_ply is None or declared // 2 > carried_on.opened_ply // 2
+            if on_the_game > on_the_aside or (
+                on_the_game == on_the_aside and moved_on and _prose_before(tokens, at - 1)
+            ):
+                carried_on = None
+        if carried_on is not None:
+            if carried_on is not stack[-1]:
+                asides[:] = [level for level in asides + stack[1:] if level is not carried_on]
+                stack[1:] = [carried_on]
             return
         closed_aside = None
+        # Analysis inside analysis: a number naming a ply the game has not
+        # reached but a line opened on this same move of the game has passed
+        # branches from that line — Markos' `18...♗xe6` inside Ribli's
+        # `17...♖g8 18.fxe6`. On the game's board it broke, and the `19.e5`
+        # after it was legal there by chance: a wrong position marked right.
+        inside = None if declared in main_history else next(
+            (level.history[declared] for level in open_here if declared in level.history),
+            None,
+        )
+        if (
+            inside is None and declared not in main_history and len(stack) > 1
+            and (declared - _ply_awaited(stack[-1].board)) % 2 == 0
+        ):
+            # A number no line is waiting for, past the game: the book's own
+            # slip as often as not — Markos page 22, "22.♘xf3 gxf6 24.♕xf6†",
+            # no 23. Sent to the game's board `♕xf6` was legal there by chance.
+            # The moves printed after it say which board they were printed for.
+            line = _the_score_after(tokens, at, declared - 1, through_boards=True)
+            if _plies_played(stack[-1].board, line) > _plies_played(stack[0].board, line):
+                return
         # Analysis. It is printed beside the game and never on it, whatever
         # the number says; the number only says *where* beside. Where it names
         # a ply the score has played, the variation starts from the position
         # the book branched it at; where it names one the score has not
         # reached — analysis of a move still to come — there is no such
         # position, and the current one is the closest the book has printed.
-        board, parent = main_history.get(declared) or (stack[0].board, stack[0].parent_id)
+        board, parent = inside or main_history.get(declared) or (
+            stack[0].board, stack[0].parent_id
+        )
         # Kept rather than dropped: a mark the ink measurement missed sends the
         # score down here, and the number that resumes it says which of these
         # was the game. See `_take_the_score_back`.
         asides.extend(stack[1:])
         stack[1:] = [_Level(
-            board=board.copy(), parent_id=parent, opened_at=parent, opened_ply=declared
+            board=board.copy(), parent_id=parent, opened_at=parent, opened_ply=declared,
+            game_at=here,
         )]
 
     def _put_back_a_lost_move(token: Token, at: int) -> None:
@@ -1272,6 +1374,7 @@ def parse_tokens(
                 # still read and still judged; it just does not move a line
                 # nobody is on.
                 pending_position = printed
+                pending_to_move = token.to_move
                 pending_opens_a_game = header_read or names_a_game
             # Whose move it is on the board printed, where the line it stands
             # on says so; a board that seeds or corrects learns it from the
@@ -1334,12 +1437,23 @@ def parse_tokens(
             opens_on_a_header = False
             if pending_position is not None:
                 # The diagram gave the placement and this number gives the rest
-                # of the position: whose move it is, and which move it is.
+                # of the position: whose move it is, and which move it is —
+                # unless the book printed whose move it is beside the board.
+                # Markos marks every board ▼ or △, and the first number under
+                # Morovic Fernandez - Adams is the prose's "White's last move,
+                # 14.♗g2-h3": seeded for White, the game's `14...b5!` broke.
+                if pending_to_move and (pending_to_move == "b") != is_black_only:
+                    # A number the mark disagrees with cites the move just
+                    # played — "Black's last move was 18...e6" under a △ — so
+                    # the board is the ply after it: White's nineteenth.
+                    if is_black_only:
+                        number += 1
+                    is_black_only = not is_black_only
                 seeded = diagrams.initial_fen(
                     pending_position, number=number, black_to_move=is_black_only
                 )
                 line = _the_line_after(tokens, at)
-                if line and not _plays(seeded, line[0].text):
+                if line and not pending_to_move and not _plays(seeded, line[0].text):
                     # The number under a board says whose move it is, and a
                     # scan loses an ellipsis as readily as anything else: `24`
                     # for `24...`. Where the move printed after it cannot be
@@ -1365,7 +1479,7 @@ def parse_tokens(
                     # `1.` whose move plays from the initial position and not
                     # on the board is the game starting where games start.
                     seeded = None
-                pending_position = None
+                pending_position, pending_to_move = None, ""
                 if seeded is not None and pending_check is not None:
                     pending_check["white_to_move"] = not is_black_only
                 pending_check = None
@@ -1446,7 +1560,7 @@ def parse_tokens(
                 last_licence = 1 if is_black_only else 2
                 _open_the_bracket_on_the_right_side(last_declared)
                 if weighted:
-                    _place_by_weight(token.bold, last_declared)
+                    _place_by_weight(token.bold, last_declared, at)
                 else:
                     _place_by_number(last_declared)
                 stack[-1].declared_at = last_declared

@@ -379,6 +379,9 @@ class Token:
     #: character, the one thing `parse` otherwise has to guess: which line a
     #: move belongs to.
     bold: bool = False
+    #: On a diagram, the side to move the book printed beside the board — `w`
+    #: or `b` — where it prints one. Empty otherwise.
+    to_move: str = ""
 
     def to_json(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -398,6 +401,8 @@ class Token:
             payload["lost_move"] = self.lost_move
         if self.bold:
             payload["bold"] = True
+        if self.to_move:
+            payload["to_move"] = self.to_move
         return payload
 
 
@@ -523,6 +528,42 @@ def _read_numbers_the_scanner_spelled(tokens: list[Token]) -> list[Token]:
     return out
 
 
+#: The marks a book prints beside a board to say whose move it is. Markos
+#: sets them in Wingdings 3, `q` (▼) and `r` (△), and they reach the text
+#: layer wherever the reading order puts them — after the prose under the
+#: board, on page 47 — so they are found by where they stand, not by order.
+_SIDE_MARKS = {("Wingdings3", "\uf071"): "b", ("Wingdings3", "\uf072"): "w"}
+
+#: How far from a board its mark may stand, in points.
+_SIDE_MARK_REACH = 40.0
+
+
+def _sides_to_move(page: Page, boards: list[BBox | None]) -> list[str]:
+    """`w`, `b` or ``""`` for each board: the side-to-move mark nearest it.
+
+    A mark belongs to the board it stands nearest. Two boards side by side put
+    the left one's mark within reach of both, and the box a font board is
+    measured by runs past its squares, so the mark may even fall inside it.
+    """
+    sides = [""] * len(boards)
+    for char in page.chars:
+        side = _SIDE_MARKS.get((char.font.split("+")[-1], char.char))
+        if side is None:
+            continue
+        x = char.bbox.x + char.bbox.w / 2
+        y = char.bbox.y + char.bbox.h / 2
+
+        def distance(board: BBox) -> float:
+            dx = max(board.x - x, 0.0, x - (board.x + board.w))
+            dy = max(board.y - y, 0.0, y - (board.y + board.h))
+            return max(dx, dy)
+
+        near = [(distance(box), at) for at, box in enumerate(boards) if box is not None]
+        if near and min(near)[0] <= _SIDE_MARK_REACH:
+            sides[min(near)[1]] = side
+    return sides
+
+
 def _tokenize_page(
     page: Page,
     token_re: re.Pattern[str],
@@ -534,7 +575,9 @@ def _tokenize_page(
     text = normalise(page.text)
     tokens: list[Token] = []
     cursor = 0
-    for diagram in sorted(diagrams, key=lambda d: d.start):
+    diagrams = sorted(diagrams, key=lambda d: d.start)
+    boxes = [d.bbox or page.bbox_for(d.start, d.end) for d in diagrams]
+    for diagram, bbox, to_move in zip(diagrams, boxes, _sides_to_move(page, boxes)):
         tokens.extend(_tokenize_span(
             page, text, token_re, to_san, cursor, diagram.start, spellings
         ))
@@ -546,7 +589,8 @@ def _tokenize_page(
                 page=page.number,
                 start=diagram.start,
                 end=diagram.end,
-                bbox=diagram.bbox or page.bbox_for(diagram.start, diagram.end),
+                bbox=bbox,
+                to_move=to_move,
             )
         )
         cursor = diagram.end

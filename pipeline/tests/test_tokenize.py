@@ -646,6 +646,20 @@ class _Board:
         self.bbox = BBox(100.0, 400.0, 200.0, 200.0)
 
 
+class TestTheSideToMoveBesideTheBoard:
+    def test_a_black_triangle_at_the_board_s_corner_is_black_to_move(self):
+        # Markos prints ▼ (Wingdings3 `q`) at the top right of a board, and
+        # the text layer hands it over after the prose that follows the board.
+        text = "A typical position. 14.Bh3 "
+        page = page_of(text)
+        corner = BBox(305.0, 590.0, 10.0, 10.0)
+        page.chars[-1] = Char(char="", bbox=corner, font="Wingdings3", size=10.0)
+        tokens = tokenize_pages([page], diagrams=[_Board(0)])
+
+        (diagram,) = [t for t in tokens if t.kind == "diagram"]
+        assert diagram.to_move == "b"
+
+
 class TestANumberSeparatedFromItsMove:
     """The move number a board or a scanner took away.
 
