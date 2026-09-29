@@ -113,17 +113,24 @@ def figures(parsed, first: int, last: int | None) -> dict[str, int]:
     scored_ok = [m for m in moves if m.status == "ok" and m.game_id not in unplaced]
     below = {m.id for m in scored_ok if below_a_break(m)}
     contradicted, drifted = set(parsed.contradicted), set(parsed.drifted)
+    clean = sum(m.id not in against and m.id not in below for m in scored_ok)
+    caught = sum(m.id in contradicted and m.id not in below for m in scored_ok)
     return {
+        # **The figure to compare** (2026-09-29): `clean` with the moves a board
+        # proved wrong put back. Those were wrong before the board was read and
+        # counted clean then, so reading a board no longer costs a book moves —
+        # which is how Chess College 3's right table was nearly refused.
+        "sound": clean + caught,
         "moves": len(moves),
         **{status: sum(m.status == status for m in moves)
            for status in ("ok", "uncertain", "broken")},
         "unplaced": sum(m.game_id in unplaced for m in moves),
-        "clean": sum(m.id not in against and m.id not in below for m in scored_ok),
+        "clean": clean,
         # What the boards said. `clean` only ever loses moves to a board that
         # is read — a book whose boards stay unread keeps the same wrong moves
         # clean — so the verdicts are reported beside it.
         "below_break": len(below),
-        "contradicted": sum(m.id in contradicted and m.id not in below for m in scored_ok),
+        "contradicted": caught,
         "drifted": sum(
             m.id in drifted and m.id not in contradicted and m.id not in below for m in scored_ok
         ),
@@ -158,9 +165,11 @@ def main() -> None:
         if "error" in row:
             print(f"{name:34} ERROR {row['error']}")
         else:
-            print(f"{name:34} moves {row['moves']:5}  clean {row['clean']:5}  "
-                  f"broken {row['broken']:5}  unplaced {row['unplaced']:5}")
-    print(f"{'total':34} clean {sum(r.get('clean', 0) for r in results.values())}")
+            print(f"{name:34} moves {row['moves']:5}  sound {row['sound']:5}  "
+                  f"clean {row['clean']:5}  broken {row['broken']:5}  "
+                  f"confirms {row['confirms']:3}  unplaced {row['unplaced']:5}")
+    print(f"{'total':34} sound {sum(r.get('sound', 0) for r in results.values())}  "
+          f"clean {sum(r.get('clean', 0) for r in results.values())}")
     if args.json:
         with open(args.json, "w") as out:
             json.dump(results, out, indent=1, ensure_ascii=False)

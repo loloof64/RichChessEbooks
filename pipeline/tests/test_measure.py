@@ -57,6 +57,18 @@ def test_what_the_boards_said_is_counted_too():
     assert (counted["confirms"], counted["contradicted"]) == (1, 2)
 
 
+def test_the_figure_compared_does_not_punish_reading_a_board():
+    # `sound` is `clean` with the contradicted moves put back: a move a board
+    # proves wrong was wrong before the board was read, and counted clean
+    # then. Read or unread, the same book scores the same.
+    parsed = parse_tokens([
+        tok("move_number", "1.", 1), tok("move", "e4", 1), tok("move", "e5", 1),
+    ])
+    counted = figures(parsed, first=1, last=1)
+
+    assert counted["sound"] == counted["clean"] + counted["contradicted"] == 2
+
+
 def test_only_the_window_is_counted_and_the_lead_still_places_its_game():
     # The game opens on page 1, the lead; page 2 is the window. Run alone, its
     # moves would be in a game nobody placed — read with the lead, they are
