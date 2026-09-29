@@ -9,9 +9,18 @@
 > (`ParseResult.reseeded`). **New bases, nothing before compares: corpus
 > `sound` 3339, held out `sound` 3547.** Judge a change on `sound`, with
 > `confirms` and `broken` beside it.
+>
+> The changes the thirteenth session withdrew on `clean`, measured again on
+> `sound`: **kept** `a1248f4` (no language on a handful of letters — The
+> Critical Moment's figurine debris; held out 3547 -> 3600, Sicilian −8) and
+> `2ec7936` (a board followed by a `1.` that plays from the start does not
+> seed it; strays settled as their nearest cluster; 3600 -> **3612**).
+> **Still refused**: spelled numbers with a space (`1 O.`) — Pachman 145 -> 39
+> on `sound` too: the lines really do break, and wait for resynchronising.
+> Silman's boards still gain it nothing.
 
 Written 2026-08-22, revised 2026-09-27 (thirteenth session).
-`main` is at the commit below, 382 tests green.
+`main` is at the commit below, 391 tests green.
 
 > **Thirteenth session, 2026-09-27 — the corpus is not the book, and now
 > there is a control to say so.** Corpus 2827 -> 2830 (SuperAttaquant 150 ->
