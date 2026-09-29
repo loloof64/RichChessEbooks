@@ -34,8 +34,16 @@ pictures = [
 ]
 dev = ["pytest>=8.0", "rce-pipeline[glyphs]", "rce-pipeline[pictures]"]
 
+[project.scripts]
+rce = "rce_pipeline.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["rce_pipeline*"]
+
+[tool.setuptools.package-data]
+# The piece classifier step 1c uses by default: 551 KB, so a scan reads with
+# nothing to download beside the package.
+rce_pipeline = ["data/classifier.pkl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

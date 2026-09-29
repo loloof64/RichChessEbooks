@@ -15,6 +15,11 @@
       "type": "array",
       "description": "Flat list of tree nodes. Order carries no meaning; structure comes from parent_id.",
       "items": { "$ref": "#/$defs/move" }
+    },
+    "diagrams": {
+      "type": "array",
+      "description": "Since 1.1.0, optional. Every diagram the book printed that the pipeline could read, for the reader to open its position when it is tapped.",
+      "items": { "$ref": "#/$defs/diagram" }
     }
   },
   "$defs": {
@@ -98,6 +103,18 @@
             "raw": { "type": "string" },
             "reason": { "type": "string" }
           }
+        }
+      }
+    },
+    "diagram": {
+      "type": "object",
+      "required": ["page", "bbox", "fen"],
+      "properties": {
+        "page": { "type": "integer", "minimum": 1 },
+        "bbox": { "$ref": "#/$defs/bbox" },
+        "fen": {
+          "type": "string",
+          "description": "The printed position. Side to move from the line the board stands on, white when nothing says; castling and en passant are never claimed, a diagram does not print them."
         }
       }
     },

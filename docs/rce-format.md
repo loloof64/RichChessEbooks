@@ -1,4 +1,4 @@
-# The `.rce` format — v1.0.0
+# The `.rce` format — v1.1.0
 
 A Rich Chess Ebook (`.rce`) is a ZIP archive that pairs an untouched source document
 with the chess data extracted from it.
@@ -98,7 +98,7 @@ language does not fail, it produces a different game.
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "games": [
     { "id": "g1", "title": "Fischer – Spassky, Reykjavík 1972 (1)",
       "initial_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -159,6 +159,21 @@ correction without showing a board: the pipeline knows the squares the book prin
 and nothing about the position they were printed in. A diagram the book *did* print
 lifts this — it gives the game its starting position, and the moves are scored
 normally.
+
+`diagrams` (since 1.1.0, optional) lists the boards the book printed that the
+pipeline could read, so the reader can open one when it is tapped:
+
+```json
+"diagrams": [
+  { "page": 35, "bbox": { "x": 102.0, "y": 180.5, "w": 190.0, "h": 190.0 },
+    "fen": "r5k1/q6p/8/2p1n1p1/Bp2PpP1/1P3P2/P1N3Q1/1K1R4 b - - 0 1" }
+]
+```
+
+The side to move is the one of the line the board stands on, or the one the number
+printed under it names; white when nothing says. Castling and en passant are never
+claimed: a diagram does not print them. An archive written before 1.1.0 has no
+`diagrams`, and the reader then offers none.
 
 Fields not listed in the schema are ignored by the app rather than rejected, so the
 pipeline can add diagnostics without breaking older builds.

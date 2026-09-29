@@ -22,15 +22,30 @@ List<Widget> buildMoveOverlays({
   required PdfPage page,
   required Rect pageRectInViewer,
   required ValueChanged<MoveNode> onMoveTap,
+  required ValueChanged<DiagramEntry> onDiagramTap,
   required bool showZones,
 }) {
   final moves = book.movesOnPage(page.pageNumber);
-  if (moves.isEmpty) return const [];
+  final diagrams = book.diagramsOnPage(page.pageNumber);
+  if (moves.isEmpty && diagrams.isEmpty) return const [];
 
   final pageSize = Size(page.width, page.height);
   final renderedSize = pageRectInViewer.size;
 
   return [
+    // Under the moves: a board never overlaps its text, but should a stray
+    // box reach into one, the move keeps its tap.
+    for (final diagram in diagrams)
+      Positioned.fromRect(
+        rect: diagram.bbox.toPageRect(
+          pageSize: pageSize,
+          renderedSize: renderedSize,
+        ),
+        child: _DiagramZone(
+          showZone: showZones,
+          onTap: () => onDiagramTap(diagram),
+        ),
+      ),
     for (final move in moves)
       Positioned.fromRect(
         rect: move.bbox
@@ -87,5 +102,29 @@ class _MoveZone extends StatelessWidget {
       MoveStatus.uncertain => scheme.tertiary,
       MoveStatus.broken => scheme.error,
     };
+  }
+}
+
+class _DiagramZone extends StatelessWidget {
+  const _DiagramZone({required this.showZone, required this.onTap});
+
+  final bool showZone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = Theme.of(context).colorScheme.secondary;
+    return PdfOverlayInteractionRegion(
+      onTap: (_) {
+        onTap();
+        return true;
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: showZone ? colour.withValues(alpha: 0.08) : Colors.transparent,
+          border: showZone ? Border.all(color: colour, width: 1.2) : null,
+        ),
+      ),
+    );
   }
 }

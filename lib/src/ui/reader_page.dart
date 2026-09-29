@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../model/move.dart';
@@ -26,8 +27,10 @@ class _ReaderPageState extends State<ReaderPage> {
 
   int _currentPage = 1;
 
-  /// The move shown in the side panel, on a screen wide enough for one.
+  /// What the side panel shows, on a screen wide enough for one: a move or
+  /// a diagram, whichever was tapped last.
   MoveNode? _selected;
+  DiagramEntry? _selectedDiagram;
 
   /// Below this width the board opens as a bottom sheet over the page.
   static const _sidePanelMinWidth = 900.0;
@@ -44,6 +47,12 @@ class _ReaderPageState extends State<ReaderPage> {
       params: PdfViewerParams(
         onPageChanged: (page) =>
             setState(() => _currentPage = page ?? _currentPage),
+        viewerOverlayBuilder: (context, size, handleLinkTap) => [
+          PdfViewerScrollThumb(
+            controller: _controller,
+            orientation: ScrollbarOrientation.right,
+          ),
+        ],
         pageOverlaysBuilder: (context, pageRectInViewer, page) =>
             buildMoveOverlays(
               book: book,
@@ -51,8 +60,17 @@ class _ReaderPageState extends State<ReaderPage> {
               pageRectInViewer: pageRectInViewer,
               showZones: _showZones,
               onMoveTap: (move) => wide
-                  ? setState(() => _selected = move)
+                  ? setState(() {
+                      _selected = move;
+                      _selectedDiagram = null;
+                    })
                   : BoardSheet.show(context, book: book, move: move),
+              onDiagramTap: (diagram) => wide
+                  ? setState(() {
+                      _selected = null;
+                      _selectedDiagram = diagram;
+                    })
+                  : BoardSheet.show(context, book: book, diagram: diagram),
             ),
       ),
     );
@@ -66,37 +84,44 @@ class _ReaderPageState extends State<ReaderPage> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Previous page',
+            tooltip: AppLocalizations.of(context).previousPage,
             icon: const Icon(Icons.chevron_left),
             onPressed: _currentPage > 1 ? () => _turn(-1) : null,
           ),
           TextButton.icon(
             icon: const Icon(Icons.menu_book),
-            label: Text(_controller.isReady
-                ? 'p. $_currentPage / ${_controller.pageCount}'
-                : 'p. $_currentPage'),
+            label: Text(
+              _controller.isReady
+                  ? AppLocalizations.of(
+                      context,
+                    ).pageOf(_currentPage, _controller.pageCount)
+                  : AppLocalizations.of(context).pageAlone(_currentPage),
+            ),
             onPressed: () => _askPage(context),
           ),
           IconButton(
-            tooltip: 'Next page',
+            tooltip: AppLocalizations.of(context).nextPage,
             icon: const Icon(Icons.chevron_right),
-            onPressed: !_controller.isReady ||
-                    _currentPage < _controller.pageCount
+            onPressed:
+                !_controller.isReady || _currentPage < _controller.pageCount
                 ? () => _turn(1)
                 : null,
           ),
+          _ZoomControls(controller: _controller),
           IconButton(
-            tooltip: _showZones ? 'Hide move zones' : 'Show move zones',
+            tooltip: _showZones
+                ? AppLocalizations.of(context).hideMoveZones
+                : AppLocalizations.of(context).showMoveZones,
             icon: Icon(_showZones ? Icons.visibility : Icons.visibility_off),
             onPressed: () => setState(() => _showZones = !_showZones),
           ),
           IconButton(
-            tooltip: 'Next page with moves',
+            tooltip: AppLocalizations.of(context).nextPageWithMoves,
             icon: const Icon(Icons.skip_next),
             onPressed: book.annotatedPages.isEmpty ? null : _goToNextAnnotated,
           ),
           IconButton(
-            tooltip: 'About this book',
+            tooltip: AppLocalizations.of(context).aboutThisBook,
             icon: const Icon(Icons.info_outline),
             onPressed: () => _showSummary(context),
           ),
@@ -110,14 +135,15 @@ class _ReaderPageState extends State<ReaderPage> {
                 const VerticalDivider(width: 1),
                 SizedBox(
                   width: _sidePanelWidth,
-                  child: _selected == null
+                  child: _selected == null && _selectedDiagram == null
                       ? const _PanelHint()
                       : SingleChildScrollView(
                           padding: const EdgeInsets.only(top: 16),
                           child: BoardSheet(
-                            key: ValueKey(_selected),
+                            key: ValueKey(_selected ?? _selectedDiagram),
                             book: book,
-                            move: _selected!,
+                            move: _selected,
+                            diagram: _selectedDiagram,
                           ),
                         ),
                 ),
@@ -141,7 +167,9 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _turn(int by) {
-    final last = _controller.isReady ? _controller.pageCount : _currentPage + by;
+    final last = _controller.isReady
+        ? _controller.pageCount
+        : _currentPage + by;
     _controller.goToPage(pageNumber: (_currentPage + by).clamp(1, last));
   }
 
@@ -161,24 +189,43 @@ class _ReaderPageState extends State<ReaderPage> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('About this book'),
+        title: Text(AppLocalizations.of(context).aboutThisBook),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SummaryRow('File', manifest.sourceFilename),
-            _SummaryRow('Notation', manifest.notationStyle.name),
-            _SummaryRow('Games', '${book.games.length}'),
-            _SummaryRow('Moves', '${book.allMoves.length}'),
-            _SummaryRow('Pages with moves', '${book.annotatedPages.length}'),
-            _SummaryRow('Needs a look', '${book.brokenCount} broken, '
-                '${book.uncertainCount} uncertain'),
+            _SummaryRow(
+              AppLocalizations.of(context).summaryFile,
+              manifest.sourceFilename,
+            ),
+            _SummaryRow(
+              AppLocalizations.of(context).summaryNotation,
+              manifest.notationStyle.name,
+            ),
+            _SummaryRow(
+              AppLocalizations.of(context).summaryGames,
+              '${book.games.length}',
+            ),
+            _SummaryRow(
+              AppLocalizations.of(context).summaryMoves,
+              '${book.allMoves.length}',
+            ),
+            _SummaryRow(
+              AppLocalizations.of(context).summaryPagesWithMoves,
+              '${book.annotatedPages.length}',
+            ),
+            _SummaryRow(
+              AppLocalizations.of(context).summaryNeedsALook,
+              AppLocalizations.of(
+                context,
+              ).needsALookValue(book.brokenCount, book.uncertainCount),
+            ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(AppLocalizations.of(context).close),
           ),
         ],
       ),
@@ -222,18 +269,95 @@ class _EmptyBookBanner extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Icon(Icons.warning_amber, color: theme.colorScheme.onErrorContainer),
+            Icon(
+              Icons.warning_amber,
+              color: theme.colorScheme.onErrorContainer,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'This archive holds no moves. Re-run the pipeline, checking '
-                'the notation it detected.',
+                AppLocalizations.of(context).emptyArchive,
                 style: TextStyle(color: theme.colorScheme.onErrorContainer),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Zoom out, a menu of zoom levels showing the current one, zoom in.
+class _ZoomControls extends StatelessWidget {
+  const _ZoomControls({required this.controller});
+
+  final PdfViewerController controller;
+
+  static const _levels = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
+
+  Future<void> _set(double zoom) => controller.setZoom(
+    controller.centerPosition,
+    zoom.clamp(controller.minScale, controller.maxScale),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final ready = controller.isReady;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: AppLocalizations.of(context).zoomOut,
+              icon: const Icon(Icons.zoom_out),
+              onPressed: ready ? () => controller.zoomDown() : null,
+            ),
+            PopupMenuButton<double>(
+              tooltip: AppLocalizations.of(context).zoomLevel,
+              enabled: ready,
+              onSelected: _set,
+              itemBuilder: (context) {
+                final alternative = controller.alternativeFitScale;
+                final whole =
+                    alternative == null || alternative > controller.coverScale
+                    ? controller.coverScale
+                    : alternative;
+                final width =
+                    controller.viewSize.width / controller.documentSize.width;
+                return [
+                  PopupMenuItem(
+                    value: whole,
+                    child: Text(AppLocalizations.of(context).zoomWholePage),
+                  ),
+                  PopupMenuItem(
+                    value: width,
+                    child: Text(AppLocalizations.of(context).zoomPageWidth),
+                  ),
+                  const PopupMenuDivider(),
+                  for (final level in _levels)
+                    PopupMenuItem(
+                      value: level,
+                      child: Text('${(level * 100).round()} %'),
+                    ),
+                ];
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  ready ? '${(controller.currentZoom * 100).round()} %' : '– %',
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: AppLocalizations.of(context).zoomIn,
+              icon: const Icon(Icons.zoom_in),
+              onPressed: ready ? () => controller.zoomUp() : null,
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -248,7 +372,7 @@ class _PanelHint extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Tap a move on the page to see its position here.',
+          AppLocalizations.of(context).panelHint,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium,
         ),
@@ -283,22 +407,27 @@ class _GoToPageDialogState extends State<_GoToPageDialog> {
   Widget build(BuildContext context) {
     final count = widget.pageCount;
     return AlertDialog(
-      title: const Text('Go to page'),
+      title: Text(AppLocalizations.of(context).goToPage),
       content: TextField(
         controller: _field,
         autofocus: true,
         keyboardType: TextInputType.number,
         decoration: InputDecoration(
-          hintText: count == null ? 'Page number' : '1 – $count',
+          hintText: count == null
+              ? AppLocalizations.of(context).pageNumber
+              : '1 – $count',
         ),
         onSubmitted: (_) => _submit(),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context).cancel),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Go')),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(AppLocalizations.of(context).go),
+        ),
       ],
     );
   }

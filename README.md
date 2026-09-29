@@ -10,16 +10,66 @@ Two components, joined by one strict data contract:
 
 ```
   PDF  ──▶  Python pipeline  ──▶  book.rce  ──▶  Flutter app
-            (Google Colab)         (ZIP)         (reader)
+            (`rce` command)        (ZIP)         (reader)
 ```
 
 | | Where | What it does |
 | --- | --- | --- |
-| Pipeline | [`pipeline/`](pipeline/), driven by [`notebooks/rce_pipeline.ipynb`](notebooks/rce_pipeline.ipynb) — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/loloof64/RichChessEbooks/blob/main/notebooks/rce_pipeline.ipynb) | Reads the PDF, finds the moves and their page geometry, validates them against the rules, writes the archive |
+| Pipeline | [`pipeline/`](pipeline/), installed as the `rce` command; [`notebooks/rce_pipeline.ipynb`](notebooks/rce_pipeline.ipynb) is its development bench — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/loloof64/RichChessEbooks/blob/main/notebooks/rce_pipeline.ipynb) | Reads the PDF, finds the moves and their page geometry, validates them against the rules, writes the archive |
 | Reader | [`lib/`](lib/) | Opens the archive, renders the book, overlays the tap zones, shows the board |
 | Contract | [`docs/rce-format.md`](docs/rce-format.md) + [`docs/schemas/`](docs/schemas/) | The `.rce` format the two agree on |
 
 Neither side imports the other. The archive is the whole interface.
+
+## Installing it
+
+You need **Python 3.10 or later** and a terminal. The tool is installed with
+[`pipx`](https://pipx.pypa.io), which puts it in an environment of its own so it never
+conflicts with anything else on the machine.
+
+**1. Install pipx** (once):
+
+| System | Command |
+| --- | --- |
+| Debian / Ubuntu | `sudo apt install pipx` |
+| Fedora | `sudo dnf install pipx` |
+| macOS | `brew install pipx` |
+| Windows | `py -m pip install --user pipx` |
+
+then run `pipx ensurepath`, and **open a new terminal** so the `rce` command is found.
+
+**2. Install the tool** — choose one:
+
+> ⚠ **Size.** The full install downloads about **400 MB** of dependencies (scipy,
+> scikit-learn, numpy, scikit-image). The minimal one is about **70 MB**. The piece
+> classifier itself is included and weighs 0.5 MB.
+
+```bash
+# Full (~400 MB): every kind of book, including scans, figurine fonts and
+# diagrams drawn as images. Take this one unless disk space matters.
+pipx install "rce-pipeline[glyphs,pictures] @ git+https://github.com/loloof64/RichChessEbooks.git#subdirectory=pipeline"
+
+# Minimal (~70 MB): only books whose moves are real text in the PDF
+# (digitally produced books). A scan will be reported unreadable.
+pipx install "git+https://github.com/loloof64/RichChessEbooks.git#subdirectory=pipeline"
+```
+
+**3. Use it:**
+
+```bash
+rce book.pdf                       # writes book.rce beside the PDF
+rce book.pdf --lang fr             # tell it the language of a book in letters
+rce book.pdf --first 20 --last 40  # a range of pages, to try a book quickly
+```
+
+Open the `.rce` in the app, and tap the eye icon to see what was read and where the
+pipeline is unsure. On a new book, try a chapter whose content you know first.
+
+`pipx upgrade rce-pipeline` fetches a newer version; `pipx uninstall rce-pipeline`
+removes everything.
+
+The Colab notebook (badge above) does the same run with a rendered page showing the
+extracted boxes on top of it: it is for developing the pipeline, not for reading a book.
 
 ## Current state
 
@@ -50,16 +100,6 @@ Also not built: the correction UI and `patches.json` writing (the format is spec
 and the reader is designed around it, but nothing writes patches yet), and EPUB, which
 is a separate v2 — a reflowable document has no stable coordinates, so its anchoring
 model is incompatible with this one.
-
-## Getting a book in
-
-1. Open the notebook in Colab — the badge above opens it straight from `main`, so it
-   is always the pushed version — upload your PDF, and run it. Start with a chapter (`FIRST_PAGE` / `LAST_PAGE`) whose
-   content you know. If step 4 says the book's piece symbols are only in the image,
-   step 4b wants the glyph classifier uploaded too.
-2. Check step 7 — it draws the extracted boxes on the rendered page. If the frames sit
-   on the moves, the geometry is right.
-3. Download the `.rce` and open it in the app.
 
 ## Running the app
 

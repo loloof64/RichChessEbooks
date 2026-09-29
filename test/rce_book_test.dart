@@ -82,6 +82,35 @@ void main() {
     });
   });
 
+  group('lastKnownFen', () {
+    test('falls back to the nearest move above that has a position', () {
+      final broken = book.moveById('g1-m5')!;
+
+      expect(book.lastKnownFen(broken), book.moveById('g1-m4')!.fen);
+    });
+  });
+
+  group('diagrams', () {
+    test('are read from moves.json and found by the page they stand on', () {
+      final withDiagram = RceBook(
+        manifest: book.manifest,
+        games: book.games,
+        moves: book.allMoves,
+        diagrams: [
+          DiagramEntry.fromJson(const {
+            'page': 13,
+            'bbox': {'x': 100, 'y': 200, 'w': 180, 'h': 180},
+            'fen': '8/8/8/8/8/8/8/K6k w - - 0 1',
+          }),
+        ],
+        sourceFilePath: book.sourceFilePath,
+      );
+
+      expect(withDiagram.diagramsOnPage(13).single.fen, '8/8/8/8/8/8/8/K6k w - - 0 1');
+      expect(withDiagram.diagramsOnPage(12), isEmpty);
+    });
+  });
+
   group('tree navigation', () {
     test('walks the line back to the root, root first', () {
       final last = book.moveById('g1-m4')!;

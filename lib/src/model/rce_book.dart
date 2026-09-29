@@ -13,7 +13,9 @@ class RceBook {
     required this.games,
     required List<MoveNode> moves,
     required this.sourceFilePath,
-  }) : _movesById = {for (final move in moves) move.id: move},
+    List<DiagramEntry> diagrams = const [],
+  }) : _diagramsByPage = _groupDiagrams(diagrams),
+       _movesById = {for (final move in moves) move.id: move},
        _gamesById = {for (final game in games) game.id: game},
        _movesByPage = _groupByPage(moves),
        allMoves = List.unmodifiable(moves);
@@ -28,6 +30,18 @@ class RceBook {
   final Map<String, MoveNode> _movesById;
   final Map<String, GameEntry> _gamesById;
   final Map<int, List<MoveNode>> _movesByPage;
+  final Map<int, List<DiagramEntry>> _diagramsByPage;
+
+  static Map<int, List<DiagramEntry>> _groupDiagrams(List<DiagramEntry> diagrams) {
+    final grouped = <int, List<DiagramEntry>>{};
+    for (final diagram in diagrams) {
+      (grouped[diagram.page] ??= <DiagramEntry>[]).add(diagram);
+    }
+    return grouped;
+  }
+
+  /// Diagrams printed on [page] (1-based) that the pipeline could read.
+  List<DiagramEntry> diagramsOnPage(int page) => _diagramsByPage[page] ?? const [];
 
   static Map<int, List<MoveNode>> _groupByPage(List<MoveNode> moves) {
     final grouped = <int, List<MoveNode>>{};
@@ -57,6 +71,16 @@ class RceBook {
     final parentId = move.parentId;
     if (parentId == null) return _gamesById[move.gameId]?.initialFen;
     return _movesById[parentId]?.fen;
+  }
+
+  /// The position to show for [move]: its own, or where the pipeline could
+  /// not read it, the one of the nearest move above it that it could — and
+  /// the game's start when none could.
+  String? lastKnownFen(MoveNode move) {
+    for (final m in lineTo(move).reversed) {
+      if (m.fen != null) return m.fen;
+    }
+    return _gamesById[move.gameId]?.initialFen;
   }
 
   /// The line leading to [move], root first, [move] last.
