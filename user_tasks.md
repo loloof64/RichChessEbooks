@@ -1,5 +1,50 @@
 # What I have to do next
 
+> **Fifteenth session, 2026-09-29 — handoff.** Read this block first.
+>
+> **Waiting on branch `ocr-et-diagrammes-de-variante`** (commit `24ba3ee`,
+> not on `main` until measured): (1) `extract._read_picture` — a page that is
+> a picture (under 50 characters of text, one image over a third of it) is
+> read by Tesseract run directly (`--psm 3`, TSV), which keeps two columns
+> apart where MuPDF's OCR text page interleaves them. Fabrice `sound` 82 ->
+> 1021; corpus unchanged (5 of 6 windows seen equal, SuperAttaquant not
+> printed). **The held-out run was never seen to finish: measure it again**
+> (`measure.py heldout`, compare against 3612). (2) `parse`: a diagram
+> showing the position of the prose variation in progress gets the verdict
+> `shows_the_analysis` and does not seed or correct the game. Markos pages 36
+> and 82 (variation ending on its board, then "let's get back to the game").
+> Not measured at all yet. Merging it into `main` conflicts only in
+> `tests/test_parse.py` (two tests inserted at the same place: keep both);
+> the merged tree passes 394 tests.
+>
+> **Next, in order:** measure and merge the branch; repair the OCR damage in
+> Fabrice's moves (`ed` for `e4`, `Ced` for `Ce4`, lost dots `4 cxd5`,
+> `1h3` for `Th3`, `Tis` for `Tf8`, `fug4` for `fxg4`) — about 85% of their
+> moves are still broken; boards drawn inside a picture page are not read.
+> Laurent's remark on Markos p82: the text itself ("let's get back to the
+> game", "play continued") marks a return to the score and may help where the
+> weight does not. Laurent has suggestions on particular books to give.
+>
+> **The reader app moved a lot (all on `main`):** go to page, previous/next
+> page, zoom menu, vertical scroll thumb, board in a side panel on wide
+> screens, move zones shown by default, no debug banner, no book text around
+> the board, a board kept up (last known position + 4 s notice) when a move
+> is broken, i18n en/fr/es (`lib/l10n/*.arb`, `flutter gen-l10n`), and a tap
+> on a diagram opens its position. For that last one `moves.json` is now
+> schema **1.1.0** with an optional `diagrams` list (page, bbox, fen) —
+> `docs/rce-format.md`, `docs/schemas/moves.schema.json`.
+>
+> **Archives for Laurent to look at** are written to
+> `~/Documents/Echecs/rce_apercu/` (whole books). Only `Markos.rce` carries
+> diagrams so far; regenerate the others with the current code. Laurent
+> judges progress in the app, so regenerate there after a change is kept.
+>
+> The Python environment of these sessions is a venv under the previous
+> session's scratchpad (`/tmp/claude-1000/.../6dae86a9-.../scratchpad/.venv`);
+> if it is gone, `pip install -e pipeline[dev,glyphs,pictures]` in a new one.
+> The TDD hook refuses edits it cannot tie to a red test; Laurent agreed to
+> apply such edits by script when the test really is red.
+
 > **FIRST PRIORITY (Laurent, 2026-09-29): read the documents whose pages are
 > images.** Fabrice's documents (`DeFabrice/`, 23 PDFs, French letters,
 > clean typesetting: bold main line, variations in `[ ]`) give no or almost
