@@ -666,6 +666,14 @@ class TestAPlanIsNotAMove:
 
         assert [t.raw for t in tokens if t.kind == "move"] == ["Bd3", "Qc7", "Qf3", "Nd7"]
 
+    def test_a_square_the_prose_names_is_not_a_move(self):
+        # Page 56, "his dark-squared bishop, either from b2 or a3": `a3` was
+        # played as a move and marked the game's.
+        text = "10.b3 Nc6 with his dark-squared bishop, either from b2 or a3. 11.Bb2 e5"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.raw for t in tokens if t.kind == "move"] == ["b3", "Nc6", "Bb2", "e5"]
+
     def test_a_single_move_the_prose_announces_is_still_a_move(self):
         text = "12.Bd3 Qc7 Black threatens ...Nd7 here. 13.Qf3"
         tokens = tokenize_pages([page_of(text)])

@@ -568,6 +568,16 @@ def _sides_to_move(page: Page, boards: list[BBox | None]) -> list[str]:
 _CHAINED_AFTER = re.compile(r"-[a-h][1-8]")
 _CHAINED_BEFORE = re.compile(r"[a-h][1-8]-$")
 
+#: A move that is only a square, and the word just before a token.
+_BARE_SQUARE = re.compile(r"[a-h][1-8]")
+_WORD_BEFORE = re.compile(r"([A-Za-z\u00C0-\u00FF]+)\s*$")
+#: Words behind which a square is a place, in English and French.
+_PLACE_WORDS = {
+    "from", "to", "on", "at", "via", "towards", "toward", "onto", "into", "of",
+    "the", "between", "de", "sur", "vers", "case", "en", "par", "la", "le",
+}
+_JOINING_WORDS = {"or", "and", "ou", "et"}
+
 #: What joins two intentions in a list: "…♘g6, …♘e4", "…♘d7 and …0-0-0".
 _NEXT_INTENTION = re.compile(r"\s*(?:,|and|or|,\s*and)?\s*(?:\.\.\.|\u2026)\s*")
 
@@ -605,6 +615,20 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
             plan.update(run)
         announced = at is not None and text[:tokens[at].start].rstrip().endswith(("...", "\u2026"))
         run = [at] if announced else []
+    # A square the prose names: "either from b2 or a3" (page 56). A bare
+    # square behind a preposition is a place, and so is one behind "or" or
+    # "and" when what it is joined to was one.
+    square = False
+    for at, token in enumerate(tokens):
+        if token.kind != "move":
+            continue
+        word = _WORD_BEFORE.search(text[max(0, token.start - 20):token.start])
+        word = word.group(1).lower() if word else ""
+        square = bool(_BARE_SQUARE.fullmatch(token.raw)) and (
+            word in _PLACE_WORDS or (word in _JOINING_WORDS and square)
+        )
+        if square:
+            plan.add(at)
     return [
         dataclasses.replace(token, kind="text", text=token.raw) if at in plan else token
         for at, token in enumerate(tokens)
