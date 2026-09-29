@@ -1643,6 +1643,30 @@ class TestALineFromTheStartCitedInsideAGame:
         cited = [m for m in result.moves if m.san in ("e5", "Nc6")]
         assert all(not on_the_main_line(result, m) for m in cited)
 
+    def test_even_where_its_first_moves_play_on_the_game_by_chance(self):
+        # Markos page 116, at move 13 of a game: "(… in the Petroff after the
+        # moves 1.e4 e5 2.♘f3 ♘f6 3.♘xe5 …)". `1.e4 e5` played on the game,
+        # and the line broke at its second move.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "d4", True), ("move", "d5", True),
+                ("move_number", "2.", True), ("move", "c4", True), ("move", "e6", True),
+                ("move_number", "3.", True), ("move", "Nc3", True),
+                ("text", "as in the Spanish after the moves", False),
+                ("var_open", "(", False),
+                ("move_number", "1.", False), ("move", "e4", False), ("move", "e5", False),
+                ("move_number", "2.", False), ("move", "Nf3", False), ("move", "Nc6", False),
+                ("move_number", "3.", False), ("move", "Bb5", False),
+                ("var_close", ")", False),
+                ("move_number", "3...", True), ("move", "Nf6", True),
+            ),
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
+
     def test_and_in_a_game_the_book_opened_on_a_board(self):
         # Markos page 186, a game seeded in mid-score: "to 6.f4 it would be
         # […] for example, 1.e4 e5 2.♘f3 ♘c6" names a ply before the game's

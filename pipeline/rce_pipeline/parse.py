@@ -1650,11 +1650,19 @@ def parse_tokens(
                     # Opening (1.e4 e5 2.♘f3 ♘c6 …)". Where its first move
                     # does not play on the board it was placed on and does
                     # from the initial position, it is played from there.
-                    line = _the_line_after(tokens, at)
+                    # Its moves may play on the board by chance for a while —
+                    # page 116's `1.e4 e5` at move 13 of a game — so the line
+                    # is tried on both, and the start taken where it plays on
+                    # further.
+                    line = _the_score_after(tokens, at, -1, through_boards=True)
                     if (
                         line
-                        and (stack[-1].nowhere or not _plays(stack[-1].board.fen(), line[0].text))
                         and _plays(chess.STARTING_FEN, line[0].text)
+                        and (
+                            stack[-1].nowhere
+                            or _plies_played(chess.Board(), line)
+                            > _plies_played(stack[-1].board, line)
+                        )
                     ):
                         stack[-1].board, stack[-1].parent_id = chess.Board(), None
                         # And it has a position now, whatever the number said
