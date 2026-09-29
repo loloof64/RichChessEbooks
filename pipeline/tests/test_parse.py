@@ -1643,6 +1643,35 @@ class TestALineFromTheStartCitedInsideAGame:
         cited = [m for m in result.moves if m.san in ("e5", "Nc6")]
         assert all(not on_the_main_line(result, m) for m in cited)
 
+    def test_and_in_a_game_the_book_opened_on_a_board(self):
+        # Markos page 186, a game seeded in mid-score: "to 6.f4 it would be
+        # […] for example, 1.e4 e5 2.♘f3 ♘c6" names a ply before the game's
+        # first, and still plays from where every game starts.
+        board = chess.Board("r1bq1rk1/pp2bppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R2QK2R w KQ - 0 1")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            [tok("diagram", rows)] + weighed(
+                ("move_number", "9.", True), ("move", "O-O", True), ("move", "b6", True),
+                ("text", "but to", False),
+                ("move_number", "10.", False), ("move", "a3", False),
+                ("text", "it would be like, for example,", False),
+                ("move_number", "1.", False), ("move", "e4", False), ("move", "e5", False),
+                ("move_number", "2.", False), ("move", "Nf3", False), ("move", "Nc6", False),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        assert all(m.status == "ok" for m in result.moves), [
+            (m.san, m.status) for m in result.moves
+        ]
 
 class TestAGameTheBookComesBackTo:
     def test_a_board_whose_game_never_starts_does_not_take_the_resumed_score(self):
@@ -1709,6 +1738,64 @@ class TestAGameTheBookComesBackTo:
         assert all(m.status == "ok" for m in result.moves), [
             (m.san, m.status) for m in result.moves
         ]
+
+
+class TestAnAlternativeFromBeforeTheBoard:
+    def test_a_line_from_a_position_never_printed_is_not_played(self):
+        # Markos page 128, the game seeded at White's 19th: "Black's last move
+        # was 18...e6. Of course, instead of this move he could have tried to
+        # close the centre by playing 18...e5. Still, that would have allowed
+        # White to play 19.f5". The board before 18...e6 was never printed:
+        # `18...e5` was played by White's e-pawn, and `19.f5` on the game.
+        board = chess.Board()
+        board.push_san("e4")
+        board.push_san("e6")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        diagram = dataclasses.replace(tok("diagram", rows), to_move="w")
+        result = parse_tokens(
+            [diagram] + weighed(
+                ("text", "Black's last move was", False),
+                ("move_number", "18...", False), ("move", "e6", False),
+                ("text", "Instead he could have tried", False),
+                ("move_number", "18...", False), ("move", "e5", False),
+                ("text", ". Still, that would have allowed White to play", False),
+                ("move_number", "19.", False), ("move", "f4", False),
+                ("text", "with a strong attack.", False),
+                ("move_number", "19.", True), ("move", "Nf3", True),
+                ("move_number", "19...", True), ("move", "d5", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert (by_san["e5"].status, by_san["f4"].status) == ("broken", "broken")
+        assert (by_san["Nf3"].status, by_san["d5"].status) == ("ok", "ok")
+
+    def test_a_number_a_move_off_still_finds_the_position_the_game_played(self):
+        # Markos page 132, the game at 10...♔f8: "Taking the knight is wrong:
+        # 11...exf6 12.exf6†" — the book's `11...` for `10...`. No board of
+        # Black's 11th exists, and the game's own 10th is where it plays.
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("text", "Developing the other knight is wrong:", False),
+                ("move_number", "3...", False), ("move", "Nf6", False),
+            ),
+            weighted=True,
+        )
+
+        nf6 = next(m for m in result.moves if m.san == "Nf6")
+        assert nf6.status == "ok"
+        assert {m.id: m for m in result.moves}[nf6.parent_id].san == "Nf3"
 
 
 class TestTheSideToMoveOfAnExportedDiagram:

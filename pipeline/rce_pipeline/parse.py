@@ -438,6 +438,11 @@ class _Level:
     #: opened on the same move of the game is one piece of commentary, and a
     #: number can go back into any line of it — see `_place_by_weight`.
     game_at: tuple[str, str | None] | None = None
+    #: True when the position this line starts from was never printed: its
+    #: number names a ply before the game's first known one, or one of the
+    #: other side than the only board at hand. Its moves are read for their
+    #: boxes and none is played.
+    nowhere: bool = False
 
 
 #: The last word of a comment, when the comment really ends in one: letters
@@ -1173,6 +1178,14 @@ def parse_tokens(
             # A bold number has already had `_resume_the_score`, above.
             return
         nonlocal closed_aside
+        if (
+            len(stack) > 1 and stack[-1].nowhere and stack[-1].declared_at is not None
+            and declared == stack[-1].declared_at + 1
+        ):
+            # The ply after a line with no position carries it on: "18...e5.
+            # Still, that would have allowed White to play 19.f5" (Markos
+            # page 128) is still the line nothing can be played on.
+            return
         here = (game.id, stack[0].parent_id)
         open_here = [
             level for level in reversed(asides + stack[1:])
@@ -1190,7 +1203,9 @@ def parse_tokens(
         # the number, the one the moves printed after it play furthest on is
         # the book's: "20.♗g5! Ribli analysed only 20.♘e4. There is now a
         # forced line: 20...♗c6 21.♗xf6" plays after `♗g5` alone.
-        current = stack[-1:] if len(stack) > 1 else []
+        # A line with no position holds the game's board as a stand-in only,
+        # and is never a line a number can carry on — see `nowhere`.
+        current = stack[-1:] if len(stack) > 1 and not stack[-1].nowhere else []
         waiting = [
             level for level in current + [lvl for lvl in open_here if lvl is not stack[-1]]
             if _ply_awaited(level.board) == declared
@@ -1252,13 +1267,22 @@ def parse_tokens(
         board, parent = inside or main_history.get(declared) or (
             stack[0].board, stack[0].parent_id
         )
+        # Where nothing recorded the ply, the game's board stands in — for a
+        # move still to come. For a ply before the first the game knows, or
+        # one of the other side, it is not the position the book printed the
+        # line from: Markos page 128, seeded at White's 19th, "instead of this
+        # move he could have tried 18...e5" — played there by White's e-pawn.
+        awaited = _ply_awaited(stack[0].board)
+        nowhere = not inside and declared not in main_history and (
+            declared < awaited or (declared - awaited) % 2 == 1
+        )
         # Kept rather than dropped: a mark the ink measurement missed sends the
         # score down here, and the number that resumes it says which of these
         # was the game. See `_take_the_score_back`.
         asides.extend(stack[1:])
         stack[1:] = [_Level(
             board=board.copy(), parent_id=parent, opened_at=parent, opened_ply=declared,
-            game_at=here,
+            game_at=here, nowhere=nowhere, board_lost=nowhere,
         )]
 
     def _put_back_a_lost_move(token: Token, at: int) -> None:
@@ -1616,10 +1640,14 @@ def parse_tokens(
                     # from the initial position, it is played from there.
                     line = _the_line_after(tokens, at)
                     if (
-                        line and not _plays(stack[-1].board.fen(), line[0].text)
+                        line
+                        and (stack[-1].nowhere or not _plays(stack[-1].board.fen(), line[0].text))
                         and _plays(chess.STARTING_FEN, line[0].text)
                     ):
                         stack[-1].board, stack[-1].parent_id = chess.Board(), None
+                        # And it has a position now, whatever the number said
+                        # against the game's board.
+                        stack[-1].nowhere = False
                 stack[-1].declared_at = last_declared
                 if len(stack) == 1 and game is not None and game.position_known:
                     # Once the placement has had its say: a number that opened
@@ -1640,7 +1668,7 @@ def parse_tokens(
                 # The book has printed a number, so it is starting the line
                 # again: whatever follows is resolved against the board once
                 # more, as it was before this level lost it.
-                stack[-1].board_lost = False
+                stack[-1].board_lost = stack[-1].nowhere
                 _put_back_a_lost_move(token, at)
             continue
 
@@ -1724,7 +1752,20 @@ def parse_tokens(
             (main_history if len(stack) == 1 else level.history).setdefault(
                 _ply_awaited(board_before), (board_before.copy(), level.parent_id)
             )
-        if level.board_lost:
+        placed_from_nowhere = (
+            _place_a_citation(main_history, last_declared, last_licence, token, stack)
+            if level.nowhere and level.last_move_id is None and game.position_known
+            else None
+        )
+        if placed_from_nowhere is not None:
+            # A line with no position of its own may still be the book
+            # numbering a move off: "11...exf6" for the game's `10...` (Markos
+            # page 132). A position the game really played, and only one,
+            # plays it — the repair every broken citation is offered.
+            level = stack[-1]
+            board_before = level.board.copy()
+            resolution = placed_from_nowhere
+        elif level.board_lost:
             # The move the number announced beside one it could not read.
             # `8 Na2 e6`: the knight is unreadable and `e6` is dropped for
             # want of a licence — 790 move tokens over the corpus, with no
