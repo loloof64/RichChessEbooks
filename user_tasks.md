@@ -1,5 +1,15 @@
 # What I have to do next
 
+> **Fourteenth session, 2026-09-29 — the figure compared is now `sound`.**
+> `sound` = `clean` + contradicted (`88c4d8c`, decided with Laurent): `clean`
+> punished reading a board, since a board that is read marks wrong moves
+> contradicted while an unread one leaves them clean. `measure.py` reports
+> `confirms`, `boards_read`, `below_break`, `drifted` beside it (`c45fe21`).
+> And `b8a42a6` ends a break's reach at the board a diagram puts back
+> (`ParseResult.reseeded`). **New bases, nothing before compares: corpus
+> `sound` 3339, held out `sound` 3547.** Judge a change on `sound`, with
+> `confirms` and `broken` beside it.
+
 Written 2026-08-22, revised 2026-09-27 (thirteenth session).
 `main` is at the commit below, 382 tests green.
 
