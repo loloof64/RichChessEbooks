@@ -1,5 +1,52 @@
 # What I have to do next
 
+> **Seventeenth session, 2026-09-29 — Markos, page by page with Laurent.**
+> Laurent reads the book in the app and names the defects (page, move, what
+> is wrong); I fix the rule behind each and regenerate
+> `~/Documents/Echecs/rce_apercu/Markos.rce`. **Laurent considers Markos done:
+> do not tune on it any more.** Whole book: sound 4066 -> 4590, broken 458 ->
+> 62 (the rest is mostly unreadable plans he accepted as red).
+>
+> **All merged into `main`** (branch `markos-p22`), including the fifteenth
+> session's `ocr-et-diagrammes-de-variante`. What came in: analysis inside
+> analysis and a lookahead that picks between candidate lines (past prose and
+> boards while the count runs on); Markos' side-to-move triangles
+> (Wingdings3, nearest board); plans read as prose (chains of squares,
+> `...X, ...Y` lists, comma lists, squares behind prepositions); a game
+> resuming after another game's board; lines from a position never printed
+> ("nowhere", typeset books only); lines from the start (`1.e4 …`) cited
+> inside a game; a bold number carrying on a line the book went back to in
+> bold. App: side-to-move disc beside the board (`moves.json` **1.2.0**,
+> optional `to_move_known` on diagrams) and an arrow for the last move.
+> 427 pipeline tests, 30 app tests.
+>
+> **Found and fixed: why the held-out run never finished.** `_GAME_HEADER`
+> backtracked exponentially on a run of capitalised names; Grivas 1-65 took
+> hours (a reader's `rce` would have hung too). `measure.py` now prints each
+> window as it finishes.
+>
+> **Held out vs the old `main`** (first complete run): non-Fabrice sound
+> 3530 -> 3628, broken 8687 -> 8298; Fabrice 82 -> 1148 (OCR of picture
+> pages); losses Principes -7, Boussole+40 -2, Chernev -2, Kaber -2,
+> Tactics+40 -1. **Corpus** 3339 -> 3313: Grivas -31 (from `16a9c3d`; its
+> moves mostly unchanged but marked contradicted by a board read
+> differently), Tactics -3 (false positives made red), Boussole -1. Laurent
+> judged these acceptable: the new rules remove false positives.
+>
+> **Open, in order:**
+> 1. The comma-list rule breaks the French "Si 20...Fd8, 21.Cd6 Tc7 22.Cxb7"
+>    (Principes p103, a real line): a list should end where a move follows
+>    its last item. Likely to touch every French book.
+> 2. Grivas -31 (Laurent: later).
+> 3. A white `1.` outside an aside opens a new game that swallows the running
+>    game's next bold move (seen while building a test; not in Markos).
+> 4. Tactics p177: a black move after a number that lost its ellipsis
+>    (`22. … Qg4+` read as `22.`).
+> 5. An app error Laurent hit tapping a move, trace lost: have him run
+>    `flutter run -d linux 2>&1 | tee ~/rce_app.log`.
+> 6. Laurent's next books (Fabrice's documents: moves of the comment mixed
+>    with the main line where no number separates them).
+
 > **Sixteenth session, 2026-09-29 — distribution, then back to the books.** A
 > reader has none of our tools, so the pipeline now installs with **pipx** as
 > an `rce` command (`rce book.pdf [--lang fr] [--first N --last M]` writes
