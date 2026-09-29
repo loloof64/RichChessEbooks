@@ -646,6 +646,33 @@ class _Board:
         self.bbox = BBox(100.0, 400.0, 200.0, 200.0)
 
 
+class TestAPlanIsNotAMove:
+    """Markos' plans, which a reader saw marked as moves of the game."""
+
+    def test_a_chain_of_squares_is_a_plan(self):
+        # Page 22, "White would have to play g2-g4-g5-g6"; page 29, "a
+        # pawn-chain f3-g4-h5". The last squares were played, legal by chance.
+        text = "12.Bd3 Qc7 White would have to play g2-g4-g5-g6 first. 13.Qf3 Nd7"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.raw for t in tokens if t.kind == "move"] == ["Bd3", "Qc7", "Qf3", "Nd7"]
+
+    def test_a_run_of_one_side_s_moves_each_with_its_ellipsis_is_a_plan(self):
+        # Page 26, "he wants to play ...♘g6, ...♘e4 and recapture"; page 39,
+        # "intending to play ...♕c7, ...♘d7 and ...0-0-0". One side's moves
+        # in a row are a list of intentions, not a line from the position.
+        text = "12.Bd3 Qc7 Black intends to play ...Nd7, ...Nb6 and ...0-0-0 here. 13.Qf3 Nd7"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.raw for t in tokens if t.kind == "move"] == ["Bd3", "Qc7", "Qf3", "Nd7"]
+
+    def test_a_single_move_the_prose_announces_is_still_a_move(self):
+        text = "12.Bd3 Qc7 Black threatens ...Nd7 here. 13.Qf3"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.raw for t in tokens if t.kind == "move"] == ["Bd3", "Qc7", "Nd7", "Qf3"]
+
+
 class TestTheSideToMoveBesideTheBoard:
     def test_a_black_triangle_at_the_board_s_corner_is_black_to_move(self):
         # Markos prints ▼ (Wingdings3 `q`) at the top right of a board, and

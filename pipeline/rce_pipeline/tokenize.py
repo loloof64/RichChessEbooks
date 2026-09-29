@@ -564,6 +564,53 @@ def _sides_to_move(page: Page, boards: list[BBox | None]) -> list[str]:
     return sides
 
 
+#: A square joined by a hyphen to the move before or after it: a chain.
+_CHAINED_AFTER = re.compile(r"-[a-h][1-8]")
+_CHAINED_BEFORE = re.compile(r"[a-h][1-8]-$")
+
+#: What joins two intentions in a list: "…♘g6, …♘e4", "…♘d7 and …0-0-0".
+_NEXT_INTENTION = re.compile(r"\s*(?:,|and|or|,\s*and)?\s*(?:\.\.\.|\u2026)\s*")
+
+
+def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
+    """Read as prose the plans a book writes in the shape of moves.
+
+    Markos' "White would have to play g2-g4-g5-g6" (page 22) and "a pawn-chain
+    f3-g4-h5" (page 29) arrive as `g2-g4` and `g5-g6`, `f3-g4` and `h5`: a
+    route, not a move from the position, and the squares it ends on were
+    played — legal by chance, marked as the game's.
+    """
+    plan: set[int] = set()
+    for at, token in enumerate(tokens):
+        if token.kind == "move" and (
+            _CHAINED_AFTER.match(text, token.end)
+            or _CHAINED_BEFORE.search(text[max(0, token.start - 3):token.start])
+        ):
+            plan.add(at)
+    # One side's moves in a row, each with its own ellipsis — "he wants to
+    # play ...♘g6, ...♘e4" (page 26), "intending to play ...♕c7, ...♘d7 and
+    # ...0-0-0" (page 39) — are a list of intentions. One alone is a threat,
+    # and stays a move.
+    moves = [at for at, token in enumerate(tokens) if token.kind == "move"]
+    run: list[int] = []
+    for at in moves + [None]:
+        joined = (
+            at is not None and run
+            and _NEXT_INTENTION.fullmatch(text[tokens[run[-1]].end:tokens[at].start])
+        )
+        if joined:
+            run.append(at)
+            continue
+        if len(run) > 1:
+            plan.update(run)
+        announced = at is not None and text[:tokens[at].start].rstrip().endswith(("...", "\u2026"))
+        run = [at] if announced else []
+    return [
+        dataclasses.replace(token, kind="text", text=token.raw) if at in plan else token
+        for at, token in enumerate(tokens)
+    ]
+
+
 def _tokenize_page(
     page: Page,
     token_re: re.Pattern[str],
@@ -597,6 +644,7 @@ def _tokenize_page(
     tokens.extend(_tokenize_span(
         page, text, token_re, to_san, cursor, len(text), spellings
     ))
+    tokens = _plans_are_prose(tokens, text)
     return _a_piece_whose_square_was_lost(_the_wreck_of_an_announced_move(
         _free_a_number_a_board_stranded(tokens, page, text), page, text
     ), page, text)
