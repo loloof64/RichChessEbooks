@@ -70,8 +70,12 @@ rce book.pdf --first 20 --last 40  # a range of pages, to try a book quickly
 Open the `.rce` in the app, and tap the eye icon to see what was read and where the
 pipeline is unsure. On a new book, try a chapter whose content you know first.
 
-`pipx upgrade rce-pipeline` fetches a newer version; `pipx uninstall rce-pipeline`
-removes everything.
+**Updating.** `rce` checks GitHub at the end of each run and, when the pipeline has
+changed since you installed it, ends its report with the command to run:
+`pipx reinstall rce-pipeline` (not `pipx upgrade`, which only acts when the version
+number changes). The check takes at most two seconds, says nothing when offline, and is
+turned off by setting `RCE_NO_UPDATE_CHECK=1`. `pipx uninstall rce-pipeline` removes
+everything.
 
 ## Current state
 

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import importlib.util
 import itertools
+import json
 import os
 import sys
 import tempfile
 import threading
 import time
+import urllib.request
 import warnings
 from importlib.resources import files
 
@@ -21,6 +24,50 @@ FULL_INSTALL = (
     'pipx install --force "rce-pipeline[glyphs,pictures] @ '
     'git+https://github.com/loloof64/RichChessEbooks.git#subdirectory=pipeline"'
 )
+
+PIPELINE_COMMITS = (
+    "https://api.github.com/repos/loloof64/RichChessEbooks/commits?path=pipeline&per_page=1"
+)
+
+
+def update_notice() -> str | None:
+    """What to run to get a newer pipeline, if GitHub has one; else None.
+
+    The last commit to touch `pipeline/` as seen from the commit pip installed,
+    against the same on GitHub's main: a later commit that only touched the
+    app is no reason to reinstall. Silent whenever it cannot tell: a checkout run from
+    source, no network, GitHub slow or refusing. RCE_NO_UPDATE_CHECK turns it
+    off.
+    """
+    if os.environ.get("RCE_NO_UPDATE_CHECK"):
+        return None
+    installed = _installed_commit()
+    if installed is None:
+        return None
+    mine, latest = _pipeline_commit(installed), _pipeline_commit()
+    if mine is None or latest is None or mine == latest:
+        return None
+    return ("A newer version of rce is available. To install it:\n"
+            "  pipx reinstall rce-pipeline")
+
+
+def _installed_commit() -> str | None:
+    """The commit a `pipx install git+...` was built from, as pip recorded it."""
+    try:
+        recorded = importlib.metadata.distribution("rce-pipeline").read_text("direct_url.json")
+        return json.loads(recorded or "{}").get("vcs_info", {}).get("commit_id")
+    except (importlib.metadata.PackageNotFoundError, ValueError):
+        return None
+
+
+def _pipeline_commit(ref: str | None = None) -> str | None:
+    """The last commit to touch `pipeline/` as of `ref`, main by default."""
+    url = PIPELINE_COMMITS + (f"&sha={ref}" if ref else "")
+    try:
+        with urllib.request.urlopen(url, timeout=2) as response:
+            return json.load(response)[0]["sha"]
+    except Exception:  # any failure means "cannot tell", never an error for the reader
+        return None
 
 
 class Waiting:
@@ -129,6 +176,9 @@ def main(argv: list[str] | None = None) -> None:
         if w not in missing_extra:
             warnings.showwarning(w.message, w.category, w.filename, w.lineno)
     print(result.report())
+    notice = update_notice()
+    if notice:
+        print(f"\n{notice}")
     if missing_extra or (model is None and result.notation.needs_glyph_recovery):
         print(f"\nThis book needs the full install (~400 MB). Run:\n  {FULL_INSTALL}\n"
               "then run rce again.")

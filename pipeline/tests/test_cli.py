@@ -19,3 +19,41 @@ def test_rce_says_which_step_it_is_on(tmp_path, capsys):
     assert "\r" not in captured.err
     assert "Moves:" in captured.out
     assert (tmp_path / "book.rce").exists()
+
+
+
+def pipeline_commits(installed_view: str | None, latest: str | None):
+    """The last commit to touch pipeline/ as seen from a commit, and from main."""
+    return lambda ref=None: installed_view if ref is not None else latest
+
+
+def test_a_newer_pipeline_on_github_is_announced(monkeypatch):
+    monkeypatch.delenv("RCE_NO_UPDATE_CHECK", raising=False)
+    monkeypatch.setattr(cli, "_installed_commit", lambda: "head")
+    monkeypatch.setattr(cli, "_pipeline_commit", pipeline_commits("aaa", "bbb"))
+    assert "pipx reinstall rce-pipeline" in cli.update_notice()
+
+
+def test_commits_outside_the_pipeline_are_no_update(monkeypatch):
+    # Installed at a commit that only touched the app: the pipeline it carries
+    # is still main's latest, so there is nothing to reinstall.
+    monkeypatch.delenv("RCE_NO_UPDATE_CHECK", raising=False)
+    monkeypatch.setattr(cli, "_installed_commit", lambda: "head")
+    monkeypatch.setattr(cli, "_pipeline_commit", pipeline_commits("aaa", "aaa"))
+    assert cli.update_notice() is None
+
+
+def test_no_update_check_without_a_git_install_or_a_network(monkeypatch):
+    monkeypatch.delenv("RCE_NO_UPDATE_CHECK", raising=False)
+    # Run from a checkout: nothing installed from GitHub to compare.
+    monkeypatch.setattr(cli, "_installed_commit", lambda: None)
+    monkeypatch.setattr(cli, "_pipeline_commit", pipeline_commits("aaa", "bbb"))
+    assert cli.update_notice() is None
+    # GitHub out of reach: say nothing rather than fail.
+    monkeypatch.setattr(cli, "_installed_commit", lambda: "head")
+    monkeypatch.setattr(cli, "_pipeline_commit", pipeline_commits(None, None))
+    assert cli.update_notice() is None
+    # Turned off by the reader.
+    monkeypatch.setenv("RCE_NO_UPDATE_CHECK", "1")
+    monkeypatch.setattr(cli, "_pipeline_commit", pipeline_commits("aaa", "bbb"))
+    assert cli.update_notice() is None
