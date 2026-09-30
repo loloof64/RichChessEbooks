@@ -36,7 +36,12 @@ conflicts with anything else on the machine.
 | macOS | `brew install pipx` |
 | Windows | `py -m pip install --user pipx` |
 
-then run `pipx ensurepath`, and **open a new terminal** so the `rce` command is found.
+then run `pipx ensurepath` (on Windows: `py -m pipx ensurepath`, since `pipx` is not on
+the PATH yet), and **open a new terminal** so the `rce` command is found.
+
+> **Windows.** `py` is the Python launcher, installed with Python by the official
+> installer from [python.org](https://www.python.org/downloads/windows/). The Microsoft
+> Store version of Python does not provide it: there, type `python` instead of `py`.
 
 **2. Install the tool** — choose one:
 
