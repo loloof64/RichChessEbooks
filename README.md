@@ -105,6 +105,20 @@ model is incompatible with this one.
 
 ## Running the app
 
+Ready-made packages are on the [releases page](https://github.com/loloof64/RichChessEbooks/releases):
+
+| System | Files |
+| --- | --- |
+| Linux | `.AppImage` (any distribution, no install), `.deb`, `.rpm` |
+| Windows | `-setup.exe` (installer), `.msi`, `-portable.zip` (unzip and run, nothing installed) |
+| macOS | `.dmg`, `.zip` (Apple silicon and Intel) |
+
+The Windows and macOS builds are not signed, so the system warns on first launch. On
+Windows, choose *More info* → *Run anyway*. On macOS, right-click the app → *Open*, or run
+`xattr -cr "/Applications/Rich Chess Ebooks.app"` if macOS says it is damaged.
+
+To run from source:
+
 ```bash
 flutter pub get
 flutter run          # linux, macos, windows, android, ios

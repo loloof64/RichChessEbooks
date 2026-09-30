@@ -1,0 +1,168 @@
+# Builds the desktop packages and publishes a GitHub release, only when a version tag is
+# pushed:  git tag v0.1.0 && git push origin v0.1.0
+# The tag must match the version in pubspec.yaml, and CHANGELOG.md must have a section
+# for it: that section becomes the release notes.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+env:
+  FLUTTER_VERSION: "3.47.2"
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Check the tag against pubspec.yaml and CHANGELOG.md
+        run: |
+          version=$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match pubspec.yaml version $version"
+            exit 1
+          fi
+          awk -v v="$version" '/^## \[/ { p = index($0, "[" v "]") > 0; next } /^\[[^]]*\]: / { next } p' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::CHANGELOG.md has no section for $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notes
+          path: notes.md
+
+  linux:
+    needs: version
+    # The oldest supported runner, so the AppImage runs on distributions with an older glibc.
+    runs-on: ubuntu-22.04
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+          curl -sL https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_Linux_x86_64.tar.gz | tar xz nfpm
+      - run: flutter build linux --release
+      - name: deb and rpm
+        run: |
+          mkdir -p dist
+          ./nfpm pkg -f packaging/linux/nfpm.yaml --packager deb --target dist/
+          ./nfpm pkg -f packaging/linux/nfpm.yaml --packager rpm --target dist/
+      - name: AppImage
+        run: |
+          cp -r build/linux/x64/release/bundle AppDir
+          ln -s rich_chess_ebooks AppDir/AppRun
+          sed 's/^Exec=.*/Exec=rich_chess_ebooks/' packaging/linux/rich-chess-ebooks.desktop > AppDir/rich-chess-ebooks.desktop
+          cp packaging/icon/icon.png AppDir/rich-chess-ebooks.png
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir \
+            "dist/RichChessEbooks-$VERSION-x86_64.AppImage"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build windows --release
+      - name: Add the Visual C++ runtime next to the executable
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $crt = Get-ChildItem "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" -Directory | Sort-Object FullName | Select-Object -Last 1
+          Copy-Item "$crt\*.dll" build\windows\x64\runner\Release\
+      - name: Portable zip
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item -Recurse build\windows\x64\runner\Release "RichChessEbooks-$env:VERSION"
+          Compress-Archive "RichChessEbooks-$env:VERSION" "dist\RichChessEbooks-$env:VERSION-windows-x64-portable.zip"
+      - name: exe installer
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q `
+            "/DAppVersion=$env:VERSION" `
+            "/DSourceDir=$pwd\build\windows\x64\runner\Release" `
+            "/DOutputDir=$pwd\dist" `
+            packaging\windows\installer.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: msi installer
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix build packaging\windows\installer.wxs -arch x64 `
+            -d "Version=$env:VERSION" `
+            -d "SourceDir=$pwd\build\windows\x64\runner\Release" `
+            -o "dist\RichChessEbooks-$env:VERSION-windows-x64.msi"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.*
+
+  macos:
+    needs: version
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      # Universal (Apple silicon + Intel), signed ad hoc: no Apple developer account.
+      - run: flutter build macos --release
+      - name: dmg and zip
+        run: |
+          app=build/macos/Build/Products/Release/rich_chess_ebooks.app
+          mkdir -p dist dmg
+          cp -R "$app" "dmg/Rich Chess Ebooks.app"
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Rich Chess Ebooks" -srcfolder dmg -ov -format UDZO \
+            "dist/RichChessEbooks-$VERSION-macos.dmg"
+          ditto -c -k --keepParent "dmg/Rich Chess Ebooks.app" "dist/RichChessEbooks-$VERSION-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+
+  release:
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Rich Chess Ebooks ${{ github.ref_name }}
+          body_path: artifacts/notes/notes.md
+          files: |
+            artifacts/linux/*
+            artifacts/windows/*
+            artifacts/macos/*

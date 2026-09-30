@@ -1,0 +1,28 @@
+# deb and rpm from the Flutter bundle. Run from the repository root with VERSION set:
+#   VERSION=0.1.0 nfpm pkg -f packaging/linux/nfpm.yaml --packager deb --target dist/
+name: rich-chess-ebooks
+arch: amd64
+platform: linux
+version: ${VERSION}
+section: games
+maintainer: Laurent Bernabé
+description: Read your chess ebooks in an interactive way.
+homepage: https://github.com/loloof64/RichChessEbooks
+license: MIT
+
+contents:
+  - src: build/linux/x64/release/bundle/
+    dst: /opt/rich-chess-ebooks
+  - src: /opt/rich-chess-ebooks/rich_chess_ebooks
+    dst: /usr/bin/rich-chess-ebooks
+    type: symlink
+  - src: packaging/linux/rich-chess-ebooks.desktop
+    dst: /usr/share/applications/rich-chess-ebooks.desktop
+  - src: packaging/icon/icon-512.png
+    dst: /usr/share/icons/hicolor/512x512/apps/rich-chess-ebooks.png
+
+overrides:
+  deb:
+    depends: [libgtk-3-0]
+  rpm:
+    depends: [gtk3]

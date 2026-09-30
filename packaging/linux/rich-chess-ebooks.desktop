@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Rich Chess Ebooks
+Comment=Read your chess ebooks in an interactive way
+Exec=rich-chess-ebooks
+Icon=rich-chess-ebooks
+Categories=Game;BoardGame;
+Terminal=false
