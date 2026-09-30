@@ -1,5 +1,61 @@
 # What I have to do next
 
+> **Eighteenth session, 2026-09-30 — Sakaev, page by page with Laurent.**
+> Same method as Markos: Laurent reads `~/Documents/Echecs/rce_apercu/Sakaev.rce`
+> in the app and names the page; I find the rule, fix it test first, run the
+> whole book (`cmp` of broken moves per page against the previous run, no page
+> may get worse), then corpus + held-out against the morning's code before
+> committing. Whole book: broken **209 -> 23**. Every page Laurent listed is
+> fixed (21, 26, 33, 49, 64, 72, 80, 86, 87, 122, 157, 227, 239, 240, 242,
+> 258, 265, 278, 279, 297, 300). He has not yet read the rest of the book.
+>
+> **On `main`** (`799f909` .. `9c37401`), 439 pipeline tests:
+> - a plan written square to square may break behind the dash (`♗e2-\nc4`);
+> - a second alternative inside one bracket restarts where the first began in
+>   a bold-scored book too (`_back_into_the_bracket`, shared with the number
+>   placement);
+> - a pawn capture from a file with no pawn to make it is read with the one
+>   pawn that takes there, `uncertain` (`8.exd5` for `8.cxd5`);
+> - **running heads and folios are dropped at extraction** (`extract._furniture`:
+>   one line in the top/bottom 7% at the same place on 2+ pages, digits
+>   ignored). They stood between the last move of a page and the first of the
+>   next and ended the line — the largest single cause on Sakaev;
+> - list labels `B1)`, `B21)` are neither a `)` nor a bishop move;
+> - the comma-list rule no longer takes "…b7-b6, 20.♘c4" nor "19.♖fe1,
+>   19...♘xg3" (a move and the reply at its number) for plans;
+> - a bracket whose number names no position is placed by its first move
+>   (`(12.♕xe4+` printed for 13.);
+> - a white `1.` that plays on the board a game was seeded from, and not from
+>   the initial position, is an alternative in that game, not a new game
+>   (Yates-Marshall, p297);
+> - a pair of moves with no number between prose and a white `N.` is numbered
+>   `N-1.` **only where the board agrees** (`_the_number_left_implicit`). The
+>   text-only version cost Pachman1 −55 and Principes −1 and was withdrawn;
+>   Laurent asked for this compromise rather than leaving p87 open.
+> - Housekeeping: Colab notebook deleted, READMEs point to
+>   `scripts/preview_page.py`; `android/build/`, `pipeline/build/`,
+>   `pipeline/uv.lock` ignored.
+>
+> **Measured against this morning's `6144ad5`** (Fabrice's documents not
+> measured — they take hours): corpus sound 3313 -> 3365, no book lower;
+> held-out Sakaev+40 921 -> 993, Grivas3 +7, Grivas+40 +4, Chernev +10,
+> Boussole+40 +1, **no window lower; Markos, Markos+40, Principes, Pachman1
+> identical** (Laurent: keep Markos free of regressions).
+>
+> **How to run things here:** nothing is installed system-wide. Use
+> `PYTHONPATH=. uv run --with '.[glyphs,pictures]' python …` from `pipeline/`;
+> tests with `uv run --with '.[dev]' --with tdd-guard-pytest pytest -o
+> tdd_guard_project_root=$HOME/Documents/GitHub/RichChessEbooks`, or the TDD
+> guard never sees the red. A window of a few pages starting mid-game is **not**
+> representative (boards undecoded, games unplaced): judge on the whole book.
+>
+> **Open, in order:**
+> 1. Laurent carries on reading Sakaev past what he listed; 23 broken remain.
+> 2. The seventeenth session's list below still stands (French "Si 20...Fd8,
+>    21.Cd6" comma list, Grivas −31, a white `1.` outside an aside in a game
+>    from the initial position, Tactics p177, the app error trace, Fabrice).
+> 3. Held-out on Fabrice's documents for today's commits.
+
 > **Seventeenth session, 2026-09-29 — Markos, page by page with Laurent.**
 > Laurent reads the book in the app and names the defects (page, move, what
 > is wrong); I fix the rule behind each and regenerate
