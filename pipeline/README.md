@@ -16,14 +16,7 @@ image](#books-whose-symbols-are-only-in-the-image).
 
 ## Developing it
 
-To read a book, the `rce` command is all there is to it: see the [project README](../README.md), where installing it comes first. To work on the pipeline,
-the bench is [`../notebooks/rce_pipeline.ipynb`](../notebooks/rce_pipeline.ipynb)
-in Google Colab. The notebook holds no logic: it installs the dependencies, calls this
-package, and shows the results — including a rendered page with the extracted boxes
-drawn on top, which is the only check that really tells you whether a clickable zone
-will land on its move.
-
-Locally, if you want it:
+To read a book, the `rce` command is all there is to it: see the [project README](../README.md), where installing it comes first. To work on the pipeline:
 
 ```bash
 pip install -e .[dev]          # .[glyphs] alone for the recogniser without pytest
@@ -405,5 +398,5 @@ symbol is written back into a page. Whether the model recognises a knight is mea
 from a scan: the narrow gutter, fragments of one line, overlapping line boxes, diagram
 debris, and which lines get selected for re-reading.
 
-Extraction geometry is not unit-tested: no assertion is as convincing as the notebook's
-step 7, which draws the boxes on the rendered page.
+Extraction geometry is not unit-tested: no assertion is as convincing as
+`scripts/preview_page.py`, which draws the boxes on the rendered page.

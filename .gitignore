@@ -57,3 +57,8 @@ work/
 /graphify-out/
 /.claude/
 /pipeline/.claude/
+# Build output of the Android app and of the pipeline package, and the lock
+# file `uv run` writes beside pyproject.toml
+/android/build/
+/pipeline/build/
+/pipeline/uv.lock

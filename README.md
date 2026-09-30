@@ -15,7 +15,7 @@ Two components, joined by one strict data contract:
 
 | | Where | What it does |
 | --- | --- | --- |
-| Pipeline | [`pipeline/`](pipeline/), installed as the `rce` command; [`notebooks/rce_pipeline.ipynb`](notebooks/rce_pipeline.ipynb) is its development bench — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/loloof64/RichChessEbooks/blob/main/notebooks/rce_pipeline.ipynb) | Reads the PDF, finds the moves and their page geometry, validates them against the rules, writes the archive |
+| Pipeline | [`pipeline/`](pipeline/), installed as the `rce` command | Reads the PDF, finds the moves and their page geometry, validates them against the rules, writes the archive |
 | Reader | [`lib/`](lib/) | Opens the archive, renders the book, overlays the tap zones, shows the board |
 | Contract | [`docs/rce-format.md`](docs/rce-format.md) + [`docs/schemas/`](docs/schemas/) | The `.rce` format the two agree on |
 
@@ -67,9 +67,6 @@ pipeline is unsure. On a new book, try a chapter whose content you know first.
 
 `pipx upgrade rce-pipeline` fetches a newer version; `pipx uninstall rce-pipeline`
 removes everything.
-
-The Colab notebook (badge above) does the same run with a rendered page showing the
-extracted boxes on top of it: it is for developing the pipeline, not for reading a book.
 
 ## Current state
 
