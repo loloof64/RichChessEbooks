@@ -1083,7 +1083,7 @@ def parse_tokens(
             for black in (False, True)
         )
 
-    def _open_the_bracket_on_the_right_side(declared: int) -> None:
+    def _open_the_bracket_on_the_right_side(declared: int, at: int) -> None:
         """A bracket branches before the move it follows — unless it says not.
 
         `(` opens a variation at the position *before* the move just played,
@@ -1111,7 +1111,18 @@ def parse_tokens(
             None,
         )
         if parent is None:
-            return
+            # A number that names no position at all is the book's slip, and
+            # the first move is what says where it was printed for: Sakaev
+            # page 239, "12.e4 dxe4 (12.♕xe4+ ♔f8 …)" for `13.♕xe4+` — the
+            # queen takes on e4 only once the pawn is there.
+            line = _the_line_after(tokens, at)
+            below = stack[-2]
+            if line and not _plays(level.board.fen(), line[0].text) and _plays(
+                below.board.fen(), line[0].text
+            ):
+                parent = below
+            else:
+                return
         level.board = parent.board.copy()
         level.parent_id = parent.last_move_id or parent.parent_id
 
@@ -1679,7 +1690,7 @@ def parse_tokens(
             if stack:
                 last_declared = _ply_of(number, is_black_only)
                 last_licence = 1 if is_black_only else 2
-                _open_the_bracket_on_the_right_side(last_declared)
+                _open_the_bracket_on_the_right_side(last_declared, at)
                 if weighted:
                     _place_by_weight(token.bold, last_declared, at)
                 else:

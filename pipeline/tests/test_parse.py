@@ -2660,6 +2660,27 @@ class TestTwoAlternativesInOneBracket:
         assert chess.Board(bc4.fen).piece_at(chess.B1) == chess.Piece(chess.KNIGHT, chess.WHITE)
 
 
+class TestABracketWhoseNumberNamesNoPosition:
+    """Sakaev page 239: "12.e4 dxe4 (12.♕xe4+ ♔f8 …) 13.♘xe4" — `13.` meant.
+    Neither the position before `dxe4` nor any other awaits a white twelfth,
+    and the queen only takes on e4 once the pawn is there."""
+
+    def test_the_first_move_says_where_it_plays(self):
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "e4"), ("move", "d5"),
+            ("move_number", "2."), ("move", "Qe2"), ("move", "dxe4"),
+            ("var_open", "("),
+            ("move_number", "2."), ("move", "Qxe4"), ("move", "Nf6"),
+            ("var_close", ")"),
+            ("move_number", "3."), ("move", "Nc3"),
+        ))
+
+        assert all(m.status == "ok" for m in result.moves)
+        by_san = {m.san: m for m in result.moves}
+        # Both answer `dxe4`: the queen's capture beside the knight's move.
+        assert by_san["Qxe4"].parent_id == by_san["dxe4"].id == by_san["Nc3"].parent_id
+
+
 class TestAPieceWhoseSquareWasLost:
     """`2.NO` — the knight printed, its square read as `O`: the board and the
     score after it name the move, as they name a move a number destroyed."""

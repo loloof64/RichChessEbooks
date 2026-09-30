@@ -701,6 +701,21 @@ class TestAPlanIsNotAMove:
             tokens = tokenize_pages([page_of(text)])
             assert [t.raw for t in tokens if t.kind == "move"][-len(kept):] == kept, text
 
+    def test_a_move_and_its_reply_across_a_comma_are_a_line(self):
+        # Sakaev page 279, "On 19.♖fe1, 19...♘xg3 20.hxg3 ♘b6 is also good".
+        text = "19.Rae1 Nxg3 On 19.Rfe1, 19...Nxg3 20.hxg3 Nb6 is also good."
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.raw for t in tokens if t.kind == "move"][-4:] == ["Rfe1", "Nxg3", "hxg3", "Nb6"]
+
+    def test_a_numbered_move_after_an_intention_is_the_line_resuming(self):
+        # Sakaev page 122, "If 19...♕c7, with the idea of ...b7-b6, 20.♘c4
+        # ♗e8 21.♘b6": the comma closes the idea, and the line goes on.
+        text = "19.c5 b5 If 19...Qc7, with the idea of ...b7-b6, 20.Nc4 Be8 21.Nb6"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.raw for t in tokens if t.kind == "move"][-3:] == ["Nc4", "Be8", "Nb6"]
+
     def test_a_single_move_the_prose_announces_is_still_a_move(self):
         text = "12.Bd3 Qc7 Black threatens ...Nd7 here. 13.Qf3"
         tokens = tokenize_pages([page_of(text)])
@@ -891,6 +906,19 @@ class TestALabelIsNotACloseBracket:
     def test_a_capital_label_closes_nothing(self):
         # Sakaev sets its lists with capitals and an en space in front.
         assert self.kinds("1.e4 e5\n\u2002A)\u2002 2.Nf3 Nc6 1-0") == []
+
+    def test_a_numbered_label_closes_nothing(self):
+        # Sakaev page 86 goes one level down: "B1) After 26.\u2656xb7".
+        assert self.kinds("1.e4 e5 and now:\n\u2002B1)\u2002 2.Nf3 Nc6 1-0") == []
+
+    def test_a_label_two_levels_down_is_neither_a_bracket_nor_a_move(self):
+        # And one more: "B21) on 30.\u2655h4 \u2656h5" \u2014 `B21` is shaped like a bishop
+        # whose file a scanner read as a digit.
+        tokens = tokenize_pages([page_of("1.e4 e5\n\u2002B21)\u2002 2.Nf3 Nc6 1-0")])
+
+        assert [t.text for t in tokens if t.kind in ("move", "var_open", "var_close")] == [
+            "e4", "e5", "Nf3", "Nc6",
+        ]
 
     def test_a_variation_ending_in_a_move_still_closes(self):
         # What the lookbehind must not reach: a variation ends in a digit, a

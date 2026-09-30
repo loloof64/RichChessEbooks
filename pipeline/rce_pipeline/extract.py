@@ -212,9 +212,13 @@ def extract_pages(
     doc = fitz.open(pdf_path)
     try:
         last = doc.page_count if last_page is None else min(last_page, doc.page_count)
+        indices = range(first_page - 1, last)
+        furniture = _furniture(doc[index] for index in indices)
         pages: list[Page] = []
-        for index in range(first_page - 1, last):
-            pages.append(_extract_page(doc[index], index + 1, sort_blocks=sort_blocks))
+        for index in indices:
+            pages.append(
+                _extract_page(doc[index], index + 1, sort_blocks=sort_blocks, furniture=furniture)
+            )
         return pages
     finally:
         doc.close()
@@ -229,7 +233,57 @@ def page_count(pdf_path: str) -> int:
         doc.close()
 
 
-def _extract_page(page: "fitz.Page", number: int, *, sort_blocks: bool) -> Page:
+#: How far into the page, from the top or the bottom, a running head or a
+#: folio stands — as a share of its height. Sakaev's head ends at 5%, its
+#: folio starts at 92%, and its text runs from 8% to 90%.
+_MARGIN_BAND = 0.07
+
+#: On how many pages a line must stand, where it stands, to be the page's
+#: furniture and not the book's.
+_FURNITURE_PAGES = 2
+
+
+def _furniture_key(block: tuple | dict, height: float) -> tuple[str, int] | None:
+    """What a running head or a folio is recognised by: its words, and where.
+
+    Digits are left out, so a folio is every page's and so is a head carrying
+    the page number. Only one line, and only in the margin: a line of the book
+    never stands there.
+    """
+    x0, y0, x1, y1 = block["bbox"] if isinstance(block, dict) else block[:4]
+    if height * _MARGIN_BAND < y0 and y1 < height * (1 - _MARGIN_BAND):
+        return None
+    text = block[4] if not isinstance(block, dict) else "\n".join(
+        "".join(g["c"] for span in line.get("spans", []) for g in span.get("chars", []))
+        for line in block.get("lines", [])
+    )
+    if text.strip().count("\n") > 0:
+        return None
+    return " ".join("".join(c for c in text if not c.isdigit()).split()), round(y0)
+
+
+def _furniture(pages: Iterator["fitz.Page"]) -> set[tuple[str, int]]:
+    """The running heads and folios of these pages.
+
+    Sakaev prints its title and the page number at the head of every page, and
+    the layer puts them first: "22.♖f3 | 72 The Complete Manual of Positional
+    Chess | ♕xc5+" ended the line of play on page 72, and on nine pages more.
+    """
+    counts: dict[tuple[str, int], int] = {}
+    for page in pages:
+        seen = {
+            key for block in page.get_text("blocks") if block[6] == 0
+            if (key := _furniture_key(block, page.rect.height)) is not None
+        }
+        for key in seen:
+            counts[key] = counts.get(key, 0) + 1
+    return {key for key, count in counts.items() if count >= _FURNITURE_PAGES}
+
+
+def _extract_page(
+    page: "fitz.Page", number: int, *, sort_blocks: bool,
+    furniture: set[tuple[str, int]] = frozenset(),
+) -> Page:
     # page.rect is the *rotated* (visible) box, and rawdict coordinates are
     # expressed in that same space, so rotated pages need no special handling.
     width, height = page.rect.width, page.rect.height
@@ -246,7 +300,10 @@ def _extract_page(page: "fitz.Page", number: int, *, sort_blocks: bool) -> Page:
             )
 
     raw = page.get_text("rawdict")
-    blocks = [b for b in raw["blocks"] if b.get("type") == 0]  # 0 = text
+    blocks = [
+        b for b in raw["blocks"] if b.get("type") == 0  # 0 = text
+        and _furniture_key(b, height) not in furniture
+    ]
     if sort_blocks:
         blocks.sort(key=lambda b: (round(b["bbox"][1], 1), round(b["bbox"][0], 1)))
 

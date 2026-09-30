@@ -46,7 +46,9 @@ _TOKEN_TEMPLATE = r"""
       # board instead: two of Grivas page 21's lists, thirteen moves each.
       # A lone letter with a space in front of it is the label; a variation
       # ends in a digit, a check or an annotation, never in one letter.
-    | (?P<var_close>(?<!\s[A-Za-z])\))
+      # Nor in a capital and one or two digits, the label a level or two
+      # down: Sakaev's "B1)" and "B21)", page 86.
+    | (?P<var_close>(?<!\s[A-Za-z])(?<!\s[A-Z][1-9])(?<!\s[A-Z][1-9][1-9])\))
     | (?P<result>1-0|0-1|1/2-1/2|1/2|\*)
     | (?P<move_number>
           # A space inside the number: subset fonts break `18` into `1 8`, and
@@ -146,7 +148,12 @@ _TOKEN_TEMPLATE = r"""
               # A *bare* rank behind the symbol is a different case and is
               # `glyphs._file_the_symbol_swallowed`'s: there the letter is
               # still on the page, inside the ink the symbol covered.
-            | (?<![A-Za-z\d])[{pieces}][1-8][{ranks}]
+              #
+              # Never with a bracket straight behind it: that is a list's
+              # label, Sakaev's "B21)" (page 86). ponytail: costs the wreck
+              # that ends a bracketed line in a scan, "(… 21.♗25)"; tell the
+              # two apart by the label standing first on its line if it shows.
+            | (?<![A-Za-z\d])[{pieces}][1-8][{ranks}](?!\))
               # And the same move with the file gone altogether: `28.♔g1`
               # arrives as `28.♔1`, the letter having left no character at
               # all. A piece and a rank is a fragment of anything — it is the
@@ -639,6 +646,16 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
             (joint.strip() == "," or (comma and _NEXT_OPTION.fullmatch(joint)))
             and not (number_before(previous) and number_before(previous) == number_before(at))
             and not (number_before(previous) and not number_before(at) and joint.strip() == ",")
+            # Nor a numbered move after one that had none: the line resuming
+            # past an idea — "with the idea of ...b7-b6, 20.♘c4" (page 122).
+            and not (number_before(at) and not number_before(previous))
+            # Nor a move and the reply at its own number: "On 19.♖fe1,
+            # 19...♘xg3 20.hxg3" (page 279). A list steps one side's moves.
+            and not (
+                number_before(previous) and number_before(at)
+                and "..." not in number_before(previous) and "..." in number_before(at)
+                and number_before(previous).rstrip(".") == number_before(at).rstrip(".")
+            )
             and all(t.kind in ("move", "move_number", "text") for t in tokens[previous + 1:at])
         )
         if joined:

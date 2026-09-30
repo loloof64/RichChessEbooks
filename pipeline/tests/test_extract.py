@@ -45,3 +45,23 @@ def test_a_picture_page_is_read_column_by_column(tmp_path):
     start = page.text.index("Cf6")
     box = page.bbox_for(start, start + 3)
     assert box is not None and box.x < 300  # in the left column, in PDF points
+
+
+def test_the_running_head_and_the_folio_are_not_the_book(tmp_path):
+    # Sakaev prints its title and the page number at the head of every page,
+    # and the layer puts them between the last move of one page and the first
+    # of the next: "22.♖f3 | 72 The Complete Manual of Positional Chess |
+    # ♕xc5+", which ended the line on page 72.
+    book = fitz.open()
+    for number in range(1, 5):
+        page = book.new_page(width=482, height=666)
+        page.insert_text((66, 30), "The Complete Manual of Positional Chess", fontsize=9)
+        page.insert_text((68, 620), str(number), fontsize=9)
+        page.insert_text((62, 100), f"{number}.e4 e5", fontsize=10)
+    book.save(tmp_path / "book.pdf")
+
+    pages = extract.extract_pages(str(tmp_path / "book.pdf"))
+
+    assert [" ".join(page.text.split()) for page in pages] == [
+        f"{number}.e4 e5" for number in range(1, 5)
+    ]
