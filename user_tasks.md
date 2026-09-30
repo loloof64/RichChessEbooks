@@ -1,5 +1,16 @@
 # What I have to do next
 
+> **Nineteenth session, 2026-09-30 — release and comfort, no book work.**
+> First app release **0.1.0** published by `.github/workflows/release.yml` (a
+> `vX.Y.Z` tag matching `pubspec.yaml`; notes = that version's `CHANGELOG.md`
+> section, so add the section before tagging): Linux AppImage/deb/rpm, Windows
+> setup.exe/msi/portable zip, macOS dmg/zip, unsigned. App icon drawn by
+> `packaging/icon/make_icon.py`. macOS sandbox now may read the picked file.
+> `rce` shows the step it is on (spinner and clock) and ends its report with
+> `pipx reinstall rce-pipeline` when `pipeline/` changed on GitHub since the
+> install (`RCE_NO_UPDATE_CHECK=1` turns it off). The reader highlights on the
+> page the move or diagram the board shows. Markos re-checked, no regression.
+
 > **Eighteenth session, 2026-09-30 — Sakaev, page by page with Laurent.**
 > Same method as Markos: Laurent reads `~/Documents/Echecs/rce_apercu/Sakaev.rce`
 > in the app and names the page; I find the rule, fix it test first, run the
@@ -55,8 +66,11 @@
 >    62 -> 61, only p264 changed): still near-perfect, no regression.
 > 2. **Next session: Grivas, page by page with Laurent** (same method as
 >    Markos and Sakaev). Whole book regenerated with today's code in
->    `rce_apercu/Grivas.rce`. Background: the corpus −31 since `16a9c3d`
->    (moves mostly unchanged, marked contradicted by a board read differently).
+>    `rce_apercu/Grivas.rce` (a scan: ~35 min; 9304 moves, ok 5747,
+>    uncertain 567, **broken 2990**; 1014 ok moves contradicted by a diagram,
+>    378 lines died). **Laurent read it: not usable as it stands, many
+>    errors.** Background: the corpus −31 since `16a9c3d` (moves mostly
+>    unchanged, marked contradicted by a board read differently).
 > 3. **Then Principes**: the comma-list rule breaks the French "Si 20...Fd8,
 >    21.Cd6 Tc7 22.Cxb7" (p103, a real line); a list should end where a
 >    numbered move follows its last item. Check every French book after it.
