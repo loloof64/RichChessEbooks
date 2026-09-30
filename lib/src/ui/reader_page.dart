@@ -27,8 +27,8 @@ class _ReaderPageState extends State<ReaderPage> {
 
   int _currentPage = 1;
 
-  /// What the side panel shows, on a screen wide enough for one: a move or
-  /// a diagram, whichever was tapped last.
+  /// The move or diagram on the board, whichever was tapped last: shown in
+  /// the side panel on a wide screen, and marked on the page either way.
   MoveNode? _selected;
   DiagramEntry? _selectedDiagram;
 
@@ -59,18 +59,11 @@ class _ReaderPageState extends State<ReaderPage> {
               page: page,
               pageRectInViewer: pageRectInViewer,
               showZones: _showZones,
-              onMoveTap: (move) => wide
-                  ? setState(() {
-                      _selected = move;
-                      _selectedDiagram = null;
-                    })
-                  : BoardSheet.show(context, book: book, move: move),
-              onDiagramTap: (diagram) => wide
-                  ? setState(() {
-                      _selected = null;
-                      _selectedDiagram = diagram;
-                    })
-                  : BoardSheet.show(context, book: book, diagram: diagram),
+              selectedMove: _selected,
+              selectedDiagram: _selectedDiagram,
+              onMoveTap: (move) => _select(context, wide, move: move),
+              onDiagramTap: (diagram) =>
+                  _select(context, wide, diagram: diagram),
             ),
       ),
     );
@@ -154,6 +147,35 @@ class _ReaderPageState extends State<ReaderPage> {
           ? const _EmptyBookBanner()
           : null,
     );
+  }
+
+  Future<void> _select(
+    BuildContext context,
+    bool wide, {
+    MoveNode? move,
+    DiagramEntry? diagram,
+  }) async {
+    setState(() {
+      _selected = move;
+      _selectedDiagram = diagram;
+    });
+    if (wide) return;
+    await BoardSheet.show(
+      context,
+      book: widget.book,
+      move: move,
+      diagram: diagram,
+    );
+    // The sheet is gone and the board with it: nothing is on it any more. A
+    // tap made meanwhile has already replaced the selection and keeps it.
+    if (mounted &&
+        identical(_selected, move) &&
+        identical(_selectedDiagram, diagram)) {
+      setState(() {
+        _selected = null;
+        _selectedDiagram = null;
+      });
+    }
   }
 
   Future<void> _askPage(BuildContext context) async {

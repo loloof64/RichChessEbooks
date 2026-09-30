@@ -24,6 +24,8 @@ List<Widget> buildMoveOverlays({
   required ValueChanged<MoveNode> onMoveTap,
   required ValueChanged<DiagramEntry> onDiagramTap,
   required bool showZones,
+  MoveNode? selectedMove,
+  DiagramEntry? selectedDiagram,
 }) {
   final moves = book.movesOnPage(page.pageNumber);
   final diagrams = book.diagramsOnPage(page.pageNumber);
@@ -43,6 +45,7 @@ List<Widget> buildMoveOverlays({
         ),
         child: _DiagramZone(
           showZone: showZones,
+          selected: identical(diagram, selectedDiagram),
           onTap: () => onDiagramTap(diagram),
         ),
       ),
@@ -54,6 +57,7 @@ List<Widget> buildMoveOverlays({
         child: _MoveZone(
           move: move,
           showZone: showZones,
+          selected: move.id == selectedMove?.id,
           onTap: () => onMoveTap(move),
         ),
       ),
@@ -64,11 +68,15 @@ class _MoveZone extends StatelessWidget {
   const _MoveZone({
     required this.move,
     required this.showZone,
+    required this.selected,
     required this.onTap,
   });
 
   final MoveNode move;
   final bool showZone;
+
+  /// The move on the board: marked whether or not the zones are shown.
+  final bool selected;
   final VoidCallback onTap;
 
   @override
@@ -82,15 +90,17 @@ class _MoveZone extends StatelessWidget {
         return true;
       },
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: showZone
-              ? _tint(context, move).withValues(alpha: 0.22)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(2),
-          border: showZone
-              ? Border.all(color: _tint(context, move), width: 0.8)
-              : null,
-        ),
+        decoration: selected
+            ? _selectedDecoration
+            : BoxDecoration(
+                color: showZone
+                    ? _tint(context, move).withValues(alpha: 0.22)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+                border: showZone
+                    ? Border.all(color: _tint(context, move), width: 0.8)
+                    : null,
+              ),
       ),
     );
   }
@@ -105,10 +115,23 @@ class _MoveZone extends StatelessWidget {
   }
 }
 
+/// A highlighter stroke over the move or diagram on the board: a colour none
+/// of the status tints use, so it reads as "this one" and not as a verdict.
+final _selectedDecoration = BoxDecoration(
+  color: const Color(0xFFFFD54F).withValues(alpha: 0.55),
+  borderRadius: BorderRadius.circular(2),
+  border: Border.all(color: const Color(0xFFE65100), width: 1.6),
+);
+
 class _DiagramZone extends StatelessWidget {
-  const _DiagramZone({required this.showZone, required this.onTap});
+  const _DiagramZone({
+    required this.showZone,
+    required this.selected,
+    required this.onTap,
+  });
 
   final bool showZone;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
@@ -120,10 +143,17 @@ class _DiagramZone extends StatelessWidget {
         return true;
       },
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: showZone ? colour.withValues(alpha: 0.08) : Colors.transparent,
-          border: showZone ? Border.all(color: colour, width: 1.2) : null,
-        ),
+        decoration: selected
+            ? BoxDecoration(
+                color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
+                border: Border.all(color: const Color(0xFFE65100), width: 2.4),
+              )
+            : BoxDecoration(
+                color: showZone
+                    ? colour.withValues(alpha: 0.08)
+                    : Colors.transparent,
+                border: showZone ? Border.all(color: colour, width: 1.2) : null,
+              ),
       ),
     );
   }
