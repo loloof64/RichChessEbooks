@@ -1,5 +1,41 @@
 # What I have to do next
 
+> **Twenty-first session, 2026-09-30 — Grivas pages 14-16, with Laurent.**
+> `58dc3b6`: `xa:8` (a colon inside a square, behind a piece or `x`) —
+> page 14 clean. `9d01c35`: a diagram showing the game **one ply back**
+> confirms that move (the figure fell in the text a move late) — page 15
+> 41 -> 0; the knight `lL!a4` keeps its `!` (that shape only: the rook
+> `l:!.` of page 99 must not be cut); `rs` is `f5`. Whole book 2979 ->
+> 2848 broken, regenerated in `rce_apercu/Grivas.rce`. Laurent: pages 14,
+> 15, 17 ok.
+>
+> **Next, with Laurent:**
+> 1. **Page 16** (43 broken left, Laurent wants it done later). Grivas -
+>    Szkudlarek: `2...♘f6` printed `lLlf6`, check it is now the knight;
+>    the rest not looked at yet.
+> 2. **Pages 18, 19, 20**: Laurent says to fix.
+> 3. Page 34 +2: `49...♔f5` printed `'ifl>rs`, the king read as `Kfl` (the
+>    `fl` taken for f1) — the line dies there.
+>
+> **Known, not fixed:**
+> - Held-out Grivas3 974 -> 972 with `9d01c35`: one board on its page 55
+>   now `confirms` instead of `corrects`, moves identical. Printed rook f8,
+>   reached h8. Laurent said to leave it.
+> - **Pachman1 held-out 170 -> 74 since `c817119`** (braces as brackets):
+>   its scan prints `)` as `}`; reading them is more right (page 146 closes),
+>   but page 158's new game ("1. d4 ... 1... f5", the Dutch) is no longer
+>   started and is absorbed into the game from page 146. Look at why the
+>   `1.` does not open a game there (`parse.py`).
+>
+> **Environment, fixed this session:** `pipeline/.venv` now has the
+> `glyphs`, `pictures` and `dev` extras (`uv sync --extra glyphs --extra
+> pictures --extra dev`) and imports the repo's sources: run everything
+> with `pipeline/.venv/bin/python`. Two traps met: `uv run --with '.[...]'`
+> from outside `pipeline/` has no scikit-learn (every Grivas move broken),
+> and `python -c` run from `pipeline/` imports the cwd, not `PYTHONPATH` —
+> compare versions with a script file. A `pgrep -f`/`pkill -f` on a pattern
+> also kills the shell running it.
+
 > **Twentieth session, 2026-09-30 — Grivas page 14, started with Laurent.**
 > `c817119`: `{ }` is read as a bracket (Grivas nests a variation in braces;
 > a `}` goes through the label check of `)`, since the Killer Dutch scan reads
