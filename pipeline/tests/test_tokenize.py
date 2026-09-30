@@ -886,6 +886,30 @@ class TestABracketNothingCloses:
         assert self.kinds("1.e4 (t de renoncer 1-0 1.d4 d5) 0-1") == ["var_close"]
 
 
+class TestABraceIsABracket:
+    """Grivas sets a variation inside a variation in braces.
+
+    Page 14: "11 ♕xf7+? ♔h6 12 ♘f3 ♖f8! {12...♗xb2? 13 g4!! ♕a5+ 14 ♘d2 c3
+    15 g5+!} 13 0-0-0 ♗xb2+ 14 ♔c2 ♕f6!)". Read as prose, `12...` was sent
+    to a neighbouring line of the same bracket and `13 0-0-0` stayed inside
+    the braces: seven moves broke.
+    """
+
+    def kinds(self, text: str) -> list[str]:
+        return [t.kind for t in tokenize_pages([page_of(text)])
+                if t.kind in ("var_open", "var_close")]
+
+    def test_braces_open_and_close_a_variation(self):
+        assert self.kinds("1.e4 e5 (1...c5 2.Nf3 {2.c3 d5} 2...d6) 2.Nf3 1-0") == [
+            "var_open", "var_open", "var_close", "var_close",
+        ]
+
+    def test_a_brace_after_a_label_closes_nothing(self):
+        # A scan reads the label's `)` as a brace: "b} 16 ... ♖g8!?", the
+        # Killer Dutch page 183.
+        assert self.kinds("1.e4 e5\na} 2.Nf3 Nc6\nb} 2.Bc4 Bc5 1-0") == []
+
+
 class TestALabelIsNotACloseBracket:
     """`a)` and `b)` label the alternatives a book lists under one move.
 
