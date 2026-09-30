@@ -431,6 +431,14 @@ class TestASquareBrokenInTwo:
 
         assert [t.text for t in tokens if t.kind == "move"] == ["Rac1", "Qa5", "Rc1"]
 
+    def test_a_colon_between_the_file_and_the_rank(self):
+        # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
+        # move matched nothing and `♘c6` behind it was played by White.
+        # Behind a piece or a capture only, where nothing else is shaped so.
+        tokens = tokenize_pages([page_of("12 Qxa:8? Nc6 13 Nxc8 a:1 e:4 ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Qxa8", "Nc6", "Nxc8"]
+
     def test_a_preposition_before_a_number_is_not_a_square(self):
         # Boussole page 65: "Le probleme principal de 5...h6". The `de 5` is
         # shaped exactly like a square whose file and rank the font broke
