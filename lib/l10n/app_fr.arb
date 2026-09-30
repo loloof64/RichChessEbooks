@@ -37,6 +37,6 @@
   "flipBoard": "Retourner l'échiquier",
   "whiteToMove": "Trait aux Blancs",
   "blackToMove": "Trait aux Noirs",
-  "moveUnreadable": "Ce coup n'a pas pu être lu : l'échiquier montre la dernière position connue avant lui.",
+  "moveUnreadable": "Ce coup n'a pas pu être lu.",
   "moveRepaired": "Lu après correction d'une erreur de lecture probable ({confidence} % de confiance)."
 }

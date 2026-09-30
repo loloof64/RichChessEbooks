@@ -133,8 +133,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get blackToMove => 'Trait aux Noirs';
 
   @override
-  String get moveUnreadable =>
-      'Ce coup n\'a pas pu être lu : l\'échiquier montre la dernière position connue avant lui.';
+  String get moveUnreadable => 'Ce coup n\'a pas pu être lu.';
 
   @override
   String moveRepaired(int confidence) {

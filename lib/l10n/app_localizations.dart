@@ -325,7 +325,7 @@ abstract class AppLocalizations {
   /// No description provided for @moveUnreadable.
   ///
   /// In en, this message translates to:
-  /// **'This move could not be read: the board shows the last position before it.'**
+  /// **'This move could not be read.'**
   String get moveUnreadable;
 
   /// No description provided for @moveRepaired.

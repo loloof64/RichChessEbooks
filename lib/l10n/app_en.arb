@@ -42,7 +42,7 @@
   "flipBoard": "Flip the board",
   "whiteToMove": "White to move",
   "blackToMove": "Black to move",
-  "moveUnreadable": "This move could not be read: the board shows the last position before it.",
+  "moveUnreadable": "This move could not be read.",
   "moveRepaired": "Read after repairing a likely scanning error ({confidence}% confidence).",
   "@moveRepaired": {"placeholders": {"confidence": {"type": "int"}}}
 }

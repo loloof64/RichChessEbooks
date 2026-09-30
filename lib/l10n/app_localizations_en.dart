@@ -133,8 +133,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blackToMove => 'Black to move';
 
   @override
-  String get moveUnreadable =>
-      'This move could not be read: the board shows the last position before it.';
+  String get moveUnreadable => 'This move could not be read.';
 
   @override
   String moveRepaired(int confidence) {
