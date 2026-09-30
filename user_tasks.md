@@ -1,5 +1,23 @@
 # What I have to do next
 
+> **Twentieth session, 2026-09-30 — Grivas page 14, started with Laurent.**
+> `c817119`: `{ }` is read as a bracket (Grivas nests a variation in braces;
+> a `}` goes through the label check of `)`, since the Killer Dutch scan reads
+> `b)` as `b}`). Page 14: 7 broken -> 1. Whole book 2990 -> 2979 broken,
+> regenerated in `rce_apercu/Grivas.rce`. Corpus: Grivas +9, every other book
+> identical (Markos 380/380).
+>
+> **Next session, first (Laurent): finish page 14 before moving on.**
+> 1. `12 ♕xa8?` (right column) reaches the text layer as `'it'xa:8?` — a colon
+>    inside the square — and is dropped, so `♘c6` after it is broken. The only
+>    `[a-h]:[1-8]` in the book. Still left there: `Qxf7+` and `Qxc6`
+>    `uncertain`, to look at with Laurent.
+> 2. Held-out not re-measured after the label fix: the first version (a `}`
+>    bypassing the label check) cost Dutch 31 -> 27 sound; confirm it is back,
+>    and the rest of held-out (not Fabrice) no lower than `8151fbd`.
+>
+> Then Grivas page by page, as planned below.
+
 > **Nineteenth session, 2026-09-30 — release and comfort, no book work.**
 > First app release **0.1.0** published by `.github/workflows/release.yml` (a
 > `vX.Y.Z` tag matching `pubspec.yaml`; notes = that version's `CHANGELOG.md`
