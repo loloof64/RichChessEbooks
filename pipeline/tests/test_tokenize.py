@@ -381,6 +381,13 @@ class TestTheMoveWrittenFromSquareToSquare:
 
         assert journey.raw == "b7-b5"
 
+    def test_the_line_may_break_behind_the_dash(self):
+        # Sakaev page 21: "17.♖ad1, followed by ♗e2-\nc4." — the square left
+        # alone on the next line was read as a pawn going to c4.
+        tokens = tokenize_pages([page_of("17.Rad1, followed by Be2-\nc4.\n")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Rad1", "Bc4"]
+
 
 class TestTheStumpOfARestoredSymbol:
     """What the glyph pass leaves in front of the letter it restored.

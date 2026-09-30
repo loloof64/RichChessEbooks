@@ -98,8 +98,10 @@ _TOKEN_TEMPLATE = r"""
               # — which is how a book names a plan and how some name a move.
               # Read as two moves, the first of them is the piece standing
               # still, and it is illegal: 93 of Sakaev's moves died under one
-              # `...b7-b5` in a sentence about the Caro-Kann.
-            | (?<![A-Za-z])[{pieces}]?[a-h][1-8]-[a-h][{ranks}]
+              # `...b7-b5` in a sentence about the Caro-Kann. The line may
+              # break behind the dash: Sakaev's "followed by ♗e2-\nc4" (page
+              # 21) left `c4` alone, and a pawn went there.
+            | (?<![A-Za-z])[{pieces}]?[a-h][1-8]-\n?[a-h][{ranks}]
               # A space between the square's file and its rank: the same
               # subset font that breaks `18` into `1 8` breaks `Rac1` into
               # `Rac 1`, and the move is then never read. Only where the token

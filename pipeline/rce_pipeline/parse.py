@@ -1031,12 +1031,7 @@ def parse_tokens(
             # Théorie élémentaire. The number goes back to a ply this very
             # bracket played, so the line starts again there — still inside
             # the bracket, which its `)` still closes.
-            level = stack[-1]
-            if level.from_bracket and declared < _ply_awaited(level.board) and (
-                declared in level.history
-            ):
-                board, parent = level.history[declared]
-                level.board, level.parent_id = board.copy(), parent
+            _back_into_the_bracket(declared)
             return
         if declared in main_history:
             board, parent = main_history[declared]
@@ -1044,6 +1039,22 @@ def parse_tokens(
             # "15 Rhg1!? and 15 Qh3" are two alternatives to the same move, not
             # one inside the other.
             stack[1:] = [_Level(board=board.copy(), parent_id=parent)]
+
+    def _back_into_the_bracket(declared: int) -> None:
+        """Start the bracket's line again at a ply it has already played.
+
+        A second answer to a move the bracket has already answered — see the
+        end of `_place_by_number`. Asked by `_place_by_weight` too: Sakaev
+        page 32, "(19.♘b3 … after 19...a5 […] Another possible development
+        […]: 19.♖d1", played after `19...a5`, left the knight on b3 and the
+        line died a page later.
+        """
+        level = stack[-1]
+        if level.from_bracket and declared < _ply_awaited(level.board) and (
+            declared in level.history
+        ):
+            board, parent = level.history[declared]
+            level.board, level.parent_id = board.copy(), parent
 
     def _the_score_resumes(
         position: str, number: int, is_black: bool, tokens: Sequence[Token], at: int
@@ -1205,8 +1216,11 @@ def parse_tokens(
         Brackets still win, as they do for the arithmetic: this reads what the
         book prints outside them.
         """
-        if bold or any(level.from_bracket for level in stack):
+        if bold:
             # A bold number has already had `_resume_the_score`, above.
+            return
+        if any(level.from_bracket for level in stack):
+            _back_into_the_bracket(declared)
             return
         nonlocal closed_aside
         if (
@@ -2076,7 +2090,9 @@ def _resolve(
     except (ValueError, AssertionError):
         failure = "no legal reading in this position"
 
-    settled = _drop_a_false_disambiguator(board, plain, raw)
+    settled = _drop_a_false_disambiguator(board, plain, raw) or _take_with_the_one_pawn(
+        board, plain, raw
+    )
     if settled is not None:
         return settled
 
@@ -2163,6 +2179,37 @@ def _drop_a_false_disambiguator(
             "reason": f"read as {san}: {dropped!r} between the piece and the square is "
             "the wreck of the symbol, not a disambiguator",
         },
+    )
+
+
+#: A pawn capture: the file it leaves, and the square it takes on.
+_PAWN_CAPTURE = re.compile(r"^[a-h]x([a-h][1-8])$")
+
+
+def _take_with_the_one_pawn(board: chess.Board, plain: str, raw: str) -> _Resolution | None:
+    """Read `exd5` as `cxd5` — when only the c-pawn takes on d5.
+
+    Sakaev page 26 prints "6...♗c5 7.♘c2 d5 8.exd5" for `8.cxd5`. The file a
+    pawn capture names is the one character nothing else checks: the square
+    and the capture are what the book meant, and where one pawn alone takes
+    there, the board has said which. Two pawns that can leave it broken, as
+    `_drop_a_false_disambiguator` does for two pieces.
+    """
+    match = _PAWN_CAPTURE.match(_CHECK_MARK.sub("", plain))
+    if match is None:
+        return None
+    square = chess.parse_square(match.group(1))
+    takes = [
+        move for move in board.legal_moves
+        if move.to_square == square and board.is_capture(move)
+        and board.piece_type_at(move.from_square) == chess.PAWN
+    ]
+    if len(takes) != 1:
+        return None
+    san = board.san(takes[0])
+    return _Resolution(
+        takes[0], san, "uncertain", 0.5,
+        {"raw": raw, "reason": f"read as {san}: no pawn on the file printed takes there"},
     )
 
 

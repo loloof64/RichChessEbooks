@@ -393,6 +393,29 @@ class TestAFalseDisambiguator:
         assert result.moves[-1].status == "broken"
 
 
+class TestAPawnCaptureFromTheWrongFile:
+    """Sakaev page 26: "6...♗c5 7.♘c2 d5 8.exd5" for `8.cxd5` — the square and
+    the capture are the book's, the file it names has no pawn to make it."""
+
+    def test_the_one_pawn_that_takes_there_is_the_move(self):
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "c4"), ("move", "d5"),
+            ("move_number", "2."), ("move", "exd5"),
+        ))
+
+        pawn = result.moves[-1]
+        assert (pawn.san, pawn.status, pawn.confidence) == ("cxd5", "uncertain", 0.5)
+
+    def test_nothing_is_chosen_where_two_pawns_take_there(self):
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "c4"), ("move", "d5"),
+            ("move_number", "2."), ("move", "e4"), ("move", "Nf6"),
+            ("move_number", "3."), ("move", "fxd5"),
+        ))
+
+        assert result.moves[-1].status == "broken"
+
+
 class TestBreakDiagnosis:
     def test_separates_the_line_that_died_from_what_was_read_below_it(self):
         # `Ra5` is illegal here, so the line stays on the position before it
@@ -2613,6 +2636,28 @@ class TestTwoAlternativesInOneBracket:
         # Played after 5.Bg5, not after 5...Bb4: the bishop is still on f8.
         assert chess.Board(h6.fen).piece_at(chess.F8) == chess.Piece(chess.BISHOP, chess.BLACK)
         assert result.moves[-1].san == "e3" and result.moves[-1].variation_index == 0
+
+    def test_also_where_the_book_sets_its_score_bold(self):
+        # Sakaev page 32: "(19.♘b3 comes under attack after 19...a5 […]
+        # Another possible development […]: 19.♖d1 ♖c8" — played after
+        # 19...a5, the knight stayed on b3 and the line died on page 33.
+        tokens = weighed(
+            ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+            ("move_number", "2.", True), ("move", "Nf3", True),
+            ("var_open", "(", False),
+            ("move_number", "2.", False), ("move", "Nc3", False),
+            ("move_number", "2...", False), ("move", "Nf6", False),
+            ("text", "Another possible development is", False),
+            ("move_number", "2.", False), ("move", "Bc4", False), ("move", "Bc5", False),
+            ("var_close", ")", False),
+            ("move_number", "2...", True), ("move", "Nc6", True),
+        )
+        result = parse_tokens(tokens, weighted=True)
+
+        assert all(m.status == "ok" for m in result.moves)
+        bc4 = next(m for m in result.moves if m.san == "Bc4")
+        # Played after 1...e5, not after 2.Nc3 Nf6: the knight is still on b1.
+        assert chess.Board(bc4.fen).piece_at(chess.B1) == chess.Piece(chess.KNIGHT, chess.WHITE)
 
 
 class TestAPieceWhoseSquareWasLost:
