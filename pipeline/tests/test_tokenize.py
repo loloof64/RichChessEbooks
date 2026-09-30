@@ -29,6 +29,22 @@ class TestTheWreckOfASymbol:
         move = next(t for t in tokens if t.kind == "move" and t.text == "h1")
         assert move.lost_symbol == "fi>"
 
+    def test_an_exclamation_mark_is_part_of_a_broken_knight(self):
+        # Grivas page 16 prints `18...♘a4` and the scan has `lL!a4`: the `!`
+        # was read as a comment on nothing and `a4` as a pawn move.
+        tokens = tokenize_pages([page_of("18 ... lL!a4 19 e5! ")])
+
+        move = next(t for t in tokens if t.kind == "move" and t.text == "a4")
+        assert move.lost_symbol == "lL!"
+        assert [t.kind for t in tokens].count("annotation") == 1
+
+    def test_the_rook_of_the_same_scan_is_not_cut_in_two(self):
+        # Page 99 prints its rook `l:!.`: a `!` taken anywhere in a run gave
+        # `f2` the half `!.` of it, and the move was read with the wrong piece.
+        tokens = tokenize_pages([page_of("23 l:!.f2 l:!.e5! 24 Qg4 ")])
+
+        assert "!." not in [t.lost_symbol for t in tokens if t.kind == "move"]
+
     def test_it_gives_the_move_number_back_its_dot(self):
         # `9.i.xg5` on Boussole page 65. The run reaches back over the number's
         # dot, and a wreck overlapping the token before it used to be dropped
@@ -430,6 +446,14 @@ class TestASquareBrokenInTwo:
         tokens = tokenize_pages([page_of("23 Rac 1 Qa5 24 Rc 1")])
 
         assert [t.text for t in tokens if t.kind == "move"] == ["Rac1", "Qa5", "Rc1"]
+
+    def test_rs_is_f5(self):
+        # Grivas page 16, "1 c4 rs 2 lLlc3": thirteen times in the book, and
+        # every one is f5 — `f` read as `r` and `5` as `s`. Left as a word,
+        # 1...f5 was lost and the game played on the wrong side.
+        tokens = tokenize_pages([page_of("1 c4 rs 2 Nc3 Nf6 and Mrs rsa ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["c4", "f5", "Nc3", "Nf6"]
 
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the

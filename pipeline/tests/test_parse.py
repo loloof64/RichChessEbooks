@@ -546,6 +546,44 @@ class TestBreakDiagnosis:
         assert all(on_the_main_line(result, m) for m in game)
         assert not result.contradicted
 
+    def test_a_diagram_met_one_move_late_confirms_that_move(self):
+        # Grivas page 15: "11 ♕xd6 ♘g4? (D)", and the board falls in the text
+        # after "12 ♗xc4!". Read as a correction it took ♗xc4 back and wiped
+        # the game's history, so "Instead, 12 ♗xc5?" and then the score
+        # itself were played on the wrong board: the rest of the page broke.
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6"):
+            board.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("move_number", "3.", True), ("move", "Bb5", True),
+            ) + [tok("diagram", rows)] + weighed(
+                ("text", "Instead,", False),
+                ("move_number", "3.", False), ("move", "Bc4", False),
+                ("text", "is quieter.", False),
+                ("move_number", "3...", True), ("move", "a6", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        by_san = {m.id: m for m in result.moves}
+        bc4 = next(m for m in result.moves if m.san == "Bc4")
+        a6 = next(m for m in result.moves if m.san == "a6")
+        assert by_san[bc4.parent_id].san == "Nc6"
+        assert (a6.status, by_san[a6.parent_id].san) == ("ok", "Bb5")
+        assert not result.contradicted
+
     def test_a_diagram_read_is_exported_with_its_box_and_position(self):
         # The reader opens a diagram's position when it is tapped, so the
         # contract carries every board that could be read, where it stands.

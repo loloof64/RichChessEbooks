@@ -237,7 +237,10 @@ def _build_token_re(piece_letters: str) -> re.Pattern[str]:
 #: did — including when a book's OCR runs the word before into the ellipsis
 #: and prints `jouer...e5`, where the dot does carry a letter and still opens
 #: nothing but an ordinary black move.
-_WRECK_RUN = re.compile(r"[A-Za-z.:\\'|/<>]{1,5}$")
+#: And the knight of Grivas page 16, `lL!a4`, whose `!` is otherwise a comment
+#: on nothing. Only in that shape: the same scan prints its rook `l:!.`, and a
+#: `!` taken anywhere in a run cut that one in two (page 99).
+_WRECK_RUN = re.compile(r"(?:[A-Za-z.:\\'|/<>]{1,5}|[a-z][A-Z]!)$")
 _WRECK_MARK = re.compile(r"[:\\'<>]|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
 
 #: A rank standing at the head of a move that names no piece — `2b5`, `8h3+`,
@@ -696,6 +699,12 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
     ]
 
 
+#: `f5` as Grivas' scan prints it, thirteen times and never anything else: the
+#: `f` read as `r`, the `5` as `s`. No word of any language is `rs` alone, and
+#: the substitution keeps the text's length, so every offset stays true.
+_F5_SPELLED = re.compile(r"(?<![A-Za-z])rs(?![A-Za-z0-9])")
+
+
 def _tokenize_page(
     page: Page,
     token_re: re.Pattern[str],
@@ -704,7 +713,7 @@ def _tokenize_page(
     spellings: dict[str, str],
 ) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
-    text = normalise(page.text)
+    text = _F5_SPELLED.sub("f5", normalise(page.text))
     tokens: list[Token] = []
     cursor = 0
     diagrams = sorted(diagrams, key=lambda d: d.start)

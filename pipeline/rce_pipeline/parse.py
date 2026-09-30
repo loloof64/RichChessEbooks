@@ -1486,11 +1486,21 @@ def parse_tokens(
             # a diagram printed where the score had drifted is still a diagram
             # of a position the line passes through, a few plies either side.
             printed = diagrams.decode(rows, diagram_table) if diagram_table else None
+            a_move_late = (
+                main_history.get(_ply_awaited(stack[0].board) - 1, (None,))[0] if stack else None
+            )
             if printed is None:
                 verdict = "unread" if diagram_table is None else "unreadable"
             elif not stack:
                 verdict = "seeds"
             elif printed == reached:
+                verdict = "confirms"
+            elif a_move_late is not None and a_move_late.board_fen() == printed:
+                # The board of the game one move back: the figure fell in the
+                # text after the move it follows. Grivas page 15 prints "11
+                # ♕xd6 ♘g4? (D)" and the board lands after "12 ♗xc4!"; read as
+                # a correction it took ♗xc4 back and wiped the game's history,
+                # and the rest of the page was played on the wrong board.
                 verdict = "confirms"
             elif any(level.board.board_fen() == printed for level in stack[1:]):
                 # The board of the analysis in progress, not the game's: Markos
@@ -1541,7 +1551,7 @@ def parse_tokens(
             # on says so; a board that seeds or corrects learns it from the
             # number under it, below.
             if verdict == "confirms":
-                on_the_board = stack[0].board
+                on_the_board = stack[0].board if printed == reached else a_move_late
             elif verdict == "shows_the_analysis":
                 on_the_board = next(
                     level.board for level in stack[1:] if level.board.board_fen() == printed
