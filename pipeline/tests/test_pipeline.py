@@ -223,3 +223,27 @@ def test_the_right_table_still_wins_when_the_weight_is_in_doubt():
         [wrong, right], tokens, parse_tokens(tokens),
         strict_numbering=True, weight_in_doubt=True,
     ) == right
+
+
+def test_run_names_each_step_as_it_starts(tmp_path):
+    # A whole book takes minutes, a scan much longer: the terminal says what is
+    # being done meanwhile, and that needs `run` to say when each step starts.
+    import pymupdf
+
+    pdf = tmp_path / "book.pdf"
+    doc = pymupdf.open()
+    doc.new_page().insert_text((72, 72), "1.e4 e5 2.Nf3 Nc6")
+    doc.save(pdf)
+
+    steps: list[str] = []
+    pipeline.run(
+        str(pdf), work_dir=str(tmp_path), output_path=str(tmp_path / "book.rce"),
+        read_pictures=False, write_artefacts=False, progress=steps.append,
+    )
+    assert steps == [
+        "Reading the text",
+        "Finding the diagrams",
+        "Reading the moves",
+        "Checking the moves against the rules",
+        "Writing the archive",
+    ]

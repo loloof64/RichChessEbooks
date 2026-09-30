@@ -13,7 +13,7 @@ import os
 import warnings
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from . import (
     diagrams,
@@ -165,6 +165,7 @@ def run(
     glyph_confidence: float | None = None,
     read_pictures: bool = True,
     write_artefacts: bool = True,
+    progress: Callable[[str], None] | None = None,
 ) -> PipelineResult:
     """Run every step on `pdf_path`.
 
@@ -187,8 +188,14 @@ def run(
     `read_pictures` turns off step 1d, which reads the boards a book draws as
     images. It is on by default and costs one pass over the page's images on a
     book that draws none; turn it off to measure what the diagrams are worth.
+
+    `progress` is told the name of each step as it starts, for a caller that
+    keeps someone waiting meanwhile.
     """
+    step = progress or (lambda name: None)
     os.makedirs(work_dir, exist_ok=True)
+
+    step("Reading the text")
 
     pages = extract.extract_pages(
         pdf_path, first_page=first_page, last_page=last_page, sort_blocks=sort_blocks
@@ -213,6 +220,7 @@ def run(
     if glyph_model is not None and report.needs_glyph_recovery:
         from . import glyphs  # optional dependencies; only imported when used
 
+        step("Reading the piece symbols off the page images")
         classifier = glyphs.GlyphClassifier.load(glyph_model)
         pages, recovered = glyphs.recover_pieces(
             pdf_path,
@@ -244,6 +252,7 @@ def run(
         report.language = force_language
     _write(write_artefacts, work_dir, "notation", report.to_json())
 
+    step("Finding the diagrams")
     printed = diagrams.find(pages)
     _write(write_artefacts, work_dir, "diagrams", [d.to_json() for d in printed])
 
@@ -270,6 +279,7 @@ def run(
             )
     boards = sorted(printed + drawn, key=lambda d: (d.page, d.start))
 
+    step("Reading the moves")
     tokens = tokenize.tokenize_pages(
         pages,
         piece_letters=report.piece_letters,
@@ -311,6 +321,7 @@ def run(
                 stacklevel=2,
             )
 
+    step("Checking the moves against the rules")
     parsed = parse.parse_tokens(tokens, strict_numbering=strict_numbering)
     table: dict[str, str] = {}
     if boards:
@@ -417,6 +428,7 @@ def run(
 
     rce_path: str | None = None
     if output_path is not None:
+        step("Writing the archive")
         manifest = package.build_manifest(
             pdf_path,
             # The whole document, not just the range processed: the app

@@ -53,10 +53,28 @@
 > 1. **Laurent considers Sakaev done (2026-09-30): do not tune on it any more.**
 >    Markos re-read by Laurent with today's code (`rce_apercu/Markos.rce`, broken
 >    62 -> 61, only p264 changed): still near-perfect, no regression.
-> 2. The seventeenth session's list below still stands (French "Si 20...Fd8,
->    21.Cd6" comma list, Grivas −31, a white `1.` outside an aside in a game
->    from the initial position, Tactics p177, the app error trace, Fabrice).
-> 3. Held-out on Fabrice's documents for today's commits.
+> 2. **Next session: Grivas, page by page with Laurent** (same method as
+>    Markos and Sakaev). Whole book regenerated with today's code in
+>    `rce_apercu/Grivas.rce`. Background: the corpus −31 since `16a9c3d`
+>    (moves mostly unchanged, marked contradicted by a board read differently).
+> 3. **Then Principes**: the comma-list rule breaks the French "Si 20...Fd8,
+>    21.Cd6 Tc7 22.Cxb7" (p103, a real line); a list should end where a
+>    numbered move follows its last item. Check every French book after it.
+> 4. **Tactics p177** (not scheduled yet): `22. … Qg4+` loses its ellipsis at
+>    extraction and is read as a white `22.`; a number followed by a move only
+>    black can play could be re-read as `22...`.
+> 5. **Fabrice's documents need extra safeguards** (Laurent, 2026-09-30):
+>    their syntax and typography differ from the published books (comment
+>    moves mixed with the main line with no number between, heavy OCR damage).
+>    Rules tuned for them must be gated so they cannot fire on the other
+>    books, and the other way round. Held-out on them for today's commits is
+>    still to do.
+> 6. A white `1.` outside an aside in a game from the initial position (see
+>    below).
+>
+> **The app error** of the seventeenth session (trace lost) could not be
+> reproduced by Laurent: probably fixed along the way. If it comes back, have
+> him run `flutter run -d linux 2>&1 | tee ~/rce_app.log`.
 
 > **Seventeenth session, 2026-09-29 — Markos, page by page with Laurent.**
 > Laurent reads the book in the app and names the defects (page, move, what

@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import itertools
 import os
+import sys
 import tempfile
+import threading
+import time
 import warnings
 from importlib.resources import files
 
@@ -17,6 +21,70 @@ FULL_INSTALL = (
     'pipx install --force "rce-pipeline[glyphs,pictures] @ '
     'git+https://github.com/loloof64/RichChessEbooks.git#subdirectory=pipeline"'
 )
+
+
+class Waiting:
+    """Which step is running and for how long, on stderr, while the book is read.
+
+    A whole book takes minutes and a scan can take an hour: without this the
+    terminal says nothing from the command to the report. In a terminal, a
+    spinner and a clock on one line, and a line left behind per finished step;
+    elsewhere (a log, a pipe), one plain line per step. ASCII only, so an old
+    Windows console with a legacy code page shows it too.
+    """
+
+    def __init__(self) -> None:
+        self.live = sys.stderr.isatty()
+        self.step: str | None = None
+        self.started = self.step_started = time.monotonic()
+        self.lock = threading.Lock()
+        self.done = threading.Event()
+        self.thread = threading.Thread(target=self._spin, daemon=True)
+
+    def __enter__(self) -> "Waiting":
+        if self.live:
+            self.thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.done.set()
+        if self.live:
+            self.thread.join()
+            with self.lock:
+                self._finish_step()
+        total = time.monotonic() - self.started
+        print(f"Done in {_clock(total)}.\n", file=sys.stderr)
+
+    def __call__(self, step: str) -> None:
+        with self.lock:
+            if self.live:
+                self._finish_step()
+            else:
+                print(f"{step}...", file=sys.stderr, flush=True)
+            self.step, self.step_started = step, time.monotonic()
+
+    def _finish_step(self) -> None:
+        if self.step is not None:
+            line = f"  {self.step} ({_clock(time.monotonic() - self.step_started)})"
+            sys.stderr.write("\r" + line.ljust(72) + "\n")
+            sys.stderr.flush()
+            self.step = None
+
+    def _spin(self) -> None:
+        for frame in itertools.cycle("|/-\\"):
+            with self.lock:
+                if self.step is not None:
+                    line = (f"{frame} {self.step}...  {_clock(time.monotonic() - self.step_started)}"
+                            f"  (total {_clock(time.monotonic() - self.started)})")
+                    sys.stderr.write("\r" + line.ljust(72))
+                    sys.stderr.flush()
+            if self.done.wait(0.2):
+                return
+
+
+def _clock(seconds: float) -> str:
+    minutes, seconds = divmod(int(seconds), 60)
+    return f"{minutes}:{seconds:02d}"
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -45,12 +113,14 @@ def main(argv: list[str] | None = None) -> None:
         if importlib.util.find_spec("sklearn") else None
     )
 
-    with tempfile.TemporaryDirectory() as work_dir, warnings.catch_warnings(record=True) as caught:
+    with tempfile.TemporaryDirectory() as work_dir, \
+            warnings.catch_warnings(record=True) as caught, Waiting() as waiting:
         warnings.simplefilter("default")
         result = run(
             args.pdf, work_dir=work_dir, output_path=output,
             first_page=args.first, last_page=args.last,
             force_language=args.lang, glyph_model=model, write_artefacts=False,
+            progress=waiting,
         )
     # A step skipped for a missing extra names a `pip install`, which is not
     # how this was installed; the reader gets the one command that fixes it.
