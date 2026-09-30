@@ -2660,6 +2660,37 @@ class TestTwoAlternativesInOneBracket:
         assert chess.Board(bc4.fen).piece_at(chess.B1) == chess.Piece(chess.KNIGHT, chess.WHITE)
 
 
+class TestAGameFromADiagramCitesItsFirstMoveAgain:
+    """Sakaev page 297, Yates-Marshall from the board: "1.♕c2 In the game,
+    there followed 1.♔c4?? b1♕ 2.♕xb1+ ♔xb1" — the `1.` is the other answer
+    to the same board, not a new game from the initial position."""
+
+    def test_the_second_first_move_is_played_on_the_board(self):
+        board = chess.Board("8/8/8/8/p2K4/3Q4/kp3P2/8 w - - 0 1")
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            [tok("diagram", rows)] + moves(
+                ("move_number", "1."), ("move", "Qc2"),
+                ("text", "In the game, there followed"),
+                ("move_number", "1."), ("move", "Kc4"), ("move", "b1=Q"),
+                ("move_number", "2."), ("move", "Qxb1+"), ("move", "Kxb1"),
+            ),
+            diagram_table=table,
+        )
+
+        assert [(m.san, m.status) for m in result.moves] == [
+            ("Qc2", "ok"), ("Kc4", "ok"), ("b1=Q", "ok"), ("Qxb1+", "ok"), ("Kxb1", "ok"),
+        ]
+        assert len({m.game_id for m in result.moves}) == 1
+
+
 class TestABracketWhoseNumberNamesNoPosition:
     """Sakaev page 239: "12.e4 dxe4 (12.♕xe4+ ♔f8 …) 13.♘xe4" — `13.` meant.
     Neither the position before `dxe4` nor any other awaits a white twelfth,

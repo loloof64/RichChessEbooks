@@ -1083,6 +1083,21 @@ def parse_tokens(
             for black in (False, True)
         )
 
+    def _cites_its_own_start(tokens: Sequence[Token], at: int) -> bool:
+        """Whether a white `1.` is another first move of the game in progress.
+
+        A game the book starts from a board may go back to that board: Sakaev
+        page 297, Yates-Marshall, "1.♕c2 In the game, there followed 1.♔c4??".
+        Opened as a new game from the initial position, the king move broke
+        and the line with it. Only where the move plays on the game's board
+        and not from the initial position, so a game the book starts afresh
+        after another still does.
+        """
+        line = _the_line_after(tokens, at)
+        return bool(line) and game is not None and game.initial_fen != chess.STARTING_FEN and (
+            _plays(game.initial_fen, line[0].text) and not _plays(chess.STARTING_FEN, line[0].text)
+        )
+
     def _open_the_bracket_on_the_right_side(declared: int, at: int) -> None:
         """A bracket branches before the move it follows — unless it says not.
 
@@ -1672,6 +1687,7 @@ def parse_tokens(
                 _resume_the_score(_ply_of(number, is_black_only))
             opens_a_game = game is None or (
                 number == 1 and not is_black_only and result.moves and not stack[1:]
+                and not _cites_its_own_start(tokens, at)
             )
             if opens_a_game:
                 # A game whose first move is not the first move: the book never
