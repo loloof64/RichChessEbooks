@@ -50,7 +50,9 @@
 > representative (boards undecoded, games unplaced): judge on the whole book.
 >
 > **Open, in order:**
-> 1. Laurent carries on reading Sakaev past what he listed; 23 broken remain.
+> 1. **Laurent considers Sakaev done (2026-09-30): do not tune on it any more.**
+>    Markos re-read by Laurent with today's code (`rce_apercu/Markos.rce`, broken
+>    62 -> 61, only p264 changed): still near-perfect, no regression.
 > 2. The seventeenth session's list below still stands (French "Si 20...Fd8,
 >    21.Cd6" comma list, Grivas −31, a white `1.` outside an aside in a game
 >    from the initial position, Tactics p177, the app error trace, Fabrice).
