@@ -1083,6 +1083,39 @@ def parse_tokens(
             for black in (False, True)
         )
 
+    def _the_number_left_implicit(at: int) -> Token | None:
+        """The number a book left out in front of a pair of moves, if the board says so.
+
+        Sakaev page 87: "24.♖xb3 Also winning is d5 ♘xc5 25.dxe6". The pair
+        after the prose has no number, so no licence, and it was dropped. The
+        white `25.` straight behind it numbers it: White's 24th and the reply.
+        Believed only where the board agrees — the pair and the move after the
+        number play from the position of White's 24th, and the pair does not
+        carry on the line in progress. Read from the text alone the same shape
+        took "à cause de 7 eS 8." (Pachman) and "suivi de ♕f5+ ♔xg7 23."
+        (Principes) for citations, and cost the control set.
+        """
+        if at + 2 >= len(tokens) or tokens[at + 1].kind != "move":
+            return None
+        number = tokens[at + 2]
+        if number.kind != "move_number" or "..." in number.text:
+            return None
+        declared = _ply_of(int(re.match(r"\d+", number.text).group()) - 1, False)
+        board = next(
+            (history[declared][0] for history in (
+                main_history, *(level.history for level in reversed(stack[1:]))
+            ) if declared in history),
+            None,
+        )
+        pair = [tokens[at], tokens[at + 1]]
+        if board is None or _plies_played(board, pair + _the_line_after(tokens, at + 3, most=1)) < 3:
+            return None
+        if _plies_played(stack[-1].board, pair) == 2:
+            return None
+        return dataclasses.replace(
+            tokens[at], kind="move_number", text=f"{declared // 2 + 1}.", raw="",
+        )
+
     def _cites_its_own_start(tokens: Sequence[Token], at: int) -> bool:
         """Whether a white `1.` is another first move of the game in progress.
 
@@ -1798,6 +1831,13 @@ def parse_tokens(
             continue
 
         level = stack[-1]
+        if strict_numbering and level.moves_allowed <= 0 and kind_before == "text":
+            implied = _the_number_left_implicit(at - 1)
+            if implied is not None:
+                tokens.insert(at - 1, implied)
+                at -= 1
+                last_kind = kind_before
+                continue
         if strict_numbering and level.moves_allowed <= 0 and kind_before != "move":
             # A number licenses the moves printed beside it, and a scan
             # destroys the numbers of the score as readily as anything else —

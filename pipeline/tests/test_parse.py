@@ -2660,6 +2660,27 @@ class TestTwoAlternativesInOneBracket:
         assert chess.Board(bc4.fen).piece_at(chess.B1) == chess.Piece(chess.KNIGHT, chess.WHITE)
 
 
+class TestAMovePairTheNextNumberNumbers:
+    """Sakaev page 87: "23...♘b3 24.♖xb3 Also winning is d5 ♘xc5 25.dxe6" —
+    the `24.` is left implicit, and the `25.` behind the pair says so."""
+
+    def test_the_pair_is_the_move_before_the_number(self):
+        result = parse_tokens(moves(
+            ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+            ("move_number", "3."), ("move", "Bb5"),
+            ("text", "Also good is"),
+            ("move", "Bc4"), ("move", "Bc5"),
+            ("move_number", "4."), ("move", "c3"),
+        ))
+
+        assert [(m.san, m.status) for m in result.moves][-3:] == [
+            ("Bc4", "ok"), ("Bc5", "ok"), ("c3", "ok"),
+        ]
+        bc4 = next(m for m in result.moves if m.san == "Bc4")
+        assert bc4.parent_id == next(m for m in result.moves if m.san == "Nc6").id
+
+
 class TestAGameFromADiagramCitesItsFirstMoveAgain:
     """Sakaev page 297, Yates-Marshall from the board: "1.♕c2 In the game,
     there followed 1.♔c4?? b1♕ 2.♕xb1+ ♔xb1" — the `1.` is the other answer
