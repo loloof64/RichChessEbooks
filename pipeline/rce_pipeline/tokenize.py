@@ -717,6 +717,8 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
 #: `f5` as Grivas' scan prints it, thirteen times and never anything else: the
 #: `f` read as `r`, the `5` as `s`. No word of any language is `rs` alone, and
 #: the substitution keeps the text's length, so every offset stays true.
+#: Made on the page's own text, where a restored symbol is still a symbol:
+#: behind the `N` it becomes, `♘rs` (page 16, "24 ♘f5") read as a word.
 _F5_SPELLED = re.compile(r"(?<![A-Za-z])rs(?![A-Za-z0-9])")
 
 #: The third dot of an ellipsis as Grivas' scan prints it: `21..J♖h8`, eight
@@ -733,7 +735,7 @@ def _tokenize_page(
     spellings: dict[str, str],
 ) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
-    text = _ELLIPSIS_J.sub(r"\1.", _F5_SPELLED.sub("f5", normalise(page.text)))
+    text = _ELLIPSIS_J.sub(r"\1.", normalise(_F5_SPELLED.sub("f5", page.text)))
     tokens: list[Token] = []
     cursor = 0
     diagrams = sorted(diagrams, key=lambda d: d.start)

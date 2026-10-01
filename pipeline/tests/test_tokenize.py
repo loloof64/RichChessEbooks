@@ -493,6 +493,16 @@ class TestASquareBrokenInTwo:
             "21...", "Rh8", "22"
         ]
 
+    def test_rs_behind_a_restored_symbol_is_f5(self):
+        # Grivas page 16, "24 ♘f5 ♕b2+ 25 ♔d1": the layer has `♘rs` once
+        # the knight is restored. Behind the letter `N` the `rs` was a word,
+        # the knight's move was lost and `♔d1` was played as White's 24th.
+        tokens = tokenize_pages([page_of("23 Rxf6 Qb4 24 \u2658rs \u2655b2+ 25 Kd1 Mrs ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "Rxf6", "Qb4", "Nf5", "Qb2+", "Kd1"
+        ]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.
