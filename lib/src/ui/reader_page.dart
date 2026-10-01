@@ -317,10 +317,25 @@ class _ZoomControls extends StatelessWidget {
 
   static const _levels = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
 
-  Future<void> _set(double zoom) => controller.setZoom(
-    controller.centerPosition,
-    zoom.clamp(controller.minScale, controller.maxScale),
-  );
+  /// Menu values standing for a fit rather than a zoom level.
+  static const _wholePage = -1.0;
+  static const _pageWidth = -2.0;
+
+  Future<void> _set(double zoom) {
+    // A fit is the current page's own, framed by the viewer: an overall
+    // scale applied about the view's centre left the page's foot cut off.
+    final page = controller.pageNumber ?? 1;
+    if (zoom == _wholePage) {
+      return controller.goTo(controller.calcMatrixForFit(pageNumber: page));
+    }
+    if (zoom == _pageWidth) {
+      return controller.goTo(controller.calcMatrixFitWidthForPage(pageNumber: page));
+    }
+    return controller.setZoom(
+      controller.centerPosition,
+      zoom.clamp(controller.minScale, controller.maxScale),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -341,20 +356,13 @@ class _ZoomControls extends StatelessWidget {
               enabled: ready,
               onSelected: _set,
               itemBuilder: (context) {
-                final alternative = controller.alternativeFitScale;
-                final whole =
-                    alternative == null || alternative > controller.coverScale
-                    ? controller.coverScale
-                    : alternative;
-                final width =
-                    controller.viewSize.width / controller.documentSize.width;
                 return [
                   PopupMenuItem(
-                    value: whole,
+                    value: _wholePage,
                     child: Text(AppLocalizations.of(context).zoomWholePage),
                   ),
                   PopupMenuItem(
-                    value: width,
+                    value: _pageWidth,
                     child: Text(AppLocalizations.of(context).zoomPageWidth),
                   ),
                   const PopupMenuDivider(),
