@@ -187,14 +187,31 @@ class _ReaderPageState extends State<ReaderPage> {
       builder: (context) => _GoToPageDialog(pageCount: count),
     );
     if (page == null) return;
-    await _controller.goToPage(pageNumber: page.clamp(1, count ?? page));
+    await _show(page.clamp(1, count ?? page));
+  }
+
+  /// Go to [page]: centred where it fits the view at the current zoom, so a
+  /// whole-page zoom keeps the whole page in sight; from its top otherwise.
+  /// pdfrx's own top anchor adds margins of its own, and at a zoom fitting
+  /// the page to the pixel the foot of the next page fell out of view.
+  Future<void> _show(int page) {
+    final fits =
+        _controller.isReady &&
+        (_controller.layout.pageLayouts[page - 1].height +
+                    _controller.params.margin * 2) *
+                _controller.currentZoom <=
+            _controller.viewSize.height + 1;
+    return _controller.goToPage(
+      pageNumber: page,
+      anchor: fits ? PdfPageAnchor.center : null,
+    );
   }
 
   void _turn(int by) {
     final last = _controller.isReady
         ? _controller.pageCount
         : _currentPage + by;
-    _controller.goToPage(pageNumber: (_currentPage + by).clamp(1, last));
+    _show((_currentPage + by).clamp(1, last));
   }
 
   void _goToNextAnnotated() {
@@ -204,7 +221,7 @@ class _ReaderPageState extends State<ReaderPage> {
       // Past the last annotated page, wrap round to the first.
       orElse: () => pages.first,
     );
-    _controller.goToPage(pageNumber: next);
+    _show(next);
   }
 
   void _showSummary(BuildContext context) {
@@ -332,13 +349,15 @@ class _ZoomControls extends StatelessWidget {
       // fitted to the page on show, a taller page after it (Grivas' cover
       // is 630 points high, its text pages 654) lost its foot.
       final pages = controller.layout.pageLayouts;
+      // The margin around each page is in document units, so it grows with
+      // the zoom: it is part of what has to fit, not taken off the view.
       final margin = controller.params.margin * 2;
       final view = controller.viewSize;
       final fit = pages
           .map(
             (r) => min(
-              (view.width - margin) / r.width,
-              (view.height - margin) / r.height,
+              view.width / (r.width + margin),
+              view.height / (r.height + margin),
             ),
           )
           .reduce(min);
