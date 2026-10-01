@@ -2862,3 +2862,63 @@ class TestALostMoveTwoMovesExplainAlike:
         ]
         assert main[7].status == "uncertain"
         assert all(m.repair and m.repair["reason"] for m in main[7:9])
+
+
+class TestAThreatIsNotAMove:
+    def test_a_move_numbered_a_ply_ahead_that_the_other_side_could_play_is_a_threat(self):
+        # Grivas printed page 16: after 16 ♕f3, "Now both 17 ♕xc6+ and 17 g4
+        # are threatened." Black is to move, so neither is the continuation
+        # and neither is a variation: both were played on Black's turn and
+        # marked broken. A threat is a plan, and is left as prose.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("text", "Now both"), ("move_number", "3."), ("move", "Nxe5"),
+                ("move_number", "3."), ("move", "Ng5"),
+                ("text", "are threatened."),
+                ("move_number", "2..."), ("move", "Nc6"),
+                ("move_number", "3."), ("move", "Bb5"),
+            )
+        )
+
+        assert sans(result) == ["e4", "e5", "Nf3", "Nc6", "Bb5"]
+        assert all(m.status == "ok" for m in result.moves)
+
+    def test_a_move_the_other_side_cannot_play_either_stays_broken(self):
+        # Only a move legal once the turn is passed is a threat: anything else
+        # numbered a ply ahead is a break, and says so.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("text", "Now"), ("move_number", "3."), ("move", "Qh8"),
+            )
+        )
+
+        assert [m.status for m in result.moves][-1] == "broken"
+
+
+class TestAListOfAlternatives:
+    def test_b_starts_where_a_started(self):
+        # Grivas folio 20: "19...♗xe5 20 ♘xe5, and now: a) 20...♕xe5 21 ♗h5!
+        # ... 25 ♕g6. b) 20...dxe5 21 ♗h5 ♗e8". Both branch from the position
+        # after 20 ♘xe5; b) was played on from the end of a), where nothing
+        # in the book stands.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                ("text", "Black could play"), ("move_number", "2..."), ("move", "d6"),
+                ("move_number", "3."), ("move", "d4"), ("text", "and now: a)"),
+                ("move_number", "3..."), ("move", "Bg4"),
+                ("move_number", "4."), ("move", "dxe5"), ("move", "Bxf3"),
+                ("move_number", "5."), ("move", "Qxf3"), ("text", ". b)"),
+                ("move_number", "3..."), ("move", "Nf6"),
+                ("move_number", "4."), ("move", "Nc3"),
+            )
+        )
+
+        by_san = {m.san: m for m in result.moves}
+        assert by_san["Nf6"].parent_id == by_san["d4"].id
+        assert all(m.status == "ok" for m in result.moves)

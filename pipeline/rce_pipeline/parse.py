@@ -1435,6 +1435,12 @@ def parse_tokens(
     asides: list[_Level] = []
     last_declared: int | None = None
     last_licence = 2
+    #: Where the first move after an `a)` label was played, by game and
+    #: number: a `b)` at the same number branches from there too.
+    listed: dict[tuple[str, int], tuple[chess.Board, str | None]] = {}
+    #: The index of the last move read as a threat: "Threatening 26 ♕b4 or
+    #: 26 ♕a5" lists two, and the second stands behind the first.
+    threat_at: int | None = None
     adrift: set[str] = set()
     #: The first move each drifting game played on its main line after the
     #: loss: the moves descending from it are the ones `drifted` counts.
@@ -1887,6 +1893,20 @@ def parse_tokens(
             )
             level = stack[-1]
 
+        label = _list_label(tokens[max(0, at - 3):at - 1])
+        if label is not None and last_declared is not None:
+            key = (game.id, last_declared)
+            if label == "a":
+                listed[key] = (level.board.copy(), level.parent_id)
+            elif key in listed:
+                # Grivas folio 20: "and now: a) 20...♕xe5 ... 25 ♕g6. b)
+                # 20...dxe5" -- b) is the other answer to the position a)
+                # answered, not a move played on from the end of a).
+                board, parent = listed[key]
+                stack[1:] = [_Level(board=board.copy(), parent_id=parent,
+                                    moves_allowed=last_licence, declared_at=last_declared)]
+                level = stack[-1]
+
         board_before = level.board.copy()
         if not level.board_lost:
             (main_history if len(stack) == 1 else level.history).setdefault(
@@ -1977,6 +1997,11 @@ def parse_tokens(
                     level = stack[-1]
                     board_before = level.board.copy()
                     resolution = placed
+                elif _a_threat(board_before, token, last_declared,
+                               tokens[max(0, at - 3):at - 1], threat_at == at - 3):
+                    result.skipped.append({**token.to_json(), "reason": "a threat"})
+                    threat_at = at - 1
+                    continue
         else:
             resolution = _Resolution(
                 None,
@@ -2569,6 +2594,47 @@ def _origin_hints(square: int) -> set[str]:
         chess.FILE_NAMES[chess.square_file(square)],
         chess.RANK_NAMES[chess.square_rank(square)],
     }
+
+
+#: A list label ending the prose in front of a move number: "and now: a)".
+_LIST_LABEL = re.compile(r"(?:^|[\s:.;,])([a-h])\)\s*$")
+
+
+def _list_label(before: Sequence[Token]) -> str | None:
+    """The letter of the list label standing just before a move's number."""
+    if [t.kind for t in before] != ["text", "move_number"]:
+        return None
+    found = _LIST_LABEL.search(before[0].text)
+    return found.group(1) if found else None
+
+
+def _a_threat(
+    board: chess.Board, token: Token, declared: int | None, before: Sequence[Token],
+    after_a_threat: bool = False,
+) -> bool:
+    """Whether a move the line cannot play is the other side's threat.
+
+    Grivas printed page 16, after 16 ♕f3: "Now both 17 ♕xc6+ and 17 g4 are
+    threatened." Black is to move, and the number names White's next move:
+    a plan, cited a ply ahead, which no board of the line can play. Only a
+    move announced by its own number, that number standing in prose, one ply
+    past the one awaited, and legal once the turn is passed -- anything else
+    stays the break it is. A number behind a move is the score running a ply
+    out of step (Boussole's `15.f4 a4 16.♕f2`), and dropping its move hides
+    the break -- unless that move was a threat too: "Threatening 26 ♕b4 or
+    26 ♕a5" reaches the layer with no word between the two.
+    """
+    if [t.kind for t in before] != ["text", "move_number"] and not (
+        after_a_threat and [t.kind for t in before] == ["move", "move_number"]
+    ):
+        return False
+    if declared != _ply_awaited(board) + 1:
+        return False
+    passed = board.copy(stack=False)
+    passed.push(chess.Move.null())
+    return _resolve(
+        passed, token.text, token.consumed, token.lost_symbol, token.lost_piece
+    ).move is not None
 
 
 def _place_a_citation(
