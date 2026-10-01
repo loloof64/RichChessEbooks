@@ -129,3 +129,25 @@ class TestRemapped:
         moved = _remapped(box, 20.0, 24.0, 20.0, 18.0)
 
         assert (moved.y, moved.h) == (288.0, 12.0)
+
+
+def test_a_board_keeps_its_box(tmp_path):
+    # A board occupies no characters, so its token stands at the start of the
+    # word printed under it, and snapping it to that word's ink cut a quarter
+    # off the board's tap zone on Grivas -- forty boards, page 68 the worst.
+    import pymupdf
+
+    from rce_pipeline import boxes, extract
+    from rce_pipeline.extract import BBox
+    from rce_pipeline.tokenize import Token
+
+    book = pymupdf.open()
+    book.new_page(width=432, height=648).insert_text((40, 400), "12 Nf3 Nc6", fontsize=10)
+    book.save(tmp_path / "b.pdf")
+    (page,) = extract.extract_pages(str(tmp_path / "b.pdf"))
+    board = BBox(40.0, 260.0, 146.0, 146.0)
+    token = Token(kind="diagram", text="", raw="", page=1, start=0, end=0, bbox=board)
+
+    boxes.snap(str(tmp_path / "b.pdf"), [page], [token])
+
+    assert token.bbox == board

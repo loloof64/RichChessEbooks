@@ -247,3 +247,22 @@ def test_run_names_each_step_as_it_starts(tmp_path):
         "Checking the moves against the rules",
         "Writing the archive",
     ]
+
+
+def test_a_board_with_one_stray_square_is_shown_named_and_judges_nothing():
+    # Grivas page 22's "27 ♕xa7 (D)" holds one square no other board shows,
+    # and the board was refused whole: nothing to open where the book prints
+    # it. Named, it is shown; it still corrects no line, since a named square
+    # was measured to cost Grivas seven clean moves where it judged.
+    from rce_pipeline import pipeline as pipe
+
+    checks = [
+        {"rows": ["xa"], "printed": None, "verdict": "unreadable"},
+        {"rows": ["aa"], "printed": "K7/8/8/8/8/8/8/8", "verdict": "confirms"},
+    ]
+    pipe._show_the_strays(checks, {"x": "1", "a": "K"}, lambda rows, table: "".join(
+        table[ch] for row in rows for ch in row))
+
+    assert checks[0]["printed"] == "1K"
+    assert checks[0]["verdict"] == "unreadable"
+    assert checks[1]["printed"] == "K7/8/8/8/8/8/8/8"

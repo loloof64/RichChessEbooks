@@ -382,7 +382,7 @@ class ParseResult:
                 {
                     "page": check["page"],
                     "bbox": check["bbox"],
-                    "fen": f"{check['printed']} "
+                    "fen": f"{check.get('shown') or check['printed']} "
                            f"{'b' if check.get('white_to_move') is False else 'w'} - - 0 1",
                     **({"to_move_known": False} if check.get("white_to_move") is None else {}),
                 }
@@ -1604,6 +1604,13 @@ def parse_tokens(
                     "printed": printed,
                     "sound": bool(stack) and line_sound,
                     "verdict": verdict,
+                    # What the reader is shown: the game's own board where the
+                    # diagram was taken for it a square off (page 23's lost
+                    # b2 pawn), else what was read.
+                    "shown": (
+                        on_the_board.board_fen()
+                        if verdict == "confirms" and on_the_board is not None else printed
+                    ),
                     "bbox": token.bbox.to_json() if token.bbox is not None else None,
                     # The side the book printed beside the board, else the
                     # side the line it stands on is to play.

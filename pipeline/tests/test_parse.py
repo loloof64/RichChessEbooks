@@ -623,6 +623,9 @@ class TestBreakDiagnosis:
         assert by_id[bxc6.parent_id].san == "a6"
         assert (nf6.status, by_id[nf6.parent_id].san) == ("ok", "Ba4")
         assert not result.contradicted
+        # And the reader is shown the board the book printed, the pawn back.
+        shown = result.to_json()["diagrams"][0]["fen"].split()[0]
+        assert shown == board.board_fen()
 
     def test_a_diagram_met_one_move_late_confirms_that_move(self):
         # Grivas page 15: "11 ♕xd6 ♘g4? (D)", and the board falls in the text

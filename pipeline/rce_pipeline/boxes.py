@@ -68,7 +68,9 @@ def snap(pdf_path: str, pages: Iterable[Page], tokens: Iterable[Token],
 
     from .extract import fitz
 
-    tokens = [t for t in tokens if t.bbox is not None]
+    # Not a board: it occupies no characters, so its token stands at the start
+    # of the word under it, and that word's ink cut a quarter off the board.
+    tokens = [t for t in tokens if t.bbox is not None and t.kind != "diagram"]
     by_page: dict[int, list[Token]] = {}
     for token in tokens:
         by_page.setdefault(token.page, []).append(token)

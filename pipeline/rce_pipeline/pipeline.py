@@ -324,6 +324,7 @@ def run(
     step("Checking the moves against the rules")
     parsed = parse.parse_tokens(tokens, strict_numbering=strict_numbering)
     table: dict[str, str] = {}
+    named: dict[str, str] = {}
     if boards:
         # The first pass reads the diagrams as nothing but eight rows of
         # characters, and that is enough to learn what the characters mean:
@@ -423,6 +424,8 @@ def run(
             for token in tokens:
                 token.bold = False
             parsed = plain
+    if named:
+        _show_the_strays(parsed.diagram_checks, named, diagrams.decode)
     _write(write_artefacts, work_dir, "tokens", [t.to_json() for t in tokens])
     _write(write_artefacts, work_dir, "moves", parsed.to_json())
 
@@ -452,6 +455,25 @@ def run(
         pictures=drawn,
         figurines=read_as,
     )
+
+
+def _show_the_strays(
+    checks: list[dict[str, Any]], named: dict[str, str],
+    decode: Callable[[tuple[str, ...], dict[str, str]], str | None],
+) -> None:
+    """Give a board refused for one stray square its named reading, to show.
+
+    Grivas page 22's "27 ♕xa7 (D)" holds a square no other board shows, so
+    the board was refused whole and there was nothing to open where the book
+    prints it. Named by the nearest character legality allows, it is shown —
+    and only shown: its verdict stays, so it corrects no line, which is what
+    was measured to cost Grivas seven clean moves.
+    """
+    for check in checks:
+        if check.get("printed") is None and check.get("verdict") == "unreadable":
+            shown = decode(tuple(check["rows"]), named)
+            if shown is not None:
+                check["printed"] = shown
 
 
 #: How many of the tables `diagrams.settle` allows are tried against the book.
