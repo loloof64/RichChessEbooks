@@ -87,3 +87,43 @@ def test_a_column_the_stream_left_mid_paragraph_is_finished_first(tmp_path):
         "19 e5! The black rook is of minimal value. Indeed, 19 Bxa8? Bxc3+! "
         "Grivas - Szkudlarek 1 c4 f5 2 Nc3 Nf6 5...fxe4 Here 5...e5"
     )
+
+
+def test_a_right_column_welded_to_the_left_one_waits_for_it():
+    # Grivas page 27: one block holds the left column down to "achieving a
+    # good position." and the right column's head ("19...gxf6"), handed over
+    # before the left column's own "13 Qe1 b6" -- gxf6 was played after h6.
+    def line(x0, y0, x1, text):
+        return {"bbox": (x0, y0, x1, y0 + 10),
+                "spans": [{"chars": [{"c": c} for c in text]}]}
+
+    def block(*lines):
+        return {"lines": list(lines)}
+
+    welded = block(line(24, 194, 212, "20 Nxe6 fxe6 21 Bd4 b6"),
+                   line(24, 206, 209, "22 Rb1 Rf7, achieving a good posi-"),
+                   line(24, 219, 44, "tion."),
+                   line(235, 218, 329, "19...gxf6 20 Qxf6 Rg8"),
+                   line(235, 231, 411, "20...Kg8 21 Rf1! Qe7"))
+    label = block(line(24, 267, 34, "W"), line(224, 267, 410, "should have tried"))
+    below = block(line(35, 410, 212, "13 Qe1 b6 14 fxe5! dxe5"))
+    right = block(line(234, 278, 269, "21 Bf4!"))
+
+    order = extract._cut_at_the_gutter([welded, label, below, right], 433)
+
+    assert ["".join(c["c"] for s in l["spans"] for c in s["chars"])
+            for b in order for l in b["lines"]] == [
+        "20 Nxe6 fxe6 21 Bd4 b6", "22 Rb1 Rf7, achieving a good posi-", "tion.",
+        "W", "13 Qe1 b6 14 fxe5! dxe5",
+        "19...gxf6 20 Qxf6 Rg8", "20...Kg8 21 Rf1! Qe7", "should have tried", "21 Bf4!",
+    ]
+
+
+def test_a_two_column_table_of_short_lines_is_left_alone():
+    def block(*rows):
+        return {"lines": [{"bbox": (x, y, x + 30, y + 10),
+                           "spans": [{"chars": [{"c": c} for c in t]}]}
+                          for x, y, t in rows]}
+
+    table = block((24, 100, "1 e4"), (250, 100, "e5"), (24, 112, "2 Nf3"), (250, 112, "Nc6"))
+    assert extract._cut_at_the_gutter([table], 433) == [table]

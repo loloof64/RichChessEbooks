@@ -307,7 +307,7 @@ def _extract_page(
     if sort_blocks:
         blocks.sort(key=lambda b: (round(b["bbox"][1], 1), round(b["bbox"][0], 1)))
     else:
-        blocks = _finish_the_column(blocks, width)
+        blocks = _cut_at_the_gutter(_finish_the_column(blocks, width), width)
 
     chars: list[Char] = []
     for block_index, block in enumerate(blocks):
@@ -377,6 +377,54 @@ def _finish_the_column(blocks: list[dict], width: float) -> list[dict]:
         k = next((n for n, block in enumerate(rest) if not left(block)), len(rest))
         order[i + 1:] = rest[:k] + read_early + rest[k:]
     return order
+
+
+def _cut_at_the_gutter(blocks: list[dict], width: float) -> list[dict]:
+    """Read the left column out before a right one the stream welded to it.
+
+    Grivas page 27 hands over one block holding the left column down to
+    "achieving a good position." *and* the right column's first four lines
+    ("19...gxf6 20 ♕xf6 ♖g8"), before the left column's own continuation
+    ("13 ♕e1 b6"): the game died on `gxf6` after `12...h6`. Only a block with
+    two lines of text on each side of the gutter, one pair of them on the same
+    row, is taken for two columns. It is cut there and its right half held
+    back, with the right half of every block after it that keeps to the
+    columns, until a block crosses the gutter or the page ends. Sorting every
+    page by column was refused (see `_finish_the_column`).
+    """
+    def side(line: dict) -> str | None:
+        if line["bbox"][2] <= width * 0.55:
+            return "left"
+        if line["bbox"][0] >= width * 0.45:
+            return "right"
+        return None
+
+    def text(line: dict) -> str:
+        return "".join(c["c"] for span in line["spans"] for c in span["chars"]).strip()
+
+    def two_columns(lines: list[dict]) -> bool:
+        left = [line for line in lines if side(line) == "left"]
+        right = [line for line in lines if side(line) == "right"]
+        if sum(len(text(line)) > 3 for line in left) < 2 \
+                or sum(len(text(line)) > 3 for line in right) < 2:
+            return False
+        return any(abs(a["bbox"][1] - b["bbox"][1]) < (a["bbox"][3] - a["bbox"][1]) / 2
+                   for a in left for b in right)
+
+    order: list[dict] = []
+    held: list[dict] = []
+    for block in blocks:
+        lines = block.get("lines", [])
+        if lines and all(side(line) for line in lines) and (held or two_columns(lines)):
+            for column, into in (("left", order), ("right", held)):
+                part = [line for line in lines if side(line) == column]
+                if part:
+                    into.append(dict(block, lines=part))
+            continue
+        order += held
+        held = []
+        order.append(block)
+    return order + held
 
 
 def _is_picture_page(page: "fitz.Page") -> bool:
