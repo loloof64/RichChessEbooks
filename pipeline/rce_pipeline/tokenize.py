@@ -312,6 +312,11 @@ _NAMES_A_PIECE = re.compile(r"[KQRBN]|O-O")
 #: from making a move of it.
 _STUMP_RUN = re.compile(r"[A-Za-z.:\\'|/<>]{1,2}$")
 
+#: The ink left in front of a symbol the glyph pass restored: one or two
+#: characters of a symbol, and a `1` opening the word (`1L♗b4`).
+_SYMBOL_STUMP = re.compile(r"(?:(?<!\S)1)?[A-Za-z.:\\'|/<>]{1,2}$")
+_FIGURINES = "\u2654\u2655\u2656\u2657\u2658\u265a\u265b\u265c\u265d\u265e"
+
 
 def _wreck_before_a_named_piece(text: str, start: int) -> str:
     """The stump of a symbol standing in front of the letter it was read as.
@@ -908,6 +913,12 @@ def _tokenize_span(
                     # can only fail. It is still the reader's tap zone, so the
                     # token takes it in without reading anything into it.
                     stump = _wreck_before_a_named_piece(text, start)
+                    if not stump and page.text[start] in _FIGURINES:
+                        # A symbol the glyph pass restored is a piece printed
+                        # right here, so what is welded to its left is the
+                        # rest of its ink: `1L♗b4` on Grivas page 25.
+                        found = _SYMBOL_STUMP.search(text, cursor, start)
+                        stump = found.group() if found else ""
                     if not stump:
                         # Or the move before it, run into it by the same lost
                         # space: `16♗a2♗c7`. What stands behind is not a word

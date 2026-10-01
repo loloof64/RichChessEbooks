@@ -535,6 +535,17 @@ class TestASquareBrokenInTwo:
 
         assert [t.text for t in tokens if t.kind == "move"] == ["Qf6", "Be7", "Qh6", "Be7", "e4"]
 
+    def test_ink_left_in_front_of_a_restored_symbol(self):
+        # Grivas page 25, "7 ♗g5!? ♗b4! 8 ♗d3 h6 9 ♗xf6": the glyph pass
+        # writes the bishop after its own ink, `1L♗b4`. A restored symbol is
+        # a piece the page prints there, so what is welded to its left is
+        # the rest of that symbol; read as a word, both moves were lost.
+        tokens = tokenize_pages([page_of("7 \u2657g5!? 1L\u2657b4! 8 \u2657d3 h6 9 \n1L\u2657xf6 gxf6 ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "Bg5", "Bb4", "Bd3", "h6", "Bxf6", "gxf6"
+        ]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.
