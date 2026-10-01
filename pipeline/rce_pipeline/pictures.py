@@ -956,7 +956,7 @@ def _offset_for(page: Page, bbox: BBox) -> int:
             continue
         overlap = min(box.x + box.w, bbox.x + bbox.w) - max(box.x, bbox.x)
         if overlap > 0.5 * box.w:
-            return _word_start(page, index)
+            return _margin_start(page, _word_start(page, index), bbox)
     return len(page.text)
 
 
@@ -972,3 +972,27 @@ def _word_start(page: Page, index: int) -> int:
     while index > 0 and not page.text[index - 1].isspace():
         index -= 1
     return index
+
+
+#: How far left of a board a line's indent may stand and still be under it,
+#: in points. Grivas indents its score 6.5 points out of its boards' width.
+_MARGIN_REACH = 12.0
+
+
+def _margin_start(page: Page, index: int, bbox: BBox) -> int:
+    """`index`, moved back over what the same line prints left of the board.
+
+    Grivas page 19 indents `6 ••. ♗g5` into the margin left of its board, and
+    the board landed between `6 ` and its dots: the black number became a
+    white one. Only what stands just out of the board's width is taken:
+    Boussole centres its boards over full-width lines, and going back to the
+    start of those put the board before the moves printed under it -- twenty
+    moves lost.
+    """
+    start = index
+    while start > 0 and page.text[start - 1] != "\n":
+        box = page.chars[start - 1].bbox
+        if box.w > 0 and not bbox.x - _MARGIN_REACH <= box.x + box.w / 2 < bbox.x:
+            return index
+        start -= 1
+    return start

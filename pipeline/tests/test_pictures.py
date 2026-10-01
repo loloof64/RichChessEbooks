@@ -307,6 +307,27 @@ def test_the_offset_never_lands_inside_a_word():
     assert pictures._offset_for(page, BBox(40.0, 311.0, 150.0, 150.0)) == 0
 
 
+def test_the_offset_never_lands_inside_a_line():
+    """Grivas page 19 prints `6 ••. ♗g5` under its board, the `6` standing
+    out in the margin left of the board's edge: the board landed between `6 `
+    and `...`, the black number became a white one and the line lost its
+    sixth move."""
+    from rce_pipeline.extract import BBox, Char, Page
+
+    chars = [
+        Char("w", BBox(20.0, 380.0, 5.0, 10.0), "F", 10.0),  # beside the board
+        Char("\n", BBox(0.0, 0.0, 0.0, 0.0), "", 0.0),
+        # The page's own boxes, the board's left edge at 40.68.
+        Char("6", BBox(34.21, 300.0, 4.86, 10.72), "F", 9.2),
+        Char(" ", BBox(39.07, 300.0, 2.3, 10.72), "F", 9.2),
+        Char(".", BBox(39.14, 301.0, 2.47, 2.85), "F", 2.85),
+        Char(".", BBox(41.62, 301.0, 2.47, 2.85), "F", 2.85),
+        Char(".", BBox(44.09, 301.0, 2.48, 2.85), "F", 2.85),
+    ]
+    page = Page(number=1, width=400.0, height=600.0, text="w\n6 ...", chars=chars)
+    assert pictures._offset_for(page, BBox(40.68, 311.0, 150.0, 150.0)) == 2
+
+
 def test_the_clustering_is_held_to_the_thirteen_things_a_board_can_carry():
     """A fourteenth cluster is a second reading of a piece already found."""
     rng = np.random.default_rng(0)
