@@ -2507,6 +2507,21 @@ class TestTheGameGoesOnPastItsResult:
         assert [m.san for m in result.moves[-2:]] == ["dxc6", "Nxe5"]
         assert [m.status for m in result.moves[-2:]] == ["ok", "ok"]
 
+    def test_a_threat_named_past_the_result_keeps_the_game(self):
+        # Grivas page 32: `24 ♘d5! 1-0`, then "White threatens 25 ♘e7+ ♔h8
+        # 26 ♖f8#", a ply ahead of the numbering; read as a game of its own,
+        # it lost the closed one, and "24...♕xd6 ... 25 ♘e7+" broke with it.
+        result = parse_tokens(self.game(
+            ("text", "White threatens"),
+            ("move_number", "5"), ("move", "Nxe5"),
+            ("text", "and there is no defence:"),
+            ("move_number", "4..."), ("move", "dxc6"),
+            ("move_number", "5"), ("move", "Nxe5"),
+        ))
+
+        assert len(result.games) == 1
+        assert [(m.san, m.status) for m in result.moves[-2:]] == [("dxc6", "ok"), ("Nxe5", "ok")]
+
     def test_a_number_that_starts_over_starts_a_game(self):
         result = parse_tokens(self.game(
             ("move_number", "1"), ("move", "d4"), ("move", "d5"),

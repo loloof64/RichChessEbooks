@@ -1756,10 +1756,17 @@ def parse_tokens(
                 stack[-1].moves_allowed = 1 if is_black_only else 2
                 _put_back_a_lost_move(token, at)
                 continue
-            if game is None and over is not None and _ply_of(number, is_black_only) in (
+            if game is None and over is not None and (_ply_of(number, is_black_only) in (
                 _ply_awaited(over[1].board),
                 (over[2] + 1) if over[2] is not None else None,
-            ):
+            ) or (
+                # Or a ply past it, where the prose names a threat: "24 ♘d5!
+                # 1-0 White threatens 25 ♘e7+" (Grivas page 32). The threat is
+                # the closed game's, and the line printed after it is too.
+                _ply_of(number, is_black_only) == _ply_awaited(over[1].board) + 1
+                and at >= 2 and tokens[at - 2].kind == "text"
+                and _THREAT_WORD.search(tokens[at - 2].text)
+            )):
                 # The number carries on the numbering of the game the result
                 # closed, so this is that game still: the moves the loser
                 # resigned in the face of. Opened as a game of its own they

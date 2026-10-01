@@ -1016,6 +1016,13 @@ class TestANumberSeparatedFromItsMove:
             numbers = [t.text.strip() for t in tokens if t.kind == "move_number"]
             assert numbers == ["9", read], (raw, numbers)
 
+    def test_the_letters_before_the_bullets_grivas_prints(self):
+        # `ll ••• ♗g4!` on Grivas page 29: the ellipsis is three bullets, and
+        # read as prose the `11` lost Black's eleventh move altogether.
+        tokens = tokenize_pages([page_of("11 0-0 Black must tread carefully. ll \n••• Bg4! 12 Ne4")])
+
+        assert [t.text for t in tokens if t.kind == "move_number"] == ["11", "11...", "12"]
+
     def test_the_number_split_by_a_subset_font(self):
         # `11 ...` set in a subset face comes out `1 l ...`, the two figures
         # separated. Read as the letter alone it announces move one, and the
@@ -1264,3 +1271,49 @@ class TestTheMoveANumberAnnouncedAndTheScanDestroyed:
         tokens = tokenize_pages([page_of("34. 8xf8+ Qxf8 35.Qxf8")])
 
         assert all(not t.lost_move for t in tokens if t.kind == "move_number")
+
+
+def test_a_draw_the_scanner_spelled_is_a_result():
+    # `40 ♔f3 ♔f6 ½-½` on Grivas page 35 comes out `tf2.tf2`, and Boussole's
+    # as `Y2-Y2`: two halves alike, joined by no space. Read as moves, the
+    # draw was a king to f2 and a broken pawn move in the reader.
+    for raw in ("tf2.tf2", "lf2-lf2", "Y2-Y2", "'12-'12"):
+        tokens = tokenize_pages([page_of(f"40 Kf3 Kf6 {raw} Lukacs - Grivas")])
+        assert [(t.kind, t.text) for t in tokens if t.kind in ("move", "result")] == [
+            ("move", "Kf3"), ("move", "Kf6"), ("result", "1/2-1/2")], raw
+
+
+def test_a_capture_and_its_recapture_are_two_moves():
+    tokens = tokenize_pages([page_of("23 Rxc2 Rxc2 24 Qd3")])
+    assert [t.text for t in tokens if t.kind == "move"] == ["Rxc2", "Rxc2", "Qd3"]
+
+
+def test_a_capture_on_f5_spelled_rs_behind_a_symbol():
+    # `35 ♖xf4 ♖xf8` on Grivas page 31 is `l:txf4 ♖xrs`: the `x` is a letter
+    # and kept `rs` from being read, so Black's 35th went and the rest of
+    # the game was played a ply out. `parse` tries f8 where f5 cannot be.
+    tokens = tokenize_pages([page_of("35 Rxf4 ♖xrs 36 Re6 and rsxt")])
+    assert [t.text for t in tokens if t.kind == "move"] == ["Rxf4", "Rxf5", "Re6"]
+
+
+def test_a_running_head_the_scanner_misspelled_is_not_prose():
+    # Grivas page 32 opens on `ATTACKING THE KING: CASTUNG ON THE SAME SIDE`,
+    # its folio and the `B` beside a board, then `♗xd6` -- Black's twentieth,
+    # announced on page 31. Read as prose it ended the number's licence and
+    # the move was skipped; the misspelling is why no repeat filter took it.
+    pages = [page_of("20 Bh6"), page_of("AITACKING THE KING: CASTUNG ON THE SAME SIDE \n31 \n\nB \n\nBxd6 21 Qxe6+")]
+    pages[1].number = 2
+    result = parse_tokens(tokenize_pages(pages))
+    assert "Bxd6" in [m.san for m in result.moves]
+
+
+def test_a_page_opening_on_prose_keeps_it():
+    pages = [page_of("20 Bh6"), page_of("32 \nCHESS COLLEGE 1: STRATEGY \n\nBlack has completed f5")]
+    pages[1].number = 2
+    assert any(t.kind == "text" and "completed" in t.text for t in tokenize_pages(pages))
+
+
+def test_a_first_rank_read_as_i_behind_a_symbol():
+    # `21 ♖f1+` on Grivas page 32 is `♖fi +`; "fine" and "first" keep theirs.
+    tokens = tokenize_pages([page_of("21 ♖fi + ♔g8 the first fine move")])
+    assert [t.text for t in tokens if t.kind == "move"] == ["Rf1", "Kg8"]

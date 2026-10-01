@@ -51,7 +51,13 @@ _TOKEN_TEMPLATE = r"""
       # Nor in a capital and one or two digits, the label a level or two
       # down: Sakaev's "B1)" and "B21)", page 86.
     | (?P<var_close>(?<!\s[A-Za-z])(?<!\s[A-Z][1-9])(?<!\s[A-Z][1-9][1-9])[)}}])
-    | (?P<result>1-0|0-1|1/2-1/2|1/2|\*)
+    | (?P<result>1-0|0-1|1/2-1/2|1/2|\*
+          # A draw a scanner spelled: `½-½` comes out of Grivas as `tf2.tf2`
+          # and of Boussole as `Y2-Y2` -- two halves alike, ending in the 2,
+          # joined by no space. A capture and its recapture, `Rxc2 Rxc2`,
+          # have one between them.
+        | (?<!\S)(?P<half>(?:[^\s\dx][^\sx]?|[^\sx][^\s\dx])2)[-.](?P=half)(?!\S)
+      )
     | (?P<move_number>
           # A space inside the number: subset fonts break `18` into `1 8`, and
           # the leading digit then carries no dot, so `1 8 ...` was read as
@@ -498,10 +504,33 @@ def tokenize_pages(
 
     tokens: list[Token] = []
     for page in pages:
-        tokens.extend(_tokenize_page(
+        read = _tokenize_page(
             page, token_re, to_san, blocks.get(page.number, []), spellings or {}
-        ))
+        )
+        if read and read[0].kind == "text" and _only_furniture(read[0].raw):
+            read = read[1:]
+        tokens.extend(read)
     return _read_numbers_the_scanner_spelled(_drop_a_bracket_nothing_closes(tokens))
+
+
+#: A line of a page's furniture: its running head in capitals, its folio, or
+#: the side-to-move letter printed beside a board.
+_FURNITURE_LINE = re.compile(r"[A-Z0-9 :;,.'\[\]-]*[A-Za-z]{0,2}[A-Z0-9 :;,.'\[\]-]*|[wWB]")
+
+
+def _only_furniture(raw: str) -> bool:
+    """Whether a page's first run of prose is nothing but its furniture.
+
+    Grivas' scan spells its running head differently on every page --
+    `AITACKING`, `CASTUNG`, `COUEGE` -- so the repeat filter of `extract`
+    never takes it, and read as prose it ends the licence of the move number
+    the page before left open: page 32's first move, Black's twentieth,
+    was skipped. Each line has to be capitals and figures, at most two small
+    letters of OCR noise among them (`CASTliNG`), or a lone side-to-move
+    mark; a line of real prose is never that.
+    """
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    return bool(lines) and all(_FURNITURE_LINE.fullmatch(line) for line in lines)
 
 
 #: A move number as a scanner spells it: its digits, or the letters OCR puts
@@ -740,14 +769,17 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
 #: the substitution keeps the text's length, so every offset stays true.
 #: Made on the page's own text, where a restored symbol is still a symbol:
 #: behind the `N` it becomes, `♘rs` (page 16, "24 ♘f5") read as a word.
-_F5_SPELLED = re.compile(r"(?<![A-Za-z])rs(?![A-Za-z0-9])")
+#: A capture's `x` is a letter, so it is let in behind a symbol only:
+#: `♖xrs` (page 31, "35...♖xf8").
+_F5_SPELLED = re.compile(r"(?:(?<![A-Za-z])|(?<=[\u2654-\u265f]x))rs(?![A-Za-z0-9])")
 
 #: A 1 read as a `t` in a square standing hard against a symbol's wreck:
 #: `.:r.et` for `♖e1`, and `♖et` once the glyph pass restored the rook
 #: (Grivas page 24). Only behind a mark of a wreck or a symbol, so
-#: "at", "et" and "it" stay words; one character for one.
+#: "at", "et" and "it" stay words; one character for one. Read as an `i`
+#: too: `♖fi +` for `21 ♖f1+` (page 32).
 _RANK_ONE_AS_T = re.compile(
-    r"(?<=[.:'\\\u2654-\u265f][a-h])t(?=[\s+#!?,;)])"
+    r"(?<=[.:'\\\u2654-\u265f][a-h])[ti](?=[\s+#!?,;)])"
 )
 
 #: A character from no alphabet a book is set in, against a symbol the glyph
@@ -958,6 +990,8 @@ def _tokenize_span(
         # Move numbers and promotions may carry internal spaces ("14 ." or
         # "e8 = Q"); squeeze them so downstream code sees canonical text.
         text_out = match.group() if kind == "annotation" else re.sub(r"[\s:]+|(?<=x)\.", "", match.group())
+        if kind == "result" and match.group("half"):
+            text_out = "1/2-1/2"
         if kind == "move":
             # `T X f5`: no alphabet has an `X` for a piece, so it is the sign.
             text_out = text_out.replace("X", "x")
@@ -1246,7 +1280,9 @@ def _a_stranded_number(tokens: list[Token], at: int) -> tuple[re.Match[str] | No
         # The number itself printed as letters, with the ellipsis that says it
         # is one. `11` opening a page is the case in this corpus: the scanner
         # reads `ll` and the running head swallows it.
-        found = _STRANDED_AS_LETTERS.search(token.raw)
+        # On the page as the token pattern reads it: Grivas prints the
+        # ellipsis as bullets, `ll \n••• ♗g4!` on page 29.
+        found = _STRANDED_AS_LETTERS.search(normalise(token.raw))
         if found is None:
             return None, None
         # The space a subset font leaves between the two figures of a number
