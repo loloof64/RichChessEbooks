@@ -740,9 +740,12 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
 _F5_SPELLED = re.compile(r"(?<![A-Za-z])rs(?![A-Za-z0-9])")
 
 #: A 1 read as a `t` in a square standing hard against a symbol's wreck:
-#: `.:r.et` for `♖e1` (Grivas page 24). Only behind a mark of a wreck, so
+#: `.:r.et` for `♖e1`, and `♖et` once the glyph pass restored the rook
+#: (Grivas page 24). Only behind a mark of a wreck or a symbol, so
 #: "at", "et" and "it" stay words; one character for one.
-_RANK_ONE_AS_T = re.compile(r"(?<=[.:'\\][a-h])t(?=[\s+#!?,;)])")
+_RANK_ONE_AS_T = re.compile(
+    r"(?<=[.:'\\\u2654-\u265f][a-h])t(?=[\s+#!?,;)])"
+)
 
 #: The third dot of an ellipsis as Grivas' scan prints it: `21..J♖h8`, eight
 #: times in this book and twenty in its third volume. Only after a number and
@@ -758,8 +761,9 @@ def _tokenize_page(
     spellings: dict[str, str],
 ) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
-    text = _ELLIPSIS_J.sub(r"\1.", normalise(_F5_SPELLED.sub("f5", page.text)))
-    text = _RANK_ONE_AS_T.sub("1", text)
+    text = _ELLIPSIS_J.sub(r"\1.", normalise(
+        _RANK_ONE_AS_T.sub("1", _F5_SPELLED.sub("f5", page.text))
+    ))
     tokens: list[Token] = []
     cursor = 0
     diagrams = sorted(diagrams, key=lambda d: d.start)

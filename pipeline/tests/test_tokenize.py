@@ -566,6 +566,9 @@ class TestASquareBrokenInTwo:
         move = next(t for t in tokens if t.kind == "move" and t.text == "e1")
         assert move.lost_symbol.endswith(".")
         assert [t.text for t in tokens if t.kind == "move"] == ["a4", "bxa4", "e1", "Bd6", "Qh5"]
+        # And the same behind the symbol the glyph pass restored: `♖et`.
+        tokens = tokenize_pages([page_of("13 a4 bxa4 14 \u2656et Bd6 15 Qh5 ")])
+        assert [t.text for t in tokens if t.kind == "move"] == ["a4", "bxa4", "Re1", "Bd6", "Qh5"]
 
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
