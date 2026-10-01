@@ -198,6 +198,9 @@ _TOKEN_TEMPLATE = r"""
           # does between two squares -- an `l`, a `J`, a mark -- or Loheac's
           # "g5 ou en f6", printed `g5ouenf6`, would be a move.
           (?:(?![A-Za-z0-9'])|(?=[{pieces}]x?[a-h][{ranks}])
+             # Or the next move's symbol with its `1L` ink in front:
+             # `bxc51L♗xc5` (Grivas page 25).
+             |(?=1[A-Za-z.:\\'|/<>]{{0,2}}[{pieces}]x?[a-h][{ranks}])
              |(?=[A-Za-z.|/]{{0,4}}[lJ:\\'<>][A-Za-z.:\\'|/<>]{{0,4}}x?[a-h][1-8]))
       )
     | (?P<annotation>[!?]{{1,2}}|[±∓⩲⩱∞⟳→↑↓⇆=]|\+[-=]|-\+)
@@ -314,7 +317,7 @@ _STUMP_RUN = re.compile(r"[A-Za-z.:\\'|/<>]{1,2}$")
 
 #: The ink left in front of a symbol the glyph pass restored: one or two
 #: characters of a symbol, and a `1` opening the word (`1L♗b4`).
-_SYMBOL_STUMP = re.compile(r"(?:(?<!\S)1)?[A-Za-z.:\\'|/<>]{1,2}$")
+_SYMBOL_STUMP = re.compile(r"(?:(?<![A-Za-z])1)?[A-Za-z.:\\'|/<>]{1,2}$")
 _FIGURINES = "\u2654\u2655\u2656\u2657\u2658\u265a\u265b\u265c\u265d\u265e"
 
 
@@ -913,8 +916,12 @@ def _tokenize_span(
         if kind == "move":
             text_out = text_out.translate(to_san)
             # A piece and a rank is a move only where a number announces one.
+            # Or where a symbol the glyph pass restored stands behind its own
+            # wreck: `22 ♕c2 <♔8` (Grivas page 25), Black's reply.
             if _A_PIECE_AND_A_RANK.match(text_out) and not _announced_by_a_number(
                 out, text, cursor, start
+            ) and not (
+                page.text[start] in _FIGURINES and start and text[start - 1] in "<>:'\\"
             ):
                 continue
             journey = _SQUARE_TO_SQUARE.match(text_out)

@@ -570,6 +570,26 @@ class TestASquareBrokenInTwo:
         tokens = tokenize_pages([page_of("13 a4 bxa4 14 \u2656et Bd6 15 Qh5 ")])
         assert [t.text for t in tokens if t.kind == "move"] == ["a4", "bxa4", "Re1", "Bd6", "Qh5"]
 
+    def test_a_move_run_into_the_ink_of_the_next(self):
+        # Grivas page 25, "24 bxc5 ♗xc5 ... 26 ♕e2 ♗xf5": the scan has
+        # `bxc51L♗xc5` and `♕e21L♗xf5`, the bishop's `1L` hard against the
+        # move before it. Neither that move nor its bishop was read.
+        tokens = tokenize_pages([page_of(
+            "23 b4 c5 24 bxc51L\u2657xc5 25 Kh1 Kg8 26 \u2655e21L\u2657xf5 17 \u2656ae11L\u2657e5 "
+        )])
+
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "b4", "c5", "bxc5", "Bxc5", "Kh1", "Kg8", "Qe2", "Bxf5", "Rae1", "Be5"
+        ]
+
+    def test_a_restored_piece_and_a_rank_behind_its_wreck(self):
+        # Page 25, "22 ♕c2 ♔f8": the scan has `<♔8`, the file gone. A symbol
+        # the glyph pass restored, behind its own wreck, is a move even with
+        # no number of its own in front: Black's reply.
+        tokens = tokenize_pages([page_of("22 Qc2 <\u26548 23 b4 ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Qc2", "K8", "b4"]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.
