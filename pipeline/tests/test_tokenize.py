@@ -465,6 +465,14 @@ class TestASquareBrokenInTwo:
         moves = [t.raw for t in tokens if t.kind == "move"]
         assert moves[:3] == ["d4", "d6", "e4"] and "g5" not in moves
 
+    def test_a_dot_behind_the_capture_sign(self):
+        # Grivas folio 20 prints `18 ♖axd1` and the scan has `♖ax.d1`: only
+        # `d1` was read, as a knight, the rook never reached d1 and `20 ♖df1`
+        # behind it was broken. The French Advance has `fx.e6` the same way.
+        tokens = tokenize_pages([page_of("18 Rax.d1 Kxh8 19 fx.e6 and x.y ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Raxd1", "Kxh8", "fxe6"]
+
     def test_a_j_ending_an_ellipsis_is_its_last_dot(self):
         # Grivas page 16, "salvation: 21..J!h8 22 lLlf5": the scan reads the
         # third dot as `J`, eight times in the book. Left there, `J♖h8` is no

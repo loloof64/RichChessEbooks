@@ -122,6 +122,9 @@ _TOKEN_TEMPLATE = r"""
               # and the scan has `'it'xa:8?`. Only behind a piece or a capture,
               # which prose does not set before a letter, a colon and a digit.
             | (?<![A-Za-z])(?:[{pieces}][a-h]?[1-8]?x?|[a-h]x)[a-h]:[1-8]
+              # And a dot behind the capture sign: Grivas folio 20 prints
+              # `18 ♖axd1` and the scan has `♖ax.d1`.
+            | (?<![A-Za-z])(?:[{pieces}][a-h]?[1-8]?|[a-h])x\.[a-h][{ranks}]
               # The piece a pawn promoted to. `=Q` is one way of writing it
               # and the figurine set straight after the square is the other:
               # SuperAttaquant prints `33.dxe8♕+`, `42.c8♕`, `29.exf8♕#`, and
@@ -828,7 +831,7 @@ def _tokenize_span(
         start, end = match.span()
         # Move numbers and promotions may carry internal spaces ("14 ." or
         # "e8 = Q"); squeeze them so downstream code sees canonical text.
-        text_out = match.group() if kind == "annotation" else re.sub(r"[\s:]+", "", match.group())
+        text_out = match.group() if kind == "annotation" else re.sub(r"[\s:]+|(?<=x)\.", "", match.group())
         if kind == "move":
             # `T X f5`: no alphabet has an `X` for a piece, so it is the sign.
             text_out = text_out.replace("X", "x")
