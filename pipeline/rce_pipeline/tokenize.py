@@ -174,6 +174,9 @@ _TOKEN_TEMPLATE = r"""
               # one `n`: `♖an` for `♖af1` (page 22), `♖n` for `♖f1`. A piece
               # letter and an `n` is no word.
             | (?<![A-Za-z\d])[{pieces}][a-h]?x?n(?![A-Za-z0-9])
+              # And its 7 read as a `?` behind a piece and a file, which is
+              # no move and no comment: `♗e?` for `♗e7` (page 24).
+            | (?<![A-Za-z\d])[{pieces}]x?[a-h]\?(?=[\s!])
           )
           [+#]?
           # Never an apostrophe: with `l` read as a rank, the French elision
@@ -350,6 +353,12 @@ def _wreck_before(text: str, start: int, spellings: dict[str, str]) -> str:
     if run is None:
         return ""
     found = run.group()
+    # A `1` opening the word is the symbol's ink too: Grivas spells its queen
+    # `1i'` and `1W` (`18...1Wxc4`, page 23), 69 times. No move begins with a
+    # digit and a letter, so the pair marks the wreck as well as `:` does.
+    at = run.start()
+    if at and text[at - 1] == "1" and (at == 1 or text[at - 2].isspace()):
+        return "1" + found
     if _WRECK_MARK.search(found):
         return found
     for cut in range(len(found)):
@@ -844,6 +853,7 @@ def _tokenize_span(
             # `T X f5`: no alphabet has an `X` for a piece, so it is the sign.
             text_out = text_out.replace("X", "x")
             text_out = re.sub(r"^([A-Z][a-h]?x?)n([+#]?)$", r"\1f1\2", text_out)
+            text_out = re.sub(r"^([A-Z]x?[a-h])\?$", r"\g<1>7", text_out)
         consumed = lost_symbol = ""
         number_at: int | None = None
         if kind == "move":

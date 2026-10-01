@@ -48,6 +48,20 @@ class TestTheWreckOfASymbol:
         move = next(t for t in tokens if t.kind == "move" and t.text == "a3")
         assert move.lost_symbol.endswith("'i!V")
 
+    def test_a_wreck_may_begin_with_a_one(self):
+        # Grivas page 23, "18...♕xc4! (D)": the scan has `1Wxc4`, and `1i'`,
+        # `1W`, `1L` stand for a symbol 69 times in the book. Left out of the
+        # wreck, the `1` either stayed in the prose or joined the number in
+        # front -- `16 1i'd2` was read as move 1 -- and the move was lost.
+        for text, number, square, wreck in (
+            ("18 ... 1Wxc4! 19 Rc1? ", "18...", "xc4", "1W"),
+            ("15 ... Rxh6 16 1i'd2 Rxh4?! ", "16", "d2", "1i'"),
+        ):
+            tokens = tokenize_pages([page_of(text)])
+            move = next(t for t in tokens if t.kind == "move" and t.text == square)
+            numbers = [t.text.strip() for t in tokens if t.kind == "move_number"]
+            assert move.lost_symbol == wreck and number in numbers, text
+
     def test_the_rook_of_the_same_scan_is_not_cut_in_two(self):
         # Page 99 prints its rook `l:!.`: a `!` taken anywhere in a run gave
         # `f2` the half `!.` of it, and the move was read with the wrong piece.
@@ -513,6 +527,14 @@ class TestASquareBrokenInTwo:
             "Raf1", "Qe6", "b4", "Rf1", "Qe7"
         ]
 
+    def test_a_seven_read_as_a_question_mark_behind_a_piece(self):
+        # Grivas page 24, "17 ♕f6 ♗e7 18 ♕h6": the scan has `♗e?`, five
+        # times in the book and every one e7. A piece and a file with no
+        # rank is no move, and a `?` cannot comment on half a square.
+        tokens = tokenize_pages([page_of("17 Qf6 Be? 18 Qh6 Be? ! e4? ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Qf6", "Be7", "Qh6", "Be7", "e4"]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.
@@ -896,7 +918,7 @@ class TestANumberSeparatedFromItsMove:
         for raw, read in (("lO ...", "10..."), ("2l ...", "21..."),
                           ("1O ...", "10..."), ("Il ...", "11...")):
             tokens = tokenize_pages([page_of(f"9 Nf3 Practically forced. {raw} Nxd4")])
-            numbers = [t.text for t in tokens if t.kind == "move_number"]
+            numbers = [t.text.strip() for t in tokens if t.kind == "move_number"]
             assert numbers == ["9", read], (raw, numbers)
 
     def test_the_number_split_by_a_subset_font(self):
