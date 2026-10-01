@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -326,10 +328,32 @@ class _ZoomControls extends StatelessWidget {
     // scale applied about the view's centre left the page's foot cut off.
     final page = controller.pageNumber ?? 1;
     if (zoom == _wholePage) {
-      return controller.goTo(controller.calcMatrixForFit(pageNumber: page));
+      // The zoom that fits the book's largest page, centred on this one:
+      // fitted to the page on show, a taller page after it (Grivas' cover
+      // is 630 points high, its text pages 654) lost its foot.
+      final pages = controller.layout.pageLayouts;
+      final margin = controller.params.margin * 2;
+      final view = controller.viewSize;
+      final fit = pages
+          .map(
+            (r) => min(
+              (view.width - margin) / r.width,
+              (view.height - margin) / r.height,
+            ),
+          )
+          .reduce(min);
+      return controller.goTo(
+        controller.calcMatrixFor(
+          pages[page - 1].center,
+          zoom: fit,
+          viewSize: view,
+        ),
+      );
     }
     if (zoom == _pageWidth) {
-      return controller.goTo(controller.calcMatrixFitWidthForPage(pageNumber: page));
+      return controller.goTo(
+        controller.calcMatrixFitWidthForPage(pageNumber: page),
+      );
     }
     return controller.setZoom(
       controller.centerPosition,
