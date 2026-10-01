@@ -65,3 +65,25 @@ def test_the_running_head_and_the_folio_are_not_the_book(tmp_path):
     assert [" ".join(page.text.split()) for page in pages] == [
         f"{number}.e4 e5" for number in range(1, 5)
     ]
+
+
+def test_a_column_the_stream_left_mid_paragraph_is_finished_first(tmp_path):
+    # Grivas page 16: the layer hands over the left column down to "relatively
+    # minimal", then the right column's new game, then "value. Indeed, 19
+    # ♗xa8?" on the very next left line -- so the old game's moves were read
+    # inside the new one.
+    book = fitz.open()
+    page = book.new_page(width=432, height=648)
+    page.insert_text((24, 100), "19 e5! The black rook is of minimal", fontsize=10)
+    page.insert_text((223, 60), "Grivas - Szkudlarek", fontsize=10)
+    page.insert_text((223, 80), "1 c4 f5 2 Nc3 Nf6", fontsize=10)
+    page.insert_text((24, 112), "value. Indeed, 19 Bxa8? Bxc3+!", fontsize=10)
+    page.insert_text((223, 300), "5...fxe4 Here 5...e5", fontsize=10)
+    book.save(tmp_path / "book.pdf")
+
+    (page,) = extract.extract_pages(str(tmp_path / "book.pdf"))
+
+    assert " ".join(page.text.split()) == (
+        "19 e5! The black rook is of minimal value. Indeed, 19 Bxa8? Bxc3+! "
+        "Grivas - Szkudlarek 1 c4 f5 2 Nc3 Nf6 5...fxe4 Here 5...e5"
+    )

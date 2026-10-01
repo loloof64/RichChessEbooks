@@ -306,6 +306,8 @@ def _extract_page(
     ]
     if sort_blocks:
         blocks.sort(key=lambda b: (round(b["bbox"][1], 1), round(b["bbox"][0], 1)))
+    else:
+        blocks = _finish_the_column(blocks, width)
 
     chars: list[Char] = []
     for block_index, block in enumerate(blocks):
@@ -336,6 +338,45 @@ def _extract_page(
         text="".join(c.char for c in chars),
         chars=chars,
     )
+
+
+def _finish_the_column(blocks: list[dict], width: float) -> list[dict]:
+    """Put back the right column the stream read in the middle of the left one.
+
+    Grivas page 16 hands over the left column down to "relatively minimal",
+    then the head of the right column (a new game), then "value. Indeed, 19
+    ♗xa8?" on the very next line of the left one: the old game's moves were
+    read inside the new one. Only that shape is undone -- the left column
+    resuming within half a line of where it stopped, every block involved
+    inside its own half of the page (Silman's single column breaks around a
+    boxed aside). Sorting every page by column was measured twice and refused
+    (Grivas page 27).
+    """
+    def left(block: dict) -> bool:
+        return block["bbox"][2] <= width * 0.55
+
+    def right(block: dict) -> bool:
+        return block["bbox"][0] >= width * 0.45
+
+    def resumes(above: dict, below: dict) -> bool:
+        lines = above.get("lines") or [above]
+        line = lines[-1]["bbox"][3] - lines[-1]["bbox"][1]
+        return -2 <= below["bbox"][1] - above["bbox"][3] <= line / 2
+
+    order = list(blocks)
+    for i in range(len(order)):
+        if not left(order[i]):
+            continue
+        j = i + 1
+        while j < len(order) and right(order[j]) and not left(order[j]):
+            j += 1
+        if j == i + 1 or j == len(order) or not left(order[j]) \
+                or not resumes(order[i], order[j]):
+            continue
+        read_early, rest = order[i + 1:j], order[j:]
+        k = next((n for n, block in enumerate(rest) if not left(block)), len(rest))
+        order[i + 1:] = rest[:k] + read_early + rest[k:]
+    return order
 
 
 def _is_picture_page(page: "fitz.Page") -> bool:
