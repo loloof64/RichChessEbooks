@@ -1,5 +1,31 @@
 # What I have to do next
 
+> **Twenty-second session, 2026-10-01 — Grivas pages 16-20, with Laurent.**
+> `450f352`: the text layer reads the right column's head *inside* the left
+> column (p16: "relatively minimal" | new game | "value. Indeed, 19 ♗xa8?"
+> on the next line); a right-column run is put back where the left column
+> resumes within half a line, every block inside its own half (Silman's
+> boxed asides are left alone). `cae8dd1`: `21..J♖h8` (J = last dot),
+> `pawn-chain g6-h7` (two files, no x = a plan), `2 e4lilf6` (a move welded
+> to the next one's wreck; the wreck needs `l`/`J`/a mark, so Loheac's
+> `g5ouenf6` stays prose). `6fce786`: a board's anchor goes back over the
+> indent left of it (p19 `6 ••. ♗g5`), bounded to 12 pt and all-or-nothing
+> (Boussole's centred boards cost 20 otherwise).
+> Corpus Grivas 1118 -> 1271, Boussole 317 -> 351, others identical (Markos
+> 380/380); held-out Grivas+40 695 -> 713, Grivas3 972 -> 974, no window
+> lower (Fabrice not measured). Whole book 2848 -> 2608 broken, pages 16
+> 43 -> 1, 18 19 -> 1, 19 20 -> 0, 20 11 -> 3; p60 +4 and p109 +1 are moves
+> inside lines already dead. Regenerated in `rce_apercu/Grivas.rce`.
+>
+> **Next, with Laurent:** read pages 16, 18, 19, 20 in the app. Left there:
+> - p16 `18...♕a3` printed `'i!Va3` (the queen's wreck with a `!`), lost;
+> - p18 "(...0-0)" in prose, played with White to move;
+> - p20 "Threatening 26 ♕b4 or 26 ♕a5", "To defend with 27...♕b6": threats
+>   cited a ply ahead, each broken alone;
+> - p19 in a short window: `lLlf4` is ♗f4 or ♘f4 when the spelling `lLl`
+>   is not learned — the whole book learns it, check only if it recurs.
+> Then pages 21 (5 broken) and 34 (`'ifl>rs`).
+
 > **Twenty-first session, 2026-09-30 — Grivas pages 14-16, with Laurent.**
 > `58dc3b6`: `xa:8` (a colon inside a square, behind a piece or `x`) —
 > page 14 clean. `9d01c35`: a diagram showing the game **one ply back**
