@@ -111,6 +111,13 @@ class TestTheWreckOfASymbol:
 
         assert next(t for t in tokens if t.kind == "move_number").text.strip() == "21"
 
+    def test_a_number_the_font_broke_in_two_stays_whole(self):
+        # `'it'g6+ 1 1 Cf4` on Grivas page 28: the number of `11 ♔f4` came
+        # out as `1`, and the line was replayed from the first move.
+        tokens = tokenize_pages([page_of("10 Kg3 Qg6+ 1 1 Cf4 Qf5+")], spellings={"C": "K"})
+
+        assert next(t for t in tokens if t.kind == "move_number" and t.start > 3).text.strip() == "11"
+
 
 class TestAWreckAMoveNumberRunsInto:
     """A wreck that reaches back over the number's dots gives them back.

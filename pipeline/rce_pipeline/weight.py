@@ -68,6 +68,10 @@ _SEPARATION = 2.0
 #: and not a division to guard against: only an empty heavier group refuses.
 _EDGE = 25.0
 
+#: A digit's width as a share of its line's height: Grivas' are 4.5 points
+#: wide on 10.7-point boxes.
+_DIGIT = 0.42
+
 #: Fewer numbers than this and there is no distribution to split.
 _MIN_SAMPLES = 40
 
@@ -103,7 +107,14 @@ def _digits_of(tokens: list[Token]) -> list[Token]:
         width = max(1.0, right - token.bbox.x)
         digits = len(token.text) - len(token.text.lstrip("0123456789 "))
         if digits and token.text:
-            width = max(1.0, width * digits / len(token.text))
+            # Never less than one digit's width: a scan prints `4 ... exf4`
+            # with its dots spaced out, and a share of the box cut the `4` to
+            # two thirds of itself, which measured plain (Grivas page 28).
+            # One digit, not one per digit: `23...` given two digits' width
+            # took in its first dot and measured plain too (page 55).
+            width = min(width, max(
+                1.0, width * digits / len(token.text), _DIGIT * token.bbox.h,
+            ))
         out.append(dataclasses.replace(
             token, bbox=dataclasses.replace(token.bbox, w=width)
         ))

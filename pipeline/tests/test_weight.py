@@ -9,6 +9,7 @@ everything in one weight as readily as it accepts one that does not.
 import numpy as np
 import pytest
 
+from rce_pipeline import weight
 from rce_pipeline.weight import _eroded, _split
 
 
@@ -79,3 +80,19 @@ class TestSplit:
 
     def test_no_ink_anywhere_is_refused(self):
         assert _split([0.0] * 60) is None
+
+
+def test_a_black_number_keeps_the_whole_of_its_digit():
+    # `4 ... exf4` on Grivas page 28: the box runs over the spaced dots, and a
+    # quarter of it for the `4` of `4...` cut the digit to two thirds. What
+    # was left measured plain, and the game's own line was read as analysis.
+    from rce_pipeline.extract import BBox
+    from rce_pipeline.tokenize import Token
+
+    number = Token(kind="move_number", text="4...", raw="4 ...", page=1, start=0, end=5,
+                   bbox=BBox(236.0, 100.0, 12.2, 10.72))
+
+    (cropped,) = weight._digits_of([number])
+
+    assert cropped.bbox.w >= 4.5
+

@@ -1098,7 +1098,7 @@ def _tokenize_span(
                     out.append(prose)
             out.append(Token(
                 kind="move_number",
-                text=text[number_at:start],
+                text=re.sub(r"(?<=\d) (?=\d)", "", text[number_at:start]),
                 raw=page.text[number_at:start],
                 page=page.number,
                 start=number_at,
@@ -1154,8 +1154,9 @@ _WELDED_NUMBER = re.compile(r"(?<![A-Za-z\d])(\d{1,3})$")
 #:
 #: Plain spaces only, never a newline: a figure ending a line would otherwise
 #: announce whatever opens the next, which in two columns is not even the same
-#: paragraph.
-_NUMBER_BEFORE_A_WRECK = re.compile(r"(?<![A-Za-z\d])(\d{1,3})[ ]*$")
+#: paragraph. A space inside the number is the font's, as in the token
+#: pattern: `1 1 Cf4` is `11 ♔f4` (Grivas page 28).
+_NUMBER_BEFORE_A_WRECK = re.compile(r"(?<![A-Za-z\d])(\d(?:[ ]?\d){0,2})[ ]*$")
 
 #: A bare move number ending a run of prose. Believed only where a diagram
 #: stands between it and the move it announces.
