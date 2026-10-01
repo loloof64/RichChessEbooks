@@ -1441,6 +1441,7 @@ def parse_tokens(
     #: The index of the last move read as a threat: "Threatening 26 ♕b4 or
     #: 26 ♕a5" lists two, and the second stands behind the first.
     threat_at: int | None = None
+    in_a_threat = False
     adrift: set[str] = set()
     #: The first move each drifting game played on its main line after the
     #: loss: the moves descending from it are the ones `drifted` counts.
@@ -1455,6 +1456,19 @@ def parse_tokens(
         token = tokens[at]
         at += 1
         kind_before, last_kind = last_kind, token.kind
+        if in_a_threat:
+            # The moves after a threat, up to the prose, are the threat's:
+            # "Threatening 26 ♘xd7 ♕xd7 27 ♗e6, while ...". A number naming
+            # the move the line awaits, or one before it, is the score again.
+            if token.kind == "move_number" and stack:
+                number = re.match(r"\d+", token.text)
+                if number and _ply_of(int(number.group()), token.text.count(".") > 1) \
+                        <= _ply_awaited(stack[-1].board):
+                    in_a_threat = False
+            if in_a_threat and token.kind in ("move", "move_number", "annotation"):
+                result.skipped.append({**token.to_json(), "reason": "a threat"})
+                continue
+            in_a_threat = False
         if token.kind not in ("text", "diagram", "annotation"):
             # A heading announces the game printed under it, and the first
             # thing read from that game spends the announcement.
@@ -1492,16 +1506,23 @@ def parse_tokens(
             # a diagram printed where the score had drifted is still a diagram
             # of a position the line passes through, a few plies either side.
             printed = diagrams.decode(rows, diagram_table) if diagram_table else None
-            a_move_late = (
-                main_history.get(_ply_awaited(stack[0].board) - 1, (None,))[0] if stack else None
-            )
+            # The game a few moves back: Grivas page 22 prints "9 ♗g5 ♗d5!?
+            # (D)" at its foot and the board falls after "13 ♗xf6", four
+            # moves on. The nearest earlier position the board shows.
+            a_move_late = None
+            if stack and printed is not None:
+                awaited = _ply_awaited(stack[0].board)
+                a_move_late = next((
+                    main_history[ply][0] for ply in range(awaited - 1, awaited - 1 - _LATE_REACH, -1)
+                    if ply in main_history and main_history[ply][0].board_fen() == printed
+                ), None)
             if printed is None:
                 verdict = "unread" if diagram_table is None else "unreadable"
             elif not stack:
                 verdict = "seeds"
             elif printed == reached:
                 verdict = "confirms"
-            elif a_move_late is not None and a_move_late.board_fen() == printed:
+            elif a_move_late is not None:
                 # The board of the game one move back: the figure fell in the
                 # text after the move it follows. Grivas page 15 prints "11
                 # ♕xd6 ♘g4? (D)" and the board lands after "12 ♗xc4!"; read as
@@ -1972,6 +1993,18 @@ def parse_tokens(
                 board_before, token.text, token.consumed, token.lost_symbol,
                 token.lost_piece,
             )
+            if resolution.status == "broken" and _F5_OR_F8.search(token.raw):
+                # Grivas' scan spells f5 `rs`, and f8 the same way: "25...♖f8"
+                # is `:rs` on page 22. Where f5 cannot be played, f8 is tried.
+                as_f8 = _resolve(
+                    board_before, re.sub(r"f5(?=[+#!?]*$)", "f8", token.text),
+                    token.consumed, token.lost_symbol, token.lost_piece,
+                )
+                if as_f8.move is not None:
+                    resolution = dataclasses.replace(
+                        as_f8, status="uncertain", confidence=min(as_f8.confidence, 0.5),
+                        repair={"raw": token.raw, "reason": "`rs` read as f8: f5 cannot be played"},
+                    )
             if resolution.status == "broken":
                 # Nothing to lose: the move is dead where it stands. The
                 # number that announced it may still say where it belongs.
@@ -1981,6 +2014,15 @@ def parse_tokens(
                 # 7 ♗h4? g5 8 ♗g3 ♗g4" — and the second's number is one the
                 # first has passed and the game has not reached, so nothing
                 # but the line itself knows the position it names.
+                if _a_threat(board_before, token, last_declared,
+                             tokens[max(0, at - 3):at - 1], threat_at == at - 3):
+                    # Before any re-placing: a threat names a move to come,
+                    # and a position two plies back that happens to play it
+                    # says nothing (Grivas page 22, "Threatening 26 ♘xd7").
+                    result.skipped.append({**token.to_json(), "reason": "a threat"})
+                    threat_at = at - 1
+                    in_a_threat = True
+                    continue
                 if not any(other.from_bracket for other in stack):
                     placed = _place_a_citation(
                         main_history if len(stack) == 1
@@ -1997,11 +2039,6 @@ def parse_tokens(
                     level = stack[-1]
                     board_before = level.board.copy()
                     resolution = placed
-                elif _a_threat(board_before, token, last_declared,
-                               tokens[max(0, at - 3):at - 1], threat_at == at - 3):
-                    result.skipped.append({**token.to_json(), "reason": "a threat"})
-                    threat_at = at - 1
-                    continue
         else:
             resolution = _Resolution(
                 None,
@@ -2595,6 +2632,13 @@ def _origin_hints(square: int) -> set[str]:
         chess.RANK_NAMES[chess.square_rank(square)],
     }
 
+
+#: The scan's spelling of a square on the f-file whose rank is a 5 or an 8.
+_F5_OR_F8 = re.compile(r"rs[+#!?]*\s*$")
+
+#: How many plies back a board may show the game and be a figure that fell
+#: later in the text rather than a correction: Grivas page 22's is nine.
+_LATE_REACH = 12
 
 #: A list label ending the prose in front of a move number: "and now: a)".
 _LIST_LABEL = re.compile(r"(?:^|[\s:.;,])([a-h])\)\s*$")

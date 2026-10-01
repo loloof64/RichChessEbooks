@@ -546,6 +546,45 @@ class TestBreakDiagnosis:
         assert all(on_the_main_line(result, m) for m in game)
         assert not result.contradicted
 
+    def test_a_diagram_met_a_few_moves_late_confirms_the_game(self):
+        # Grivas page 22 prints "9 ♗g5 ♗d5!? (D)" at its foot, and the board
+        # falls at the head of page 23, after "13 ♗xf6". Read as a correction
+        # it put the game back four moves, and "White can also try 13 ♕xb7"
+        # and everything after it broke.
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6"):
+            board.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("move_number", "3.", True), ("move", "Bb5", True), ("move", "a6", True),
+                ("move_number", "4.", True), ("move", "Ba4", True),
+            ) + [tok("diagram", rows)] + weighed(
+                ("text", "White can also try", False),
+                ("move_number", "4.", False), ("move", "Bxc6", False),
+                ("text", "here.", False),
+                ("move_number", "4...", True), ("move", "Nf6", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        by_id = {m.id: m for m in result.moves}
+        bxc6 = next(m for m in result.moves if m.san == "Bxc6")
+        nf6 = next(m for m in result.moves if m.san == "Nf6")
+        assert by_id[bxc6.parent_id].san == "a6"
+        assert (nf6.status, by_id[nf6.parent_id].san) == ("ok", "Ba4")
+        assert not result.contradicted
+
     def test_a_diagram_met_one_move_late_confirms_that_move(self):
         # Grivas page 15: "11 ♕xd6 ♘g4? (D)", and the board falls in the text
         # after "12 ♗xc4!". Read as a correction it took ♗xc4 back and wiped
@@ -2480,12 +2519,14 @@ class TestAnAsideThatCaughtTheGameUp:
         assert [m.san for m in main] == [
             "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4",
         ]
-        assert [m.san for m in result.moves if m.variation_index] == ["Bc4"]
 
-    def test_the_citation_is_still_beside_the_game(self):
-        cited = next(m for m in parse_tokens(self.tokens()).moves if m.san == "Bc4")
+    def test_the_threat_is_prose(self):
+        # It used to be re-placed as an alternative to the move before it,
+        # where it happens to be legal; Laurent reads a threat as a plan
+        # (Grivas page 22, "Threatening 26 ♘xd7"), never a variation.
+        result = parse_tokens(self.tokens())
 
-        assert (cited.variation_index, cited.status) == (1, "ok")
+        assert "Bc4" not in [m.san for m in result.moves]
 
 
 class TestAnAsideThatLostItsFirstMove:
@@ -2885,6 +2926,24 @@ class TestAThreatIsNotAMove:
         assert sans(result) == ["e4", "e5", "Nf3", "Nc6", "Bb5"]
         assert all(m.status == "ok" for m in result.moves)
 
+    def test_a_threat_runs_on_until_the_prose_resumes(self):
+        # Grivas page 22, after 25 ♕b3: "Threatening 26 ♘xd7 ♕xd7 27 ♗e6,
+        # while the b7-pawn is also welcome!" -- three moves of one threat.
+        # ♘xd7 was re-placed as an alternative to 25 ♕b3, where it could be
+        # played, and the rest of the threat broke.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("text", "Threatening"), ("move_number", "3."), ("move", "Nxe5"),
+                ("move", "d6"), ("move_number", "4."), ("move", "Nf3"),
+                ("text", ", while"),
+                ("move_number", "2..."), ("move", "Nc6"),
+            )
+        )
+
+        assert sans(result) == ["e4", "e5", "Nf3", "Nc6"]
+
     def test_a_move_the_other_side_cannot_play_either_stays_broken(self):
         # Only a move legal once the turn is passed is a threat: anything else
         # numbered a ply ahead is a break, and says so.
@@ -2922,3 +2981,22 @@ class TestAListOfAlternatives:
         by_san = {m.san: m for m in result.moves}
         assert by_san["Nf6"].parent_id == by_san["d4"].id
         assert all(m.status == "ok" for m in result.moves)
+
+
+class TestTheScanSpellsF5AndF8Alike:
+    def test_rs_is_f8_where_f5_cannot_be_played(self):
+        # Grivas page 22 prints "25...♖f8" and the scan has `:rs`, the
+        # spelling it uses for f5 elsewhere: the `s` is a 5 or an 8. Read as
+        # ♖f5 -- onto Black's own pawn -- the line broke there.
+        rook = dataclasses.replace(tok("move", "Rf5"), raw="\u2656rs")
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "f5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nf6"),
+                ("move_number", "3."), ("move", "Bc4"), ("move", "g6"),
+                ("move_number", "4."), ("move", "d3"), ("move", "Bg7"),
+                ("move_number", "5."), ("move", "Nc3"),
+            ) + [rook]
+        )
+
+        assert (result.moves[-1].san, result.moves[-1].status) == ("Rf8", "uncertain")
