@@ -2986,6 +2986,22 @@ class TestAThreatIsNotAMove:
 
         assert sans(result) == ["e4", "e5", "Nf3", "Nc6"]
 
+    def test_a_named_threat_the_side_to_move_could_play_too(self):
+        # Grivas page 26: "Black is threatening 45...♖a1 46 ♖xa1 ♕xa1+",
+        # White to move. A white rook reaches a1 as well, so ♖a1 was played
+        # as White's move, against the number's own dots.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nc6"),
+                ("text", "Black is threatening"), ("move_number", "3..."), ("move", "Nd4"),
+                ("text", "here."),
+                ("move_number", "3."), ("move", "Bb5"),
+            )
+        )
+
+        assert sans(result) == ["e4", "e5", "Nf3", "Nc6", "Bb5"]
+
     def test_a_move_the_other_side_cannot_play_either_stays_broken(self):
         # Only a move legal once the turn is passed is a threat: anything else
         # numbered a ply ahead is a break, and says so.

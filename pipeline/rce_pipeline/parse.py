@@ -2002,6 +2002,19 @@ def parse_tokens(
                     {"raw": token.raw, "reason": "the square was lost; the score "
                      "after it names this move"},
                 )
+        elif game.position_known and not adrift_before and _THREAT_WORD.search(
+            tokens[at - 3].text if at >= 3 else ""
+        ) and _a_threat(
+            board_before, token, last_declared, tokens[max(0, at - 3):at - 1], False
+        ):
+            # A threat the prose names, numbered a ply ahead, is the other
+            # side's even where the side to move could play it as well:
+            # "Black is threatening 45...♖a1" (Grivas page 26) was played as
+            # a white rook's move, against its own number's dots.
+            result.skipped.append({**token.to_json(), "reason": "a threat"})
+            threat_at = at - 1
+            in_a_threat = True
+            continue
         elif game.position_known:
             resolution = _resolve(
                 board_before, token.text, token.consumed, token.lost_symbol,

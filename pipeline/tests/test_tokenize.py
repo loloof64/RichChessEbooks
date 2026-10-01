@@ -606,6 +606,14 @@ class TestASquareBrokenInTwo:
         move = next(t for t in tokens if t.kind == "move" and t.text.startswith("xa1"))
         assert move.lost_piece == "Q"
 
+    def test_a_foreign_character_in_front_of_a_restored_symbol(self):
+        # Grivas page 26, "42...♕b6! 43 f4": the layer has `Ϩ♕6`, the file
+        # gone and a stray character in its place. A character from no
+        # alphabet a book is set in, against a restored symbol, is its ink.
+        tokens = tokenize_pages([page_of("42 ... \u03e8\u26556! 43 f4 ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["Q6", "f4"]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.

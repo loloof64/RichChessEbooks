@@ -750,6 +750,13 @@ _RANK_ONE_AS_T = re.compile(
     r"(?<=[.:'\\\u2654-\u265f][a-h])t(?=[\s+#!?,;)])"
 )
 
+#: A character from no alphabet a book is set in, against a symbol the glyph
+#: pass restored: the rest of its ink (`Ϩ♕6`, Grivas page 26), read as the
+#: `<` other wrecks leave there.
+_STRAY_BEFORE_A_SYMBOL = re.compile(
+    r"[^\x00-\u024f\u2654-\u265f\s](?=[\u2654-\u265f])"
+)
+
 #: A rank printed as a small `s` behind a restored symbol and a file:
 #: `♖as` for `♖a5` (Grivas page 26). Made the `S` a scan's 5 or 8 is
 #: everywhere else, which `parse` reads as either.
@@ -769,8 +776,8 @@ def _tokenize_page(
     spellings: dict[str, str],
 ) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
-    text = _ELLIPSIS_J.sub(r"\1.", normalise(_RANK_S_AS_S.sub("S", _RANK_ONE_AS_T.sub(
-        "1", _F5_SPELLED.sub("f5", page.text)
+    text = _ELLIPSIS_J.sub(r"\1.", normalise(_STRAY_BEFORE_A_SYMBOL.sub("<", _RANK_S_AS_S.sub(
+        "S", _RANK_ONE_AS_T.sub("1", _F5_SPELLED.sub("f5", page.text))
     ))))
     tokens: list[Token] = []
     cursor = 0
