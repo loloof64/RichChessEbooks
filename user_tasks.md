@@ -1,5 +1,34 @@
 # What I have to do next
 
+> **Twenty-third session, night (2026-10-01/02) — Grivas pages 27-32, with
+> Laurent.** Pages named in the app's PDF numbering (page 28 = folio 27).
+> Committed: `4402110` (p27, a right column welded to the left one in one
+> block is cut at the gutter), `4965d24` (p28, `1 1 Cf4` = 11 ♔f4; a black
+> number's weight crop never narrower than one digit). **Not committed yet,
+> measured and waiting for Laurent's reread of 31-32**: p29 `ll •••` = 11...
+> (bullets normalised before the letters rule); a draw spelled as two alike
+> halves joined by no space (`tf2.tf2`, `lf2-lf2`, `Y2-Y2`) is the result
+> 1/2-1/2; p31 `♖xrs` = ♖xf5/f8; p32 a page's first block of furniture only
+> (misspelled running head, folio, W/B) is not prose, `♖fi` = ♖f1, and after
+> a result a number one ply ahead named as a threat resumes the closed game.
+> Grivas 1656 -> 1442 broken, pages 27, 28, 29, 32 at 0, p31 at 2; Markos and
+> Sakaev identical; **Boussole and SuperAttaquant not rerun** since these
+> changes. Archive in `rce_apercu/Grivas.rce`. Laurent: pages 30 and 34 ok.
+>
+> **Laurent's notes for next time:**
+> - **Page 31: the variation `26 ♘xh4 ♕g5` is missing** — the queen of
+>   `♕g5` was not recovered (`g5` read as a pawn move, broken).
+> - **Never parse a `1/2` notation as a move: it is a score.** Only the
+>   two-halves spellings are handled so far; make sure every draw form
+>   (`½`, `1/2`, `Y2`, `V2`, `'12`, a lone half) stays out of the moves.
+> - **Continue with page 35** (18 broken left once the draw was fixed).
+>
+> Refused tonight (measured): a weight crop of one digit *per digit* (1502
+> broken, but page 55 0 -> 29); leaving the dots out of the weight measure
+> (breaks pages 14-18). The TDD hook refuses Edit on implementation files
+> even after a red test run in Bash; Laurent allowed writing those through
+> Bash. The Sakaev PDF was renamed (no ISBN): find it by its 320 pages.
+
 > **Twenty-second session, evening (2026-10-01) — change of method, spike
 > done.** Laurent: page-by-page OCR-spelling rules "demand adapting to each
 > exception, then to the exceptions of the exceptions". He chose to **read
@@ -2365,7 +2394,7 @@ without a new idea about the numbering itself** — not another rule about aside
 | --- | --- |
 | `~/Documents/Programmation/entrainement_ocr_echecs/6class/chess_glyphs_classifier.zip` | the classifier with its training glyphs; the pickle alone ships in `pipeline/rce_pipeline/data/` |
 | `~/Documents/Echecs/Ebooks/` | the library, ~60 PDFs; `scripts/choose_pages.py` is how to pick from it |
-| `…/The complete manual of positional chess … 9789056916824 … .pdf` | Sakaev, **320 pages** — the 368-page edition of the same book is a different one and its range means nothing |
+| `…/The complete manual of positional chess _ the Russian chess -- Konstantin Sakaev & Konstantin Landa.pdf` | Sakaev, **320 pages** — the 368-page edition of the same book is a different one and its range means nothing |
 | `…/Under the Surface -- Markos, Jan … .pdf` | Markos, 287 pages |
 | `…/Chess College 1 Strategy - Grivas.pdf` | Grivas, 114 pages (the old `ChessTrategy_Grivas_1.pdf` fixture is an extract of it) |
 | `…/Chess Tactics for the Tournament Player.pdf` | Tactics, 302 pages |
