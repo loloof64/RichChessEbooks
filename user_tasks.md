@@ -1,5 +1,36 @@
 # What I have to do next
 
+> **Twenty-second session, evening (2026-10-01) — change of method, spike
+> done.** Laurent: page-by-page OCR-spelling rules "demand adapting to each
+> exception, then to the exceptions of the exceptions". He chose to **read
+> scans from the page images, locally and offline** (no vision API). Two
+> throwaway spikes, code kept in `docs/spikes/2026-10-01-second-reading*`
+> (a patch against `pipeline/rce_pipeline` at `d7f2dea`, and the scripts):
+> 1. **Replacing** the text layer by a Tesseract re-read (pieces found by our
+>    glyph classifier painted as letters, 400 dpi, `--psm 3`): characters far
+>    cleaner, but Grivas 20-27 good moves 809 -> 408 — its own faults
+>    (`0-017`, `19Q g5`, `£5`), diagram-junk lines, lines put out of step.
+>    **Refused.**
+> 2. **Second reading**: keep the layer; a move token gets what Tesseract
+>    read at its place, and a broken move tries it (legality decides, marked
+>    `uncertain`); short score text re-read as moves is inserted. Whole
+>    Grivas: good 7686 -> 7828, broken 1693 -> 1573, diagrams confirming
+>    141 -> 142 and correcting 85 -> 84, **verified pages 14-26 identical**.
+>    Losses on pages 82 (104 -> 59), 52, 95, 96 — most likely the insertion
+>    into text. Page 27 barely moves (16 -> 15 broken): its faults are
+>    structural (variations, numbers, order), not characters.
+>
+> **Next (Laurent back ~21:00, 5h credits restored):** turn the second
+> reading into a real feature through a written design (brainstorming,
+> architectural path, spec then plan): keep the second opinion on broken
+> moves, drop or tightly bound the insertion into prose (check page 82),
+> cache the re-read per book, scans only (Markos and Sakaev must stay
+> identical). Then page 27's structural faults with Laurent.
+> **Validation agreed** (to go faster at the same quality): (1) pages
+> Laurent verified (Grivas 14-26, Markos) frozen as a reference, only
+> broken -> good allowed; (2) diagrams as independent judges, confirms not
+> down, corrections not up; (3) born-digital books identical.
+
 > **Twenty-second session, afternoon (2026-10-01) — Grivas pages 22-26 done,
 > diagrams, reader fixes.** Pages are named by Laurent in the app's PDF
 > numbering here (page 22 = folio 21); find them by content. Grivas pages

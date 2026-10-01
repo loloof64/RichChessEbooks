@@ -1,0 +1,83 @@
+diff --color -ru -x __pycache__ pipeline/rce_pipeline/parse.py /tmp/claude-1000/-home-laurent-Documents-GitHub-RichChessEbooks/208805e8-57ef-4b9b-b8c8-8659cbdf210f/scratchpad/snapS/rce_pipeline/parse.py
+--- pipeline/rce_pipeline/parse.py	2026-10-01 16:52:01.116922325 +0200
++++ /tmp/claude-1000/-home-laurent-Documents-GitHub-RichChessEbooks/208805e8-57ef-4b9b-b8c8-8659cbdf210f/scratchpad/snapS/rce_pipeline/parse.py	2026-10-01 17:26:22.094474438 +0200
+@@ -2021,6 +2021,15 @@
+                 board_before, token.text, token.consumed, token.lost_symbol,
+                 token.lost_piece,
+             )
++            if resolution.status == "broken" and getattr(token, "second", "") \
++                    and token.second != token.text:
++                # SPIKE: a second, independent reading of the page, if the board takes it.
++                other = _resolve(board_before, token.second, "", "", "")
++                if other.move is not None:
++                    resolution = dataclasses.replace(
++                        other, status="uncertain", confidence=0.5,
++                        repair={"raw": token.raw, "reason": f"second reading {token.second}"},
++                    )
+             if resolution.status == "broken" and resolution.candidates:
+                 # Two pieces reach the square and nothing on the page says
+                 # which: the score after it may. Grivas page 22 prints "40
+diff --color -ru -x __pycache__ pipeline/rce_pipeline/tokenize.py /tmp/claude-1000/-home-laurent-Documents-GitHub-RichChessEbooks/208805e8-57ef-4b9b-b8c8-8659cbdf210f/scratchpad/snapS/rce_pipeline/tokenize.py
+--- pipeline/rce_pipeline/tokenize.py	2026-10-01 16:52:01.117342661 +0200
++++ /tmp/claude-1000/-home-laurent-Documents-GitHub-RichChessEbooks/208805e8-57ef-4b9b-b8c8-8659cbdf210f/scratchpad/snapS/rce_pipeline/tokenize.py	2026-10-01 17:26:22.091674338 +0200
+@@ -432,6 +432,8 @@
+     #: On a diagram, the side to move the book printed beside the board — `w`
+     #: or `b` — where it prints one. Empty otherwise.
+     to_move: str = ""
++    #: SPIKE: what a second, independent reading of the page saw here.
++    second: str = ""
+ 
+     def to_json(self) -> dict[str, Any]:
+         payload: dict[str, Any] = {
+@@ -501,7 +503,50 @@
+         tokens.extend(_tokenize_page(
+             page, token_re, to_san, blocks.get(page.number, []), spellings or {}
+         ))
+-    return _read_numbers_the_scanner_spelled(_drop_a_bracket_nothing_closes(tokens))
++    tokens = _read_numbers_the_scanner_spelled(_drop_a_bracket_nothing_closes(tokens))
++    return _second_reading(tokens)
++
++
++_SECOND = None
++_SAN = re.compile(r"O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?|[a-h]x[a-h][1-8](?:=[QRBN])?[+#]?|[a-h][1-8](?:=[QRBN])?[+#]?")
++
++
++def _words_over(page: int, box) -> list[str]:
++    words = _SECOND.get(str(page), [])
++    mid = box.y + box.h / 2
++    hit = [w for w in words if w["y"] <= mid <= w["y"] + w["h"]
++           and min(w["x"] + w["w"], box.x + box.w) - max(w["x"], box.x) > 0.3 * min(w["w"], box.w)]
++    return [w["text"].replace("0-0-0", "O-O-O").replace("0-0", "O-O") for w in sorted(hit, key=lambda w: w["x"])]
++
++
++def _second_reading(tokens: list[Token]) -> list[Token]:
++    """SPIKE: give each move what a second reading saw at its place, and read
++    the moves a second reading finds inside a short run of score text."""
++    global _SECOND
++    import os, json
++    if _SECOND is None:
++        path = os.environ.get("RCE_SECOND_READING")
++        _SECOND = json.load(open(path)) if path else {}
++    if not _SECOND:
++        return tokens
++    out: list[Token] = []
++    for at, token in enumerate(tokens):
++        before = out[-1].kind if out else None
++        after = tokens[at + 1].kind if at + 1 < len(tokens) else None
++        if token.kind == "move" and token.bbox is not None:
++            found = _SAN.findall(" ".join(_words_over(token.page, token.bbox)))
++            if len(found) == 1:
++                token = dataclasses.replace(token, second=found[0])
++        elif (token.kind == "text" and token.bbox is not None and len(token.text.strip()) <= 12
++              and before in ("move", "move_number", "annotation") and after in ("move", "move_number")):
++            words = _words_over(token.page, token.bbox)
++            found = [m for m in _SAN.findall(" ".join(words)) if not re.fullmatch(r"[a-h][1-8]", m) or len(words) <= 3]
++            if found:
++                for san in found:
++                    out.append(dataclasses.replace(token, kind="move", text=san, second=san))
++                continue
++        out.append(token)
++    return out
+ 
+ 
+ #: A move number as a scanner spells it: its digits, or the letters OCR puts
