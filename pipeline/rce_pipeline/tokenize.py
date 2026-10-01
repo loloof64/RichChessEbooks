@@ -750,6 +750,11 @@ _RANK_ONE_AS_T = re.compile(
     r"(?<=[.:'\\\u2654-\u265f][a-h])t(?=[\s+#!?,;)])"
 )
 
+#: A rank printed as a small `s` behind a restored symbol and a file:
+#: `♖as` for `♖a5` (Grivas page 26). Made the `S` a scan's 5 or 8 is
+#: everywhere else, which `parse` reads as either.
+_RANK_S_AS_S = re.compile(r"(?<=[\u2654-\u265f][a-h])s(?=[\s+#!?,;)])")
+
 #: The third dot of an ellipsis as Grivas' scan prints it: `21..J♖h8`, eight
 #: times in this book and twenty in its third volume. Only after a number and
 #: two dots, so the `J` can be nothing else; one character for one.
@@ -764,9 +769,9 @@ def _tokenize_page(
     spellings: dict[str, str],
 ) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
-    text = _ELLIPSIS_J.sub(r"\1.", normalise(
-        _RANK_ONE_AS_T.sub("1", _F5_SPELLED.sub("f5", page.text))
-    ))
+    text = _ELLIPSIS_J.sub(r"\1.", normalise(_RANK_S_AS_S.sub("S", _RANK_ONE_AS_T.sub(
+        "1", _F5_SPELLED.sub("f5", page.text)
+    ))))
     tokens: list[Token] = []
     cursor = 0
     diagrams = sorted(diagrams, key=lambda d: d.start)
@@ -1071,7 +1076,12 @@ def _tokenize_span(
             bbox=page.bbox_for(start, end),
             consumed=consumed,
             lost_symbol=lost_symbol,
-            lost_piece=_piece_spelled(lost_symbol, spellings) if lost_symbol else "",
+            # A wreck opening on a symbol the glyph pass restored is that
+            # piece's, whatever ink stands behind it: `♕fJ/xa1` (page 26).
+            lost_piece=(
+                text[start] if lost_symbol and page.text[start] in _FIGURINES
+                else _piece_spelled(lost_symbol, spellings) if lost_symbol else ""
+            ),
             bold=_weight_of(page, start, end),
         ))
         cursor = end

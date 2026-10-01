@@ -590,6 +590,22 @@ class TestASquareBrokenInTwo:
 
         assert [t.text for t in tokens if t.kind == "move"] == ["Qc2", "K8", "b4"]
 
+    def test_a_small_s_rank_behind_a_restored_piece(self):
+        # Grivas page 26, "33 ♖a5 ♗xf4?": the scan has `♖as`. Behind a symbol
+        # and a file the `s` is the rank `S` is elsewhere -- a 5, or an 8.
+        tokens = tokenize_pages([page_of("33 \u2656as \u2657xf4? as is ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == ["RaS", "Bxf4"]
+
+    def test_a_restored_symbol_names_the_piece_of_its_wreck(self):
+        # Page 26, "46 ♖xa1 ♕xa1+": the layer has `♕fJ/xal`, ink left between
+        # the queen and its capture. The queen the glyph pass restored is the
+        # piece, whatever the ink behind it.
+        tokens = tokenize_pages([page_of("46 Rxa1 \u2655fJ/xa1+ 47 Kh2 ")])
+
+        move = next(t for t in tokens if t.kind == "move" and t.text.startswith("xa1"))
+        assert move.lost_piece == "Q"
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.
