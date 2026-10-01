@@ -1442,6 +1442,9 @@ def parse_tokens(
     #: 26 ♕a5" lists two, and the second stands behind the first.
     threat_at: int | None = None
     in_a_threat = False
+    #: Whether the game was running behind the book before the last number:
+    #: that number, a threat's included, is what marks it so.
+    adrift_before = False
     adrift: set[str] = set()
     #: The first move each drifting game played on its main line after the
     #: loss: the moves descending from it are the ones `drifted` counts.
@@ -1814,6 +1817,7 @@ def parse_tokens(
                     # that by losing one. The line clears itself when a later
                     # number agrees again — a diagram reseeds it, or the book
                     # starts a fresh game.
+                    adrift_before = game.id in adrift
                     if last_declared != _ply_awaited(stack[0].board):
                         if game.id not in adrift:
                             drift_from.pop(game.id, None)
@@ -2014,20 +2018,33 @@ def parse_tokens(
                 # 7 ♗h4? g5 8 ♗g3 ♗g4" — and the second's number is one the
                 # first has passed and the game has not reached, so nothing
                 # but the line itself knows the position it names.
-                if _a_threat(board_before, token, last_declared,
-                             tokens[max(0, at - 3):at - 1], threat_at == at - 3):
-                    # Before any re-placing: a threat names a move to come,
-                    # and a position two plies back that happens to play it
-                    # says nothing (Grivas page 22, "Threatening 26 ♘xd7").
-                    result.skipped.append({**token.to_json(), "reason": "a threat"})
-                    threat_at = at - 1
-                    in_a_threat = True
-                    continue
-                if not any(other.from_bracket for other in stack):
+                cited_from = (
+                    main_history if len(stack) == 1
+                    else {**stack[-1].history, **main_history}
+                )
+                exact = (
+                    _place_a_citation(cited_from, last_declared, last_licence, token, stack,
+                                      exact_only=True)
+                    if not any(other.from_bracket for other in stack) else None
+                )
+                threat = not adrift_before and _a_threat(
+                    board_before, token, last_declared,
+                    tokens[max(0, at - 3):at - 1], threat_at == at - 3,
+                )
+                # A threat the prose names comes before a re-placing that only
+                # guesses: "Threatening 26 ♘xd7" (Grivas page 22) found a
+                # position two plies back that happens to play the knight. One
+                # the prose does not name comes after: on a line running behind
+                # the book, "Sur 14...♖e8 15.♘xd7" (Boussole page 62) is a ply
+                # ahead too, and is a citation.
+                named = threat and _THREAT_WORD.search(tokens[at - 3].text if at >= 3 else "")
+                if exact is not None:
+                    placed = exact
+                elif named:
+                    placed = None
+                elif not any(other.from_bracket for other in stack):
                     placed = _place_a_citation(
-                        main_history if len(stack) == 1
-                        else {**stack[-1].history, **main_history},
-                        last_declared, last_licence, token, stack,
+                        cited_from, last_declared, last_licence, token, stack,
                     )
                     if placed is None:
                         placed = _place_beside_a_citation(
@@ -2035,6 +2052,11 @@ def parse_tokens(
                         )
                 else:
                     placed = None
+                if placed is None and threat:
+                    result.skipped.append({**token.to_json(), "reason": "a threat"})
+                    threat_at = at - 1
+                    in_a_threat = True
+                    continue
                 if placed is not None:
                     level = stack[-1]
                     board_before = level.board.copy()
@@ -2636,6 +2658,9 @@ def _origin_hints(square: int) -> set[str]:
 #: The scan's spelling of a square on the f-file whose rank is a 5 or an 8.
 _F5_OR_F8 = re.compile(r"rs[+#!?]*\s*$")
 
+#: The prose saying that what follows is a threat: "Threatening 26 ♘xd7".
+_THREAT_WORD = re.compile(r"threat|menac", re.IGNORECASE)
+
 #: How many plies back a board may show the game and be a figure that fell
 #: later in the text rather than a correction: Grivas page 22's is nine.
 _LATE_REACH = 12
@@ -2687,6 +2712,7 @@ def _place_a_citation(
     licence: int,
     token: Token,
     stack: list[_Level],
+    exact_only: bool = False,
 ) -> _Resolution | None:
     """Re-place a move the line cannot play on the position its number names.
 
@@ -2729,7 +2755,7 @@ def _place_a_citation(
         if trial.status != "broken":
             found.append((offset, board, parent, trial))
     exact = [item for item in found if item[0] == 0]
-    chosen = exact[0] if exact else (found[0] if len(found) == 1 else None)
+    chosen = exact[0] if exact else (found[0] if len(found) == 1 and not exact_only else None)
     if chosen is None:
         return None
     _offset, board, parent, trial = chosen

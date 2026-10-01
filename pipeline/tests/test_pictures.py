@@ -328,6 +328,27 @@ def test_the_offset_never_lands_inside_a_line():
     assert pictures._offset_for(page, BBox(40.68, 311.0, 150.0, 150.0)) == 2
 
 
+def test_a_number_straddling_the_board_s_edge_stays_with_its_move():
+    """Grivas page 22, `33 ♖af1` under the board, which stands 17 points in
+    from the column's edge. The board landed
+    between `33 ` and `♖an`, and the number, with no move behind it, was
+    lost -- the game then ran a move behind the book."""
+    from rce_pipeline.extract import BBox, Char, Page
+
+    # The page's own boxes: the column starts at 223, its board at 240.
+    chars = [
+        Char("\n", BBox(0.0, 0.0, 0.0, 0.0), "", 0.0),
+        Char("3", BBox(223.2, 300.0, 4.9, 10.7), "F", 9.2),
+        Char("3", BBox(228.2, 300.0, 4.8, 10.7), "F", 9.2),
+        Char(" ", BBox(233.2, 300.0, 2.3, 10.7), "F", 9.2),
+        Char(":", BBox(236.3, 300.0, 7.0, 10.7), "F", 9.2),
+        Char("a", BBox(243.4, 300.0, 4.8, 10.7), "F", 9.2),
+        Char("n", BBox(248.4, 300.0, 7.8, 10.7), "F", 9.2),
+    ]
+    page = Page(number=1, width=432.0, height=648.0, text="\n33 :an", chars=chars)
+    assert pictures._offset_for(page, BBox(240.0, 311.0, 145.9, 145.9)) == 1
+
+
 def test_the_clustering_is_held_to_the_thirteen_things_a_board_can_carry():
     """A fourteenth cluster is a second reading of a piece already found."""
     rng = np.random.default_rng(0)

@@ -975,8 +975,9 @@ def _word_start(page: Page, index: int) -> int:
 
 
 #: How far left of a board a line's indent may stand and still be under it,
-#: in points. Grivas indents its score 6.5 points out of its boards' width.
-_MARGIN_REACH = 12.0
+#: in points. Grivas indents its score 6.5 points out of its boards' width,
+#: and sets a board 17 points into its right column (page 22).
+_MARGIN_REACH = 20.0
 
 
 def _margin_start(page: Page, index: int, bbox: BBox) -> int:
@@ -992,7 +993,9 @@ def _margin_start(page: Page, index: int, bbox: BBox) -> int:
     start = index
     while start > 0 and page.text[start - 1] != "\n":
         box = page.chars[start - 1].bbox
-        if box.w > 0 and not bbox.x - _MARGIN_REACH <= box.x + box.w / 2 < bbox.x:
+        # Its left edge out of the board's width; a space is no evidence.
+        if box.w > 0 and not page.chars[start - 1].char.isspace() \
+                and not bbox.x - _MARGIN_REACH <= box.x < bbox.x:
             return index
         start -= 1
     return start
