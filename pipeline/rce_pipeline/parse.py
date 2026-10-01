@@ -1515,9 +1515,12 @@ def parse_tokens(
             a_move_late = None
             if stack and printed is not None:
                 awaited = _ply_awaited(stack[0].board)
+                # Exactly, or but for one square the diagram reader got
+                # wrong: page 23's board came without its b2 pawn.
                 a_move_late = next((
                     main_history[ply][0] for ply in range(awaited - 1, awaited - 1 - _LATE_REACH, -1)
-                    if ply in main_history and main_history[ply][0].board_fen() == printed
+                    if ply in main_history
+                    and _squares_apart(main_history[ply][0].board_fen(), printed) <= 1
                 ), None)
             if printed is None:
                 verdict = "unread" if diagram_table is None else "unreadable"
@@ -1997,6 +2000,23 @@ def parse_tokens(
                 board_before, token.text, token.consumed, token.lost_symbol,
                 token.lost_piece,
             )
+            if resolution.status == "broken" and resolution.candidates:
+                # Two pieces reach the square and nothing on the page says
+                # which: the score after it may. Grivas page 22 prints "40
+                # ♖1f5+ ♔h4 41 ♖xh6#" and the `1` went with the rook's ink;
+                # only the rook from f1 leaves the other to mate on h6.
+                named = _move_the_line_names(
+                    board_before,
+                    lambda move: board_before.san(move) in resolution.candidates,
+                    _the_score_after(tokens, at, _ply_awaited(board_before), most=_SQUARE_LOOKAHEAD),
+                )
+                if named is not None:
+                    _doubt(named)
+                    resolution = _Resolution(
+                        board_before.parse_san(named.san), named.san, "uncertain", 0.5,
+                        {"raw": token.raw, "reason": "two pieces reach the square; the "
+                         "score after it names this one"},
+                    )
             if resolution.status == "broken" and _F5_OR_F8.search(token.raw):
                 # Grivas' scan spells f5 `rs`, and f8 the same way: "25...♖f8"
                 # is `:rs` on page 22. Where f5 cannot be played, f8 is tried.
@@ -2667,6 +2687,12 @@ _LATE_REACH = 12
 
 #: A list label ending the prose in front of a move number: "and now: a)".
 _LIST_LABEL = re.compile(r"(?:^|[\s:.;,])([a-h])\)\s*$")
+
+
+def _squares_apart(one: str, other: str) -> int:
+    """On how many squares two boards, as board FENs, disagree."""
+    a, b = chess.BaseBoard(one).piece_map(), chess.BaseBoard(other).piece_map()
+    return sum(1 for square in set(a) | set(b) if a.get(square) != b.get(square))
 
 
 def _list_label(before: Sequence[Token]) -> str | None:

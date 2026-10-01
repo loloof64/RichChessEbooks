@@ -585,6 +585,45 @@ class TestBreakDiagnosis:
         assert (nf6.status, by_id[nf6.parent_id].san) == ("ok", "Ba4")
         assert not result.contradicted
 
+    def test_a_board_read_one_square_wrong_still_fell_late(self):
+        # The same board of Grivas page 23 is read without its b2 pawn: one
+        # square from the game's position, it was still taken for a
+        # correction and the game was put on a board it never reached.
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6"):
+            board.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        rows = rows.replace("PPPP.PPP", "PPP..PPP")  # the d2 pawn misread away
+        table = {char: char for char in rows if char != "/"}
+        result = parse_tokens(
+            weighed(
+                ("move_number", "1.", True), ("move", "e4", True), ("move", "e5", True),
+                ("move_number", "2.", True), ("move", "Nf3", True), ("move", "Nc6", True),
+                ("move_number", "3.", True), ("move", "Bb5", True), ("move", "a6", True),
+                ("move_number", "4.", True), ("move", "Ba4", True),
+            ) + [tok("diagram", rows)] + weighed(
+                ("text", "White can also try", False),
+                ("move_number", "4.", False), ("move", "Bxc6", False),
+                ("text", "here.", False),
+                ("move_number", "4...", True), ("move", "Nf6", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        by_id = {m.id: m for m in result.moves}
+        bxc6 = next(m for m in result.moves if m.san == "Bxc6")
+        nf6 = next(m for m in result.moves if m.san == "Nf6")
+        assert by_id[bxc6.parent_id].san == "a6"
+        assert (nf6.status, by_id[nf6.parent_id].san) == ("ok", "Ba4")
+        assert not result.contradicted
+
     def test_a_diagram_met_one_move_late_confirms_that_move(self):
         # Grivas page 15: "11 ♕xd6 ♘g4? (D)", and the board falls in the text
         # after "12 ♗xc4!". Read as a correction it took ♗xc4 back and wiped
@@ -3000,3 +3039,22 @@ class TestTheScanSpellsF5AndF8Alike:
         )
 
         assert (result.moves[-1].san, result.moves[-1].status) == ("Rf8", "uncertain")
+
+
+class TestAnAmbiguityTheScoreSettles:
+    def test_the_reading_the_score_after_can_play(self):
+        # Grivas page 22: "40 ♖1f5+ ♔h4 41 ♖xh6#", the `1` swallowed with the
+        # rook's ink. ♖f5+ is ambiguous between f1 and f6, and only the rook
+        # from f1 leaves the other one to give mate on h6.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                ("move_number", "2."), ("move", "Nf3"), ("move", "Nf6"),
+                ("move_number", "3."), ("move", "Nd2"), ("move", "e6"),
+                ("move_number", "4."), ("move", "Nf3"), ("move", "Be7"),
+            )
+        )
+
+        assert [(m.san, m.status) for m in result.moves][4:8] == [
+            ("Nfd2", "uncertain"), ("e6", "ok"), ("Nf3", "ok"), ("Be7", "ok"),
+        ]
