@@ -556,6 +556,17 @@ class TestASquareBrokenInTwo:
         assert "21" in [t.text.strip() for t in tokens if t.kind == "move_number"]
         assert [t.text for t in tokens if t.kind == "move"] == ["Kf6", "f1"]
 
+    def test_a_one_read_as_t_behind_a_wreck(self):
+        # Grivas page 24, "13 a4 bxa4 14 ♖e1 ♗d6": the scan has `.:r.et`,
+        # the 1 of e1 read as a t. The move was never a token, so the
+        # variation lost a ply and broke on 15 ♕h5. Only behind a mark of a
+        # wreck: "at", "et" and "it" are words.
+        tokens = tokenize_pages([page_of("13 a4 bxa4 14 .:r.et Bd6 15 Qh5 at it ")])
+
+        move = next(t for t in tokens if t.kind == "move" and t.text == "e1")
+        assert move.lost_symbol.endswith(".")
+        assert [t.text for t in tokens if t.kind == "move"] == ["a4", "bxa4", "e1", "Bd6", "Qh5"]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.

@@ -739,6 +739,11 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
 #: behind the `N` it becomes, `♘rs` (page 16, "24 ♘f5") read as a word.
 _F5_SPELLED = re.compile(r"(?<![A-Za-z])rs(?![A-Za-z0-9])")
 
+#: A 1 read as a `t` in a square standing hard against a symbol's wreck:
+#: `.:r.et` for `♖e1` (Grivas page 24). Only behind a mark of a wreck, so
+#: "at", "et" and "it" stay words; one character for one.
+_RANK_ONE_AS_T = re.compile(r"(?<=[.:'\\][a-h])t(?=[\s+#!?,;)])")
+
 #: The third dot of an ellipsis as Grivas' scan prints it: `21..J♖h8`, eight
 #: times in this book and twenty in its third volume. Only after a number and
 #: two dots, so the `J` can be nothing else; one character for one.
@@ -754,6 +759,7 @@ def _tokenize_page(
 ) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
     text = _ELLIPSIS_J.sub(r"\1.", normalise(_F5_SPELLED.sub("f5", page.text)))
+    text = _RANK_ONE_AS_T.sub("1", text)
     tokens: list[Token] = []
     cursor = 0
     diagrams = sorted(diagrams, key=lambda d: d.start)
