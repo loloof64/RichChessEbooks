@@ -760,8 +760,9 @@ def _swallow_leftovers(page: Page, end: int) -> int:
 #: a move, without the piece the figurine itself supplies. The annotations go
 #: with it because the tokeniser has not split them off yet.
 #: `rs` is Grivas' scan spelling f5, thirteen times and never otherwise
-#: (`tokenize._F5_SPELLED`): eaten here, `24 ♘f5` was lost on page 16.
-_MOVE_BEHIND = re.compile(r"[a-h1-8]?x?(?:[a-h][1-8]|rs)(?:=[QRBN])?[+#]?[!?]*")
+#: (`tokenize._F5_SPELLED`): eaten here, `24 ♘f5` was lost on page 16. And
+#: `n` is its f1, the `fl` read as one letter: `:n` for `♖f1`.
+_MOVE_BEHIND = re.compile(r"[a-h1-8]?x?(?:[a-h][1-8]|rs|n)(?:=[QRBN])?[+#]?[!?]*")
 
 
 def _word_after(page: Page, start: int) -> str:

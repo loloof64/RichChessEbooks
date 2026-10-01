@@ -91,7 +91,7 @@ _TOKEN_TEMPLATE = r"""
               # to correct. A letter rank needs the move's own guard with it,
               # or `27 elle` announces a move; a capture cannot take it, the
               # captured square being spelled out behind the `x`.
-            | (?=\s+(?:O-O|0-0|[{pieces}][a-h1-8x]
+            | (?=\s+(?:O-O|0-0|[{pieces}][a-h1-8x]|[{pieces}]n(?![A-Za-z])
                         |[a-h]x|[a-h][{ranks}](?![A-Za-z0-9'])))
           )
       )
@@ -170,6 +170,10 @@ _TOKEN_TEMPLATE = r"""
               # a move number stands in front of it**, where the page has
               # already said that a move is due and nothing else can be.
             | (?<![A-Za-z\d])[{pieces}][{ranks}]
+              # The square f1 as Grivas' scan prints it, its `fl` read as
+              # one `n`: `♖an` for `♖af1` (page 22), `♖n` for `♖f1`. A piece
+              # letter and an `n` is no word.
+            | (?<![A-Za-z\d])[{pieces}][a-h]?x?n(?![A-Za-z0-9])
           )
           [+#]?
           # Never an apostrophe: with `l` read as a rank, the French elision
@@ -839,6 +843,7 @@ def _tokenize_span(
         if kind == "move":
             # `T X f5`: no alphabet has an `X` for a piece, so it is the sign.
             text_out = text_out.replace("X", "x")
+            text_out = re.sub(r"^([A-Z][a-h]?x?)n([+#]?)$", r"\1f1\2", text_out)
         consumed = lost_symbol = ""
         number_at: int | None = None
         if kind == "move":

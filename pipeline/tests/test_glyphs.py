@@ -98,6 +98,14 @@ class TestRepair:
 
         assert repaired.text == "4 ♘rs "
 
+    def test_the_scan_s_f1_is_not_a_leftover(self):
+        # Grivas folio 20, "24 ♖f1": the layer has `:n`, the `fl` of f1 read
+        # as one `n`, 23 times in the book. Swallowed with the rook's ink,
+        # the square was gone.
+        repaired = repair_page(page("4 :n "), [glyph("R", 30.0, CHAR_WIDTH)])
+
+        assert repaired.text == "4 ♖n "
+
     def test_keeps_a_character_the_symbol_only_half_covers(self):
         # The same knight, one character to the left: it covers "D" entirely and
         # "x" by half. Half is not enough — losing the "x" turns a capture into

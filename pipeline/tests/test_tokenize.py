@@ -503,6 +503,16 @@ class TestASquareBrokenInTwo:
             "Rxf6", "Qb4", "Nf5", "Qb2+", "Kd1"
         ]
 
+    def test_n_behind_a_piece_is_f1(self):
+        # Grivas page 22, "33 ♖af1 ♕e6": the layer has `♖an`, the `fl` of f1
+        # read as one `n`. The move was lost and the game ran a move behind
+        # the book to its end. Not a word ending in n: "an", "Then".
+        tokens = tokenize_pages([page_of("33 Ran Qe6 34 b4 24 Rn Qe7 Then an ")])
+
+        assert [t.text for t in tokens if t.kind == "move"] == [
+            "Raf1", "Qe6", "b4", "Rf1", "Qe7"
+        ]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.
