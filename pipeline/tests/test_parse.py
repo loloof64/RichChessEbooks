@@ -3002,6 +3002,23 @@ class TestAThreatIsNotAMove:
 
         assert sans(result) == ["e4", "e5", "Nf3", "Nc6", "Bb5"]
 
+    def test_a_named_threat_two_plies_ahead(self):
+        # Grivas page 26: "After 44 ♕b7+ ♔f8 Black is threatening 45...♖a1 46
+        # ♖xa1 ♕xa1+ 47 ♔h2 ♗d4!" -- the aside closed, the game awaits
+        # Black's 44th, and the threat is two plies ahead of it.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("text", "Black is threatening"), ("move_number", "3..."), ("move", "Nd4"),
+                ("move_number", "4."), ("move", "Nxd4"), ("move", "exd4"),
+                ("text", "here."),
+                ("move_number", "2..."), ("move", "Nc6"),
+            )
+        )
+
+        assert sans(result) == ["e4", "e5", "Nf3", "Nc6"]
+
     def test_a_move_the_other_side_cannot_play_either_stays_broken(self):
         # Only a move legal once the turn is passed is a threat: anything else
         # numbered a ply ahead is a break, and says so.

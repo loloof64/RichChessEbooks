@@ -614,6 +614,15 @@ class TestASquareBrokenInTwo:
 
         assert [t.text for t in tokens if t.kind == "move"] == ["Q6", "f4"]
 
+    def test_a_pawn_move_and_a_number_both_spelled_with_s(self):
+        # Grivas page 26, "49 ♔g1 e5 50 ♖d1 e4": the scan has `es so`, the 5
+        # read as s in the square and in the number, the 0 as o. Only where
+        # the number is the one due after the last: prose stays prose.
+        tokens = tokenize_pages([page_of("49 Kg1 es so Rd1 e4 51 Kf1 and es so Rd1 ")])
+
+        assert [t.text for t in tokens if t.kind == "move"][:4] == ["Kg1", "eS", "Rd1", "e4"]
+        assert "50" in [t.text.strip(". ") for t in tokens if t.kind == "move_number"]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.

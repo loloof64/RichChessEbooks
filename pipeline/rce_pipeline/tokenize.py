@@ -804,9 +804,49 @@ def _tokenize_page(
         page, text, token_re, to_san, cursor, len(text), spellings
     ))
     tokens = _plans_are_prose(tokens, text)
+    tokens = _a_pawn_and_a_number_spelled_with_s(tokens, page, text)
     return _f1_behind_a_wreck(_a_piece_whose_square_was_lost(_the_wreck_of_an_announced_move(
         _free_a_number_a_board_stranded(tokens, page, text), page, text
     ), page, text), page, text, spellings)
+
+
+#: A pawn move and the next number, both with their 5 read as an s and a 0
+#: as an o: `es so` for "e5 50" (Grivas page 26).
+_PAWN_AND_NUMBER_IN_S = re.compile(r"\s*([a-h])s\s+([\dsSoO]{2,3})\s*")
+_S_DIGITS = str.maketrans("sSoO", "5500")
+
+
+def _a_pawn_and_a_number_spelled_with_s(
+    tokens: list[Token], page: Page, text: str
+) -> list[Token]:
+    """Read `49 ♔g1 es so ♖d1` as 49 ♔g1 e5 50 ♖d1, where the count agrees."""
+    out: list[Token] = []
+    last: int | None = None
+    for at, token in enumerate(tokens):
+        if token.kind == "move_number":
+            last = int(re.match(r"\d+", token.text).group())
+        after = tokens[at + 1] if at + 1 < len(tokens) else None
+        found = (
+            _PAWN_AND_NUMBER_IN_S.fullmatch(text, token.start, token.end)
+            if token.kind == "text" and out and out[-1].kind == "move"
+            and after is not None and after.kind == "move" else None
+        )
+        number = found and found.group(2).translate(_S_DIGITS)
+        if not found or not number.isdigit() or last is None or int(number) != last + 1:
+            out.append(token)
+            continue
+        pawn, figures = found.span(1), found.span(2)
+        out.append(Token(
+            kind="move", text=f"{found.group(1)}S", raw=text[pawn[0]:pawn[1] + 1],
+            page=page.number, start=pawn[0], end=pawn[1] + 1,
+            bbox=page.bbox_for(pawn[0], pawn[1] + 1),
+        ))
+        out.append(Token(
+            kind="move_number", text=number, raw=found.group(2), page=page.number,
+            start=figures[0], end=figures[1], bbox=page.bbox_for(*figures),
+        ))
+        last = int(number)
+    return out
 
 
 #: A number, a symbol's wreck and an `n` opening a run of prose: Grivas page

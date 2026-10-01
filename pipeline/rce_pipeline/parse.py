@@ -2004,13 +2004,14 @@ def parse_tokens(
                 )
         elif game.position_known and not adrift_before and _THREAT_WORD.search(
             tokens[at - 3].text if at >= 3 else ""
-        ) and _a_threat(
-            board_before, token, last_declared, tokens[max(0, at - 3):at - 1], False
+        ) and [t.kind for t in tokens[max(0, at - 3):at - 1]] == ["text", "move_number"] and (
+            last_declared is not None and last_declared > _ply_awaited(board_before)
         ):
-            # A threat the prose names, numbered a ply ahead, is the other
-            # side's even where the side to move could play it as well:
+            # A threat the prose names, numbered ahead of the line, is never
+            # its continuation, even where the side to move could play it:
             # "Black is threatening 45...♖a1" (Grivas page 26) was played as
-            # a white rook's move, against its own number's dots.
+            # a white rook's move, and after its aside closed, two plies
+            # ahead of Black's 44th, as Black's.
             result.skipped.append({**token.to_json(), "reason": "a threat"})
             threat_at = at - 1
             in_a_threat = True
