@@ -182,7 +182,13 @@ _TOKEN_TEMPLATE = r"""
           # behind the page from there to the end. A piece letter with a
           # square behind it is a move and is nothing else; prose that begins
           # a word with a capital does not carry on with a file and a rank.
-          (?:(?![A-Za-z0-9'])|(?=[{pieces}]x?[a-h][{ranks}]))
+          #
+          # Nor where the next move's piece is a wreck the glyph pass left:
+          # Grivas page 18, `2 e4lilf6`. The wreck must carry what no word
+          # does between two squares -- an `l`, a `J`, a mark -- or Loheac's
+          # "g5 ou en f6", printed `g5ouenf6`, would be a move.
+          (?:(?![A-Za-z0-9'])|(?=[{pieces}]x?[a-h][{ranks}])
+             |(?=[A-Za-z.|/]{{0,4}}[lJ:\\'<>][A-Za-z.:\\'|/<>]{{0,4}}x?[a-h][1-8]))
       )
     | (?P<annotation>[!?]{{1,2}}|[±∓⩲⩱∞⟳→↑↓⇆=]|\+[-=]|-\+)
     """
@@ -585,6 +591,9 @@ def _sides_to_move(page: Page, boards: list[BBox | None]) -> list[str]:
 #: A square joined by a hyphen to the move before or after it: a chain.
 _CHAINED_AFTER = re.compile(r"-[a-h][1-8]")
 _CHAINED_BEFORE = re.compile(r"[a-h][1-8]-$")
+#: A pawn written square to square onto another file with no `x`: no move
+#: is shaped so, a chain of two squares is ("the pawn-chain g6-h7").
+_CHAIN_ACROSS_FILES = re.compile(r"([a-h])[1-8]-(?!\1)[a-h][1-8]")
 
 #: A move that is only a square, and the word just before a token.
 _BARE_SQUARE = re.compile(r"[a-h][1-8]")
@@ -616,6 +625,7 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
         if token.kind == "move" and (
             _CHAINED_AFTER.match(text, token.end)
             or _CHAINED_BEFORE.search(text[max(0, token.start - 3):token.start])
+            or _CHAIN_ACROSS_FILES.fullmatch(token.raw.strip())
         ):
             plan.add(at)
     # One side's moves in a row, each with its own ellipsis — "he wants to
@@ -704,6 +714,11 @@ def _plans_are_prose(tokens: list[Token], text: str) -> list[Token]:
 #: the substitution keeps the text's length, so every offset stays true.
 _F5_SPELLED = re.compile(r"(?<![A-Za-z])rs(?![A-Za-z0-9])")
 
+#: The third dot of an ellipsis as Grivas' scan prints it: `21..J♖h8`, eight
+#: times in this book and twenty in its third volume. Only after a number and
+#: two dots, so the `J` can be nothing else; one character for one.
+_ELLIPSIS_J = re.compile(r"(?<=\d)([ ]?\.[ ]?\.[ ]?)J")
+
 
 def _tokenize_page(
     page: Page,
@@ -713,7 +728,7 @@ def _tokenize_page(
     spellings: dict[str, str],
 ) -> list[Token]:
     """The page's tokens, the diagram blocks standing whole between them."""
-    text = _F5_SPELLED.sub("f5", normalise(page.text))
+    text = _ELLIPSIS_J.sub(r"\1.", _F5_SPELLED.sub("f5", normalise(page.text)))
     tokens: list[Token] = []
     cursor = 0
     diagrams = sorted(diagrams, key=lambda d: d.start)

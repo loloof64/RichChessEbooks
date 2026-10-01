@@ -455,6 +455,26 @@ class TestASquareBrokenInTwo:
 
         assert [t.text for t in tokens if t.kind == "move"] == ["c4", "f5", "Nc3", "Nf6"]
 
+    def test_a_move_welded_to_the_wreck_of_the_next_one(self):
+        # Grivas page 18, "1 d4 d6 2 e4lilf6 3 f3": the space went with the
+        # knight's symbol, `e4` was read as prose and the whole game was
+        # played a ply short. Not a French word between two squares: Loheac
+        # prints "g5 ou en f6" as `g5ouenf6`.
+        tokens = tokenize_pages([page_of("1 d4 d6 2 e4lilf6 3 f3 e5 4 g5ouenf6 ")])
+
+        moves = [t.raw for t in tokens if t.kind == "move"]
+        assert moves[:3] == ["d4", "d6", "e4"] and "g5" not in moves
+
+    def test_a_j_ending_an_ellipsis_is_its_last_dot(self):
+        # Grivas page 16, "salvation: 21..J!h8 22 lLlf5": the scan reads the
+        # third dot as `J`, eight times in the book. Left there, `J♖h8` is no
+        # move and the whole alternative was played without Black's 21st.
+        tokens = tokenize_pages([page_of("salvation: 21..JRh8 22 Nf5 and 5 .. Jba1 ")])
+
+        assert [t.text for t in tokens if t.kind in ("move", "move_number")][:3] == [
+            "21...", "Rh8", "22"
+        ]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.
@@ -695,6 +715,15 @@ class TestAPlanIsNotAMove:
         tokens = tokenize_pages([page_of(text)])
 
         assert [t.raw for t in tokens if t.kind == "move"] == ["Bd3", "Qc7", "Qf3", "Nd7"]
+
+    def test_two_squares_of_a_chain_on_two_files_are_a_plan(self):
+        # Grivas page 16, "the weakness of the pawn-chain g6-h7": a pawn
+        # written square to square never changes file without an `x`, so this
+        # names two squares and was played as `h7`.
+        text = "13 h5 the weakness of the pawn-chain g6-h7. 13...Bf5 14 e2-e4 Nf6"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.raw for t in tokens if t.kind == "move"] == ["h5", "Bf5", "e2-e4", "Nf6"]
 
     def test_a_run_of_one_side_s_moves_each_with_its_ellipsis_is_a_plan(self):
         # Page 26, "he wants to play ...♘g6, ...♘e4 and recapture"; page 39,
