@@ -546,6 +546,16 @@ class TestASquareBrokenInTwo:
             "Bg5", "Bb4", "Bd3", "h6", "Bxf6", "gxf6"
         ]
 
+    def test_n_behind_a_wreck_is_f1(self):
+        # Grivas page 23, "20...♔f6! 21 ♖f1": the scan has `21 :n`, the rook
+        # left as its wreck and f1 as one `n`. Not a word: "21 an" stays.
+        tokens = tokenize_pages([page_of("20 ... Kf6! 21 :n \nA sad square, 22 an ")])
+
+        move = next(t for t in tokens if t.kind == "move" and t.text == "f1")
+        assert move.lost_symbol == ":"
+        assert "21" in [t.text.strip() for t in tokens if t.kind == "move_number"]
+        assert [t.text for t in tokens if t.kind == "move"] == ["Kf6", "f1"]
+
     def test_a_colon_between_the_file_and_the_rank(self):
         # Grivas page 14 prints `12 ♕xa8?` and the layer has `'it'xa:8?`: the
         # move matched nothing and `♘c6` behind it was played by White.

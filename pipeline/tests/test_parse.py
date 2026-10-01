@@ -3044,6 +3044,21 @@ class TestTheScanSpellsF5AndF8Alike:
         assert (result.moves[-1].san, result.moves[-1].status) == ("Rf8", "uncertain")
 
 
+    def test_a_rank_s_is_an_8_where_a_5_cannot_be_played(self):
+        # Grivas page 23, "21 ♖ec1 ♖ac8!": the scan has `:lacS`, and `S`
+        # stands for a 5 or an 8. Read as ♖c5 the variation broke there.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "d4"), ("move", "d5"),
+                ("move_number", "2."), ("move", "c4"), ("move", "Nc6"),
+                ("move_number", "3."), ("move", "Nc3"), ("move", "Bf5"),
+                ("move_number", "4."), ("move", "e3"), ("move", "Qd7"),
+                ("move_number", "5."), ("move", "Nf3"), ("move", "RcS"),
+            )
+        )
+
+        assert (result.moves[-1].san, result.moves[-1].status) == ("Rc8", "uncertain")
+
 class TestAnAmbiguityTheScoreSettles:
     def test_the_reading_the_score_after_can_play(self):
         # Grivas page 22: "40 ♖1f5+ ♔h4 41 ♖xh6#", the `1` swallowed with the

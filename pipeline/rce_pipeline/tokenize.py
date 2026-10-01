@@ -779,9 +779,48 @@ def _tokenize_page(
         page, text, token_re, to_san, cursor, len(text), spellings
     ))
     tokens = _plans_are_prose(tokens, text)
-    return _a_piece_whose_square_was_lost(_the_wreck_of_an_announced_move(
+    return _f1_behind_a_wreck(_a_piece_whose_square_was_lost(_the_wreck_of_an_announced_move(
         _free_a_number_a_board_stranded(tokens, page, text), page, text
-    ), page, text)
+    ), page, text), page, text, spellings)
+
+
+#: A number, a symbol's wreck and an `n` opening a run of prose: Grivas page
+#: 23's `21 :n`, the rook left as its ink and f1 as the one letter its `fl`
+#: makes. The wreck must carry a mark, so "22 an" stays a word.
+_F1_BEHIND_A_WRECK = re.compile(r"\s*(\d{1,3})\s+(\S{1,5}?)(x?)n(?=[\s+#!?,;)])")
+
+
+def _f1_behind_a_wreck(
+    tokens: list[Token], page: Page, text: str, spellings: dict[str, str]
+) -> list[Token]:
+    """Read `21 :n` as move 21 to f1 by the piece the wreck was."""
+    out: list[Token] = []
+    for token in tokens:
+        found = (
+            _F1_BEHIND_A_WRECK.match(text, token.start, token.end)
+            if token.kind == "text" and out and out[-1].kind in ("move", "annotation")
+            else None
+        )
+        if found is None or not (
+            _WRECK_MARK.search(found.group(2)) or _piece_spelled(found.group(2), spellings)
+        ):
+            out.append(token)
+            continue
+        number, wreck = found.span(1), found.span(2)
+        out.append(Token(
+            kind="move_number", text=found.group(1), raw=found.group(1), page=page.number,
+            start=number[0], end=number[1], bbox=page.bbox_for(*number),
+        ))
+        out.append(Token(
+            kind="move", text=f"{found.group(3)}f1", raw=text[wreck[0]:found.end()],
+            page=page.number, start=wreck[0], end=found.end(),
+            bbox=page.bbox_for(wreck[0], found.end()),
+            lost_symbol=found.group(2), lost_piece=_piece_spelled(found.group(2), spellings),
+        ))
+        rest = _make_text_token(page, text, found.end(), token.end)
+        if rest is not None:
+            out.append(rest)
+    return out
 
 
 def _drop_a_bracket_nothing_closes(tokens: list[Token]) -> list[Token]:

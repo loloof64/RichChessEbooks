@@ -2024,6 +2024,18 @@ def parse_tokens(
                         {"raw": token.raw, "reason": "two pieces reach the square; the "
                          "score after it names this one"},
                     )
+            if resolution.status == "broken" and _RANK_S.search(token.text):
+                # A rank printed `S` is a 5 or an 8, and only the 5 is a cheap
+                # repair: Grivas page 23's `:lacS` is "♖ac8!".
+                as_8 = _resolve(
+                    board_before, _RANK_S.sub(r"8\1", token.text),
+                    token.consumed, token.lost_symbol, token.lost_piece,
+                )
+                if as_8.move is not None:
+                    resolution = dataclasses.replace(
+                        as_8, status="uncertain", confidence=min(as_8.confidence, 0.5),
+                        repair={"raw": token.raw, "reason": "`S` read as 8: 5 cannot be played"},
+                    )
             if resolution.status == "broken" and _F5_OR_F8.search(token.raw):
                 # Grivas' scan spells f5 `rs`, and f8 the same way: "25...♖f8"
                 # is `:rs` on page 22. Where f5 cannot be played, f8 is tried.
@@ -2681,6 +2693,9 @@ def _origin_hints(square: int) -> set[str]:
         chess.RANK_NAMES[chess.square_rank(square)],
     }
 
+
+#: A destination rank printed as `S`.
+_RANK_S = re.compile(r"(?<=[a-h])S([+#!?]*)$")
 
 #: The scan's spelling of a square on the f-file whose rank is a 5 or an 8.
 _F5_OR_F8 = re.compile(r"rs[+#!?]*\s*$")
