@@ -69,15 +69,6 @@ class RceArchive {
     final manifest = RceManifest.fromJson(
       _readJsonObject(archive, _manifestEntry),
     );
-    if (!manifest.isPdf) {
-      // EPUB has no stable coordinates, so its boxes would be meaningless
-      // here; it is a separate v2, not an extension of this reader.
-      throw RceFormatException(
-        'Only PDF-based archives are supported; this one holds '
-        '${manifest.mediaType}.',
-      );
-    }
-
     final movesJson = _readJsonObject(archive, _movesEntry);
     final games = (movesJson['games'] as List<dynamic>? ?? const [])
         .map((game) => GameEntry.fromJson(game as Map<String, dynamic>))
@@ -87,10 +78,26 @@ class RceArchive {
         .toList();
     // Since 1.1.0; an older archive simply offers no diagram.
     final diagrams = (movesJson['diagrams'] as List<dynamic>? ?? const [])
-        .map((diagram) => DiagramEntry.fromJson(diagram as Map<String, dynamic>))
+        .map(
+          (diagram) => DiagramEntry.fromJson(diagram as Map<String, dynamic>),
+        )
         .toList();
 
     final sourceBytes = _readEntry(archive, manifest.sourcePath);
+    // A book renamed without its `.pdf` was declared octet-stream by
+    // pipelines that went by the name: its own first bytes say what it is.
+    final readsAsPdf =
+        manifest.mediaType == 'application/octet-stream' &&
+        sourceBytes.length >= 5 &&
+        String.fromCharCodes(sourceBytes.sublist(0, 5)) == '%PDF-';
+    if (!manifest.isPdf && !readsAsPdf) {
+      // EPUB has no stable coordinates, so its boxes would be meaningless
+      // here; it is a separate v2, not an extension of this reader.
+      throw RceFormatException(
+        'Only PDF-based archives are supported; this one holds '
+        '${manifest.mediaType}.',
+      );
+    }
     final digest = sha256.convert(sourceBytes).toString();
     if (digest != manifest.sourceSha256) {
       throw const RceFormatException(
@@ -125,7 +132,11 @@ class RceArchive {
     // The hash is part of the path, so a re-import of a different edition
     // cannot silently reuse the previous file.
     final directory = Directory(
-      p.join(root.path, 'books', '${_sanitise(cacheKey)}-${digest.substring(0, 12)}'),
+      p.join(
+        root.path,
+        'books',
+        '${_sanitise(cacheKey)}-${digest.substring(0, 12)}',
+      ),
     );
     await directory.create(recursive: true);
 

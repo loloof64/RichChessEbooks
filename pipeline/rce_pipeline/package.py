@@ -24,6 +24,20 @@ GENERATOR_VERSION = "0.1.0"
 _MEDIA_TYPES = {".pdf": "application/pdf", ".epub": "application/epub+zip"}
 
 
+def _media_type_of(path: str) -> str:
+    """What the source is, read from its first bytes before its name.
+
+    A book renamed without its `.pdf` (Laurent's `UneBoussoleSurEchiquier_
+    XavierParmentier`) was read whole and then declared
+    application/octet-stream, which the reader refuses.
+    """
+    with open(path, "rb") as handle:
+        if handle.read(5) == b"%PDF-":
+            return "application/pdf"
+    extension = os.path.splitext(path)[1].lower()
+    return _MEDIA_TYPES.get(extension, "application/octet-stream")
+
+
 def sha256_of(path: str) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
@@ -40,13 +54,12 @@ def build_manifest(
     counts: dict[str, int],
 ) -> dict[str, Any]:
     filename = os.path.basename(source_path)
-    extension = os.path.splitext(filename)[1].lower()
     return {
         "schema_version": SCHEMA_VERSION,
         "source": {
             "path": f"source/{filename}",
             "filename": filename,
-            "media_type": _MEDIA_TYPES.get(extension, "application/octet-stream"),
+            "media_type": _media_type_of(source_path),
             "sha256": sha256_of(source_path),
             "page_count": page_count,
         },

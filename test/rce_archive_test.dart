@@ -75,6 +75,17 @@ void main() {
       );
     });
 
+    test('opens a PDF its manifest called octet-stream', () async {
+      // A book renamed without its `.pdf` was declared
+      // application/octet-stream by the pipeline before it read the bytes.
+      final book = await RceArchive.openBytes(
+        buildFixtureArchive(mediaType: 'application/octet-stream'),
+        cacheKey: 'book',
+      );
+
+      expect(book.allMoves, hasLength(5));
+    });
+
     test('reports a file that is not a ZIP at all', () {
       expect(
         () => RceArchive.openBytes(fakePdfBytes, cacheKey: 'book'),
