@@ -61,6 +61,36 @@ class TestRepair:
 
         assert repaired.text == "1.♘e4"
 
+    def test_a_word_boxed_whole_on_its_first_character(self):
+        # Grivas page 16, "18...♕a3": the layer has `.'i!Va3` with the whole
+        # word's width on the `.` and none on the rest. Nothing lay under the
+        # queen, so it was inserted before the next space -- `'i!Va3♕` -- and
+        # the move was lost. The zero-width run is the word's own characters,
+        # and the symbol takes the wreck in it as it would anywhere else.
+        chars = [
+            Char("8", BBox(20.0, 100.0, 5.0, LINE_HEIGHT), "GlyphLessFont", 10.0),
+            Char(" ", BBox(25.0, 100.0, 2.0, LINE_HEIGHT), "GlyphLessFont", 10.0),
+            Char(".", BBox(27.0, 100.0, 19.0, LINE_HEIGHT), "GlyphLessFont", 10.0),
+        ] + [
+            Char(c, BBox(46.0, 100.0, 0.0, LINE_HEIGHT), "GlyphLessFont", 10.0)
+            for c in "'i!Va3"
+        ] + [Char(" ", BBox(46.0, 100.0, 2.0, LINE_HEIGHT), "GlyphLessFont", 10.0)]
+        text = "".join(c.char for c in chars)
+        repaired = repair_page(
+            Page(number=1, width=472.0, height=624.0, text=text, chars=chars),
+            [glyph("Q", 29.0, 9.0)],
+        )
+
+        assert repaired.text == "8 .♕a3 "
+
+    def test_the_scan_s_f5_is_not_a_leftover(self):
+        # Grivas page 16, "24 ♘f5 ♕b2+": the layer has `lL!rs`, `rs` being
+        # how this scan spells f5 every time. Not a square at this stage, it
+        # was swallowed with the knight's leftovers and the move was lost.
+        repaired = repair_page(page("4 lL!rs "), [glyph("N", 30.0, CHAR_WIDTH)])
+
+        assert repaired.text == "4 ♘rs "
+
     def test_keeps_a_character_the_symbol_only_half_covers(self):
         # The same knight, one character to the left: it covers "D" entirely and
         # "x" by half. Half is not enough — losing the "x" turns a capture into

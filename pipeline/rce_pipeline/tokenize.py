@@ -249,8 +249,10 @@ def _build_token_re(piece_letters: str) -> re.Pattern[str]:
 #: And the knight of Grivas page 16, `lL!a4`, whose `!` is otherwise a comment
 #: on nothing. Only in that shape: the same scan prints its rook `l:!.`, and a
 #: `!` taken anywhere in a run cut that one in two (page 99).
-_WRECK_RUN = re.compile(r"(?:[A-Za-z.:\\'|/<>]{1,5}|[a-z][A-Z]!)$")
-_WRECK_MARK = re.compile(r"[:\\'<>]|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
+#: And the queen of the same scan, `'i!V`, five scans more with it: a `!`
+#: with a letter behind it is inside the symbol, never a comment.
+_WRECK_RUN = re.compile(r"(?:(?:[A-Za-z.:\\'|/<>]|!(?=[A-Za-z])){1,5}|[a-z][A-Z]!)$")
+_WRECK_MARK = re.compile(r"[:\\'<>]|!(?=[A-Za-z])|(?<=[A-Za-z])\.(?!\.)|(?<=[a-z])[A-Z]")
 
 #: A rank standing at the head of a move that names no piece — `2b5`, `8h3+`,
 #: `2xh7+`. SAN writes a rank only to say which of two pieces moved, so it can

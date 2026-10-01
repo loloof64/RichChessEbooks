@@ -38,6 +38,16 @@ class TestTheWreckOfASymbol:
         assert move.lost_symbol == "lL!"
         assert [t.kind for t in tokens].count("annotation") == 1
 
+    def test_an_exclamation_mark_inside_a_broken_queen(self):
+        # Grivas page 16: "White had no reason to worry about 18...♕a3 19 ♔c2
+        # ♘a4 20 ♖b3!" -- the scan has `.'i!Va3`, the run stopped at the `!`
+        # and the queen's move was lost: `19 ♔c2` went onto the game and the
+        # variation broke. The same queen stands in five scans more.
+        tokens = tokenize_pages([page_of("18 .. .'i!Va3 19 Kc2 ")])
+
+        move = next(t for t in tokens if t.kind == "move" and t.text == "a3")
+        assert move.lost_symbol.endswith("'i!V")
+
     def test_the_rook_of_the_same_scan_is_not_cut_in_two(self):
         # Page 99 prints its rook `l:!.`: a `!` taken anywhere in a run gave
         # `f2` the half `!.` of it, and the move was read with the wrong piece.

@@ -640,6 +640,21 @@ def _covered_range(page: Page, box: BBox) -> tuple[int, int]:
         for index, char in enumerate(page.chars)
         if _rows_overlap(char.bbox, box)
     ]
+    # A word the layer boxed whole on its first character: Grivas page 16 has
+    # `.'i!Va3` with the word's width on the `.` and none on the rest. The
+    # characters of no width behind it are the word, and the symbol's ink is
+    # among them.
+    for index in on_row:
+        char = page.chars[index].bbox
+        if char.w > 1.5 * box.w and char.x <= box.x < char.x + char.w:
+            after = index + 1
+            stop = after
+            while stop < len(page.chars) and page.chars[stop].bbox.w == 0 \
+                    and not page.chars[stop].char.isspace():
+                stop += 1
+            if stop > after:
+                return after, _swallow_leftovers(page, after)
+            break
     # Before the first character that starts no earlier than the symbol does.
     # Its left edge rather than its middle: a symbol is wider than a letter, so
     # its middle can fall past the start of the letter that follows it.
@@ -710,7 +725,9 @@ def _swallow_leftovers(page: Page, end: int) -> int:
 #: What has to stand behind a leftover for the run to have ended: the body of
 #: a move, without the piece the figurine itself supplies. The annotations go
 #: with it because the tokeniser has not split them off yet.
-_MOVE_BEHIND = re.compile(r"[a-h1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?[!?]*")
+#: `rs` is Grivas' scan spelling f5, thirteen times and never otherwise
+#: (`tokenize._F5_SPELLED`): eaten here, `24 ♘f5` was lost on page 16.
+_MOVE_BEHIND = re.compile(r"[a-h1-8]?x?(?:[a-h][1-8]|rs)(?:=[QRBN])?[+#]?[!?]*")
 
 
 def _word_after(page: Page, start: int) -> str:
