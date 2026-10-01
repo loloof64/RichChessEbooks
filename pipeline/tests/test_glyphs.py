@@ -82,6 +82,13 @@ class TestRepair:
         )
 
         assert repaired.text == "8 .♕a3 "
+        # And the move gets its width back: the `.` ends where the queen
+        # begins, and `a3` shares what is left up to the space, or the tap
+        # zone covered the queen alone.
+        dot, queen, file_, rank = repaired.chars[2:6]
+        assert dot.bbox.x + dot.bbox.w == queen.bbox.x
+        assert file_.bbox.w > 0 and rank.bbox.w > 0
+        assert rank.bbox.x + rank.bbox.w == 46.0
 
     def test_the_scan_s_f5_is_not_a_leftover(self):
         # Grivas page 16, "24 ♘f5 ♕b2+": the layer has `lL!rs`, `rs` being

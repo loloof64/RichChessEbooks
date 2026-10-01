@@ -409,6 +409,7 @@ def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
     # Applied right to left so that an earlier edit's indices stay valid.
     for start, end, written in sorted(edits, key=lambda edit: -edit[0]):
         chars[start:end] = written
+    _share_a_word_boxed_whole(chars)
 
     return Page(
         number=page.number,
@@ -417,6 +418,39 @@ def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
         text="".join(char.char for char in chars),
         chars=chars,
     )
+
+
+def _share_a_word_boxed_whole(chars: list[Char]) -> None:
+    """Give a word boxed whole on its first character its width back.
+
+    Grivas page 16's `.'i!Va3` has the word's width on the `.` and none on
+    the rest; once the queen is written in, `a3` still has no width and the
+    move's tap zone was the queen alone. The `.` is made to end where the
+    symbol begins, and the characters of no width behind the symbol share
+    what is left up to the next character that has one.
+    """
+    for index, char in enumerate(chars):
+        if char.font != GLYPH_FONT or index == 0:
+            continue
+        before = chars[index - 1].bbox
+        if not (before.w > 1.5 * char.bbox.w and before.x < char.bbox.x < before.x + before.w):
+            continue
+        chars[index - 1] = dataclasses.replace(
+            chars[index - 1], bbox=dataclasses.replace(before, w=char.bbox.x - before.x)
+        )
+        end = index + 1
+        while end < len(chars) and chars[end].bbox.w == 0 and not chars[end].char.isspace():
+            end += 1
+        left = char.bbox.x + char.bbox.w
+        right = before.x + before.w
+        if end == index + 1 or right <= left:
+            continue
+        step = (right - left) / (end - index - 1)
+        for offset, at in enumerate(range(index + 1, end)):
+            box = chars[at].bbox
+            chars[at] = dataclasses.replace(
+                chars[at], bbox=dataclasses.replace(box, x=left + offset * step, w=step)
+            )
 
 
 #: How many times a spelling must have been seen before it is believed, and
