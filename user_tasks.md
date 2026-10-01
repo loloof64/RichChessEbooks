@@ -17,14 +17,27 @@
 > 43 -> 1, 18 19 -> 1, 19 20 -> 0, 20 11 -> 3; p60 +4 and p109 +1 are moves
 > inside lines already dead. Regenerated in `rce_apercu/Grivas.rce`.
 >
-> **Next, with Laurent:** read pages 16, 18, 19, 20 in the app. Left there:
-> - p16 `18...♕a3` printed `'i!Va3` (the queen's wreck with a `!`), lost;
-> - p18 "(...0-0)" in prose, played with White to move;
-> - p20 "Threatening 26 ♕b4 or 26 ♕a5", "To defend with 27...♕b6": threats
->   cited a ply ahead, each broken alone;
-> - p19 in a short window: `lLlf4` is ♗f4 or ♘f4 when the spelling `lLl`
->   is not learned — the whole book learns it, check only if it recurs.
-> Then pages 21 (5 broken) and 34 (`'ifl>rs`).
+> **Later the same day** (`d7df07e`, `e3e010f`): a threat cited a ply ahead
+> ("Now both 17 ♕xc6+ and 17 g4 are threatened", "Threatening 26 ♕b4 or 26
+> ♕a5") is skipped as prose -- number in prose or behind another threat,
+> legal once the turn is passed; `b)` branches from where the move after
+> `a)` at the same number did; `♖ax.d1` is `♖axd1`. Corpus Grivas -> 1276,
+> SuperAttaquant 203 -> 206, Boussole 351 -> 350 (a plan, "suivi de 6...♗g4
+> (ou ♗e6)"); held-out Grivas+40 -> 716, Pachman1 74 -> 77. Whole book 2567
+> broken, no page worse; regenerated in `rce_apercu/Grivas.rce`.
+>
+> **Page numbers:** Laurent's numbers may be the printed folio (Grivas folio
+> N = PDF N+1); find the page by its content. Laurent: folio 16 done.
+>
+> **Next, with Laurent:** folio 20 (PDF 21) re-read. Known left there: a)
+> ends `24 ♖f1 ♕e7 25 ♕g6`, printed `24 :n 'i'i'e7` -- the glyph pass takes
+> `:n` whole as the rook, the square is gone, `♕e7` is dropped and `25 ♕g6`
+> is re-placed as a white `20 ♕g6` in the game (wrong, and not marked).
+> Keeping `♖?` there was tried and made the page worse. Also left: folio 15
+> `18...♕a3` (`'i!Va3`), folio 17 `(...0-0)` in prose, folio 16
+> `21...♕xg5` (`1i'xg5`, a queen wreck starting with a digit), then folio 33
+> (PDF 34, `'ifl>rs`).
+
 
 > **Twenty-first session, 2026-09-30 — Grivas pages 14-16, with Laurent.**
 > `58dc3b6`: `xa:8` (a colon inside a square, behind a piece or `x`) —
