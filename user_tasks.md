@@ -1,5 +1,31 @@
 # What I have to do next
 
+> **Twenty-second session, afternoon (2026-10-01) — Grivas pages 22-26 done,
+> diagrams, reader fixes.** Pages are named by Laurent in the app's PDF
+> numbering here (page 22 = folio 21); find them by content. Grivas pages
+> 14-26 now have **no broken move**; whole book 1693 broken (2848 this
+> morning), archive in `rce_apercu/Grivas.rce`.
+> Scan spellings now read (Grivas; most guarded to a wreck or a restored
+> symbol): `n` = f1, `rs` = f5 or f8, rank `S`/`s` = 5 or 8, `t` = 1,
+> `?` = 7, `1L`/`1W`/`1i'` = symbol ink (also welded to the move before),
+> `Ϩ` before a symbol = ink, `es so` = "e5 50", `x.` = x, `..J` = `...`,
+> `♕fJ/xa1` = queen. Parser: threats (named in prose: skipped even when
+> ahead by several plies or playable by the wrong side; unnamed: only after
+> citations fail, never in a game known to drift), `b)` branches where
+> `a)` did, ambiguity settled by the score after, a board fallen up to 12
+> plies late (one square off allowed) confirms, its game board is shown.
+> Diagrams: tap zones no longer snapped (40 were cut), a board with one
+> stray square is shown named (verdict unchanged). Reader: whole-page zoom
+> fits the largest page and page turns centre a fitting page; window opens
+> 1280x900. A PDF is known by its bytes (Laurent's Boussole had no `.pdf`).
+>
+> **Left, for later:** Boussole corpus 349 -> 347 (gains and losses mixed,
+> since `3a99279`); Grivas page 53 94 -> 93 good, page 94 95 -> 63 good (from
+> the `n` = f1 rule, `89442bf`), page 36 `32.JL:lg5`. The diagram reader
+> misses pawns on hatched dark squares (page 23 b2). **Laurent: Boussole is
+> "un énorme chantier" — to do later, page by page with him.** `pipx
+> reinstall rce-pipeline` only after a push.
+
 > **Twenty-second session, 2026-10-01 — Grivas pages 16-20, with Laurent.**
 > `450f352`: the text layer reads the right column's head *inside* the left
 > column (p16: "relatively minimal" | new game | "value. Indeed, 19 ♗xa8?"
