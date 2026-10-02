@@ -2,7 +2,7 @@
 
 > **Laurent, 2026-10-02 — done:** `rce` now asks at start, when GitHub has a
 > newer pipeline and it runs at a terminal: "Update now, before reading the
-> book? [y/N]". Yes runs `pipx reinstall rce-pipeline` and restarts the same
+> book? [Y/n]" (yes by default; never asked off a terminal). Yes runs `pipx reinstall rce-pipeline` and restarts the same
 > command (`RCE_NO_UPDATE_CHECK=1` so it does not ask twice); only useful
 > after a push.
 

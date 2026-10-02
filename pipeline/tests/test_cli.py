@@ -76,3 +76,18 @@ def test_a_newer_pipeline_is_offered_before_the_book_is_read(monkeypatch):
     assert ran == [["pipx", "reinstall", "rce-pipeline"]]
     (args, env), = relaunched
     assert args == ["rce", "book.pdf"] and env["RCE_NO_UPDATE_CHECK"] == "1"
+
+
+def test_pressing_enter_accepts_the_update(monkeypatch):
+    # Laurent: yes by default at a terminal; never asked when not at one.
+    monkeypatch.setattr(cli, "update_notice", lambda: "A newer version of rce is available.")
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "")
+    ran = []
+    monkeypatch.setattr(cli.subprocess, "run", lambda cmd, **kw: ran.append(cmd) or
+                        cli.subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(cli.os, "execvpe", lambda f, args, env: None)
+
+    cli.offer_update(["book.pdf"])
+
+    assert ran == [["pipx", "reinstall", "rce-pipeline"]]

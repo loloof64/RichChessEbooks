@@ -65,10 +65,11 @@ def offer_update(argv: list[str]) -> None:
         return
     print(notice.splitlines()[0])
     try:
-        answer = input("Update now, before reading the book? [y/N] ")
+        answer = input("Update now, before reading the book? [Y/n] ")
     except EOFError:
         return
-    if answer.strip().lower() not in ("y", "yes", "o", "oui"):
+    # Yes by default (Laurent): only an explicit no keeps the version installed.
+    if answer.strip().lower() in ("n", "no", "non"):
         return
     if subprocess.run(["pipx", "reinstall", "rce-pipeline"]).returncode != 0:
         print("The update failed; reading the book with the version installed.")
