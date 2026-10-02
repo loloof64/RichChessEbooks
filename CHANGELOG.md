@@ -9,6 +9,27 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
+### Added
+
+- The move the board is showing is marked on the page with a highlighter stroke; a
+  tapped diagram gets an orange frame. The mark shows even with the tap zones hidden.
+
+### Changed
+
+- Only a move that could not be read shows a notice over the board; repaired moves no
+  longer do, and the notice no longer describes the board.
+- The window opens tall enough to show an A4 page at 100 %.
+- The `rce` pipeline reads many more moves correctly, especially in scanned books, shows
+  which step it is on, and offers to update itself when a newer version is on GitHub.
+
+### Fixed
+
+- "Whole page" now fits the whole page, including books whose pages differ in size;
+  the foot of the page is no longer cut off, including when turning pages.
+- A book whose file name has no `.pdf` extension now opens.
+
 ## [0.1.0] - 2026-09-30
 
 First release of the reader.
@@ -27,5 +48,6 @@ First release of the reader.
 - Packages for Linux (AppImage, deb, rpm), Windows (installer, msi, portable zip) and
   macOS (dmg, zip).
 
-[Unreleased]: https://github.com/loloof64/RichChessEbooks/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/loloof64/RichChessEbooks/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/loloof64/RichChessEbooks/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/loloof64/RichChessEbooks/releases/tag/v0.1.0

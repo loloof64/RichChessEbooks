@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rce-pipeline"
-version = "0.1.0"
+version = "0.2.0"
 description = "Extract chess moves with page geometry from PDF chess books into .rce archives"
 readme = "README.md"
 requires-python = ">=3.10"

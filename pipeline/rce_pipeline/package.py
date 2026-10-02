@@ -19,7 +19,7 @@ from .parse import ParseResult
 
 SCHEMA_VERSION = "1.2.0"
 GENERATOR_NAME = "rce-pipeline"
-GENERATOR_VERSION = "0.1.0"
+GENERATOR_VERSION = "0.2.0"
 
 _MEDIA_TYPES = {".pdf": "application/pdf", ".epub": "application/epub+zip"}
 
