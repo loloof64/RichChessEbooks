@@ -119,6 +119,35 @@ class TestMainLine:
         assert result.skipped[-1]["reason"] == "no move number in context"
 
 
+    def test_prose_ending_in_an_ellipsis_still_spends_the_licence(self):
+        # Page 39 of a scan: "19 ♗c3! White prevents a possible ...♘a5",
+        # then "19...a6". The ellipsis hid the word before it, and ♘a5 was
+        # played as Black's nineteenth.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("text", "White prevents a possible ..."), ("move", "Nc6"),
+                ("move_number", "2..."), ("move", "d6"),
+            )
+        )
+
+        assert sans(result) == ["e4", "e5", "Nf3", "d6"]
+
+    def test_a_number_wrecked_into_a_letter_and_an_ellipsis_keeps_its_move(self):
+        # Page 16 of the same scan prints `5...fxe4` as `s .•• fxe4`: the `s`
+        # is the 5, not a word, and the move is the score's.
+        result = parse_tokens(
+            moves(
+                ("move_number", "1."), ("move", "e4"), ("move", "e5"),
+                ("move_number", "2."), ("move", "Nf3"),
+                ("text", "s ..."), ("move", "Nc6"),
+            )
+        )
+
+        assert sans(result) == ["e4", "e5", "Nf3", "Nc6"]
+
+
 class TestVariations:
     def test_branches_from_the_position_before_the_replaced_move(self):
         result = parse_tokens(
@@ -1125,6 +1154,24 @@ class TestLostSymbol:
         assert last.status == "uncertain"
         assert last.repair["reason"].startswith("read as Bg7")
 
+    def test_a_file_letter_no_piece_starts_from_is_the_wreck_s(self):
+        # Grivas page 38 spells its knight `lb`: `4 e3 lbf6`, the `l` taken
+        # for the wreck and `bf6` for the move, a knight from the b-file that
+        # cannot reach f6. The `b` is ink, and the g8 knight goes to f6.
+        result = parse_tokens(moves(
+            ("move_number", "1"), ("move", "d4"), ("move", "d5"),
+            ("move_number", "2"), ("move", "c4"), ("move", "e6"),
+            ("move_number", "3"), ("move", "Nc3"), ("move", "Bb4"),
+            ("move_number", "4"), ("move", "e3"),
+        ) + [tok("move", "bf6", lost_symbol="l")] + moves(
+            ("move_number", "5"), ("move", "a3"), ("move", "Bxc3+"),
+            ("move_number", "6"), ("move", "bxc3"), ("move", "O-O"),
+        ))
+        knight = next(m for m in result.moves if m.repair and m.repair["raw"] == "bf6")
+
+        # The queen reaches f6 too; castling after says the g8 knight left.
+        assert (knight.san, knight.status) == ("Nf6", "uncertain")
+
     def test_the_pawn_move_it_spells_is_never_the_answer(self):
         # a7-a6 is perfectly legal here, and `ll:\a6` used to be scored as it,
         # ok, at full confidence. The wreck says a piece was printed, so the
@@ -1541,10 +1588,10 @@ class TestTheWeightOfTheType:
         by_san = {m.san: m for m in result.moves}
         assert (by_san["e6"].status, by_san["Nf3"].status) == ("ok", "ok")
         assert on_the_main_line(result, by_san["e6"])
-        # The citation is read and it is broken — the game has played it
-        # already — but it broke beside the score and not on it.
-        cited = [m for m in result.moves if m.san == "b5"][-1]
-        assert cited.status == "broken"
+        # The citation is prose's, its licence spent on "the move ...": it is
+        # not played at all, on the score or beside it.
+        assert [m.san for m in result.moves].count("b5") == 1
+        assert result.skipped[-1]["text"] == "b5"
         assert result.break_diagnosis()["below_break"] == 0
 
     def test_the_arithmetic_reads_the_same_line_as_the_continuation(self):
@@ -2564,6 +2611,25 @@ class TestTheGameGoesOnPastItsResult:
 
         assert len(result.games) == 2
         assert result.games[1].position_known
+
+    def test_a_game_after_the_analysis_of_a_closed_one_is_a_game(self):
+        # Page 62 of a scan: `1-0`, then "Si 25...♔e6 26 ♕xg6# ou 25...♔e8
+        # 26 ♕g8#", and the next game's `1.d4`. The second answer left an
+        # aside open on the closed game, and the new game was read inside it.
+        result = parse_tokens(self.game(
+            ("text", "Si"),
+            ("move_number", "4..."), ("move", "dxc6"),
+            ("move_number", "5"), ("move", "Nxe5"),
+            ("text", "ou"),
+            ("move_number", "4..."), ("move", "bxc6"),
+            ("move_number", "5"), ("move", "Nxe5"),
+            ("text", "Foti - Nickerson"),
+            ("move_number", "1"), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2"), ("move", "Nf3"), ("move", "d6"),
+        ))
+
+        assert len(result.games) == 2
+        assert [(m.san, m.status) for m in result.moves[-2:]] == [("Nf3", "ok"), ("d6", "ok")]
 
     def test_a_number_neither_continuing_nor_starting_still_opens_nothing_known(self):
         # Analysis quoted after a result and belonging to no game the book

@@ -1302,6 +1302,15 @@ def page_of_lines(*lines: str, number: int = 1) -> Page:
     return Page(number=number, width=595.0, height=842.0, text=text, chars=chars)
 
 
+def test_a_side_to_move_mark_between_a_number_and_its_move():
+    # Grivas page 37: `41 ♖d7+` with the `B` printed beside the next
+    # column's board read between them, `41 \nB \n♖d7+`. The number was
+    # lost and the line went on from the wrong move.
+    tokens = tokenize_pages([page_of_lines("drawn ±) 41 ", "B ", "Rd7+ Nf7 42 g5")])
+    assert [t.text for t in tokens if t.kind in ("move", "move_number")] == [
+        "41", "Rd7+", "Nf7", "42", "g5"]
+
+
 def test_the_folio_alone_on_the_first_line_is_no_move_number():
     # Grivas page 36 opens on its folio `35`, alone on its line, and the
     # score goes on under it: `♘d3 f5 11 ♗d2`. Read as Black's 35th, it
@@ -1329,6 +1338,13 @@ def test_a_draw_printed_in_halves_is_a_result():
         tokens = tokenize_pages([page_of(f"40 Kf3 Kf6 {raw} Lukacs - Grivas")])
         assert [(t.kind, t.text) for t in tokens if t.kind in ("move", "result")] == [
             ("move", "Kf3"), ("move", "Kf6"), ("result", "1/2-1/2")], raw
+
+
+def test_a_promotion_on_the_first_rank_spelled_with_an_l():
+    # Page 38 of a scan, "41 ♕xh6 c1♕+": the layer has `c l♕+`, and the
+    # promotion was lost as prose; Black's queen then took on g5 from nowhere.
+    tokens = tokenize_pages([page_of("41 Qxh6 c l♕+ 42 Kh2")])
+    assert [t.text for t in tokens if t.kind == "move"] == ["Qxh6", "c1Q+", "Kh2"]
 
 
 def test_a_capture_and_its_recapture_are_two_moves():

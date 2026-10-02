@@ -127,3 +127,44 @@ def test_a_two_column_table_of_short_lines_is_left_alone():
 
     table = block((24, 100, "1 e4"), (250, 100, "e5"), (24, 112, "2 Nf3"), (250, 112, "Nc6"))
     assert extract._cut_at_the_gutter([table], 433) == [table]
+
+
+def test_a_welded_foot_of_the_left_column_comes_before_the_right_one():
+    # Grivas page 38: the right column ("Qh5 followed by Ng5+ ... 9 Ne2 Ba6
+    # (D)") is handed over before the left one's foot, whose first line,
+    # "32 Nf3! (D)", is welded to the right's "10 0-0" in one block. 32 Nf3
+    # was played in the next game, and the old one died without it.
+    def line(x0, y0, x1, text):
+        return {"bbox": (x0, y0, x1, y0 + 11),
+                "spans": [{"chars": [{"c": c} for c in text]}]}
+
+    def block(*lines):
+        return {"lines": list(lines), "bbox": (
+            min(l["bbox"][0] for l in lines), min(l["bbox"][1] for l in lines),
+            max(l["bbox"][2] for l in lines), max(l["bbox"][3] for l in lines))}
+
+    above = block(line(34, 386, 168, "27 Ng4! Qxd3 28 Nxh6+! gxh6"),
+                  line(34, 410, 211, "29 Qg4+ Neg6 30 hxg6 Nxg6 31 Bf6! Kh7"))
+    head = block(line(222, 50, 408, "Qh5 followed by Ng5+ and Black cannot de-"))
+    game = block(line(233, 218, 329, "8...c5 is more common."),
+                 line(233, 230, 329, "9 Ne2 Ba6 (D)"))
+    # The side-to-move mark of the right column's board: narrow enough to
+    # end inside the left half, and it stopped the search for the left foot.
+    mark = block(line(224, 280, 233, "w"))
+    welded = block(line(24, 423, 75, "32 Nf3! (D)"),
+                   line(235, 422, 262, "10 0-0"),
+                   line(234, 434, 412, "Another good option is 10 Bxa6"))
+    label = block(line(24, 472, 31, "B"), line(224, 470, 412, "Ne4! 11 Bb2 Qg5 allows"))
+    foot = block(line(35, 614, 212, "The white pieces flow towards the black"))
+    rest = block(line(224, 482, 263, "initiative."))
+
+    order = extract._reading_order([above, head, game, mark, welded, label, foot, rest], 433)
+
+    assert ["".join(c["c"] for s in l["spans"] for c in s["chars"])
+            for b in order for l in b["lines"]] == [
+        "27 Ng4! Qxd3 28 Nxh6+! gxh6", "29 Qg4+ Neg6 30 hxg6 Nxg6 31 Bf6! Kh7",
+        "32 Nf3! (D)", "B", "The white pieces flow towards the black",
+        "Qh5 followed by Ng5+ and Black cannot de-",
+        "8...c5 is more common.", "9 Ne2 Ba6 (D)", "w",
+        "10 0-0", "Another good option is 10 Bxa6", "Ne4! 11 Bb2 Qg5 allows", "initiative.",
+    ]

@@ -460,7 +460,14 @@ _PROSE_TAIL = re.compile(r"[A-Za-z][a-z]*[.,;:!?)\"\u201d\u00bb]*\s*$")
 
 def _ends_in_a_word(text: str) -> bool:
     """Whether `text` reads as prose rather than as the wreck of a move."""
-    tail = text.split()[-1] if text.split() else ""
+    # An ellipsis announcing a black move is not the end of the prose: "White
+    # prevents a possible ...♘a5" (page 39 of a scan) ends on "possible".
+    # Not a lone letter, though: page 16 prints `5...fxe4` as `s .•• fxe4`,
+    # the number wrecked into a letter.
+    words = text.split()
+    if len(words) > 1 and not words[-1].strip(".\u2026") and len(words[-2]) > 1:
+        words = words[:-1]
+    tail = words[-1] if words else ""
     return bool(_PROSE_TAIL.match(tail))
 
 
@@ -903,6 +910,9 @@ def parse_tokens(
     #: Laurent put it, "comme si elle avait vraiment été jouée avant
     #: l'abandon". Read as a new game they have no starting position at all.
     over: tuple[Game, _Level, int | None] | None = None
+    #: Whether the game in progress is one a result closed and the analysis
+    #: after it took up again.
+    reopened = False
     game: Game | None = None
     stack: list[_Level] = []
     #: Position and parent before each half-move of the game's main line,
@@ -920,8 +930,9 @@ def parse_tokens(
 
     def start_game(page: int, from_diagram: str | None = None, position_known: bool = True) -> None:
         nonlocal game, game_counter, stack, pending_title, line_sound, agreed_at, finished
-        nonlocal over
+        nonlocal over, reopened
         game_counter += 1
+        reopened = False
         opening_fen = from_diagram or initial_fen
         game = Game(
             id=f"g{game_counter}",
@@ -1780,10 +1791,16 @@ def parse_tokens(
                 # start from a position the book never printed and none of
                 # them is scored at all.
                 game, stack, over = over[0], [over[1]], None
+                reopened = True
             if weighted and token.bold and stack:
                 _resume_the_score(_ply_of(number, is_black_only))
             opens_a_game = game is None or (
-                number == 1 and not is_black_only and result.moves and not stack[1:]
+                number == 1 and not is_black_only and result.moves
+                # An aside open on a game its result closed is the analysis
+                # printed after it, and never holds a new game's `1.`: page 62
+                # of a scan answers "Si 25...♔e6 ... ou 25...♔e8" and the next
+                # game, opening on the closed one's moves, was read inside it.
+                and (not stack[1:] or reopened)
                 and not _cites_its_own_start(tokens, at)
             )
             if opens_a_game:
@@ -2572,6 +2589,14 @@ def _settle_lost_symbol(
         if fallback:
             named, readings = None, fallback
     pieces = (named,) if named else _LOST_SYMBOL_PIECES
+
+    if not readings and re.match(r"[a-h][a-h]x?[1-8]?[a-h]?[1-8]", plain) and wreck:
+        # A file letter no piece starts from is the wreck's own ink: Grivas
+        # page 38 spells its knight `lb`, and `lbf6` left `bf6` -- a knight
+        # from the b-file -- where the g8 knight went to f6.
+        readings = _readings_of(board, plain[1:], pieces)
+        if readings:
+            wreck += plain[0]
 
     if not readings:
         # The square may be wrecked as well as the symbol — `♘e5` printed

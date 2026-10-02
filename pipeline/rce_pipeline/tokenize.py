@@ -153,6 +153,10 @@ _TOKEN_TEMPLATE = r"""
               # prints `C x es`, `d x cs` — which is safe nowhere else: `as`
               # is an English word.
             | (?<![A-Za-z])[{pieces}a-h][ ][xX][ ]?\n?[ ]?[a-h][{ranks}s]
+              # A promotion on the first rank whose `1` the scan read as an
+              # `l`, a space before it: `c l♕+` (page 38 of a scan). Only with
+              # the promoted piece set straight after it.
+            | (?<![A-Za-z])(?:[a-h]x)?[a-h][ ]?l(?=[{pieces}](?![a-h]))[{pieces}]
             | [{pieces}]?[a-h]?[1-8]?x?[a-h][{ranks}](?:\s*=\s*[{pieces}]|(?<=[18])[{pieces}](?![a-h]))?
               # A file the scanner read as a digit. No notation writes a piece
               # and two digits, so what stands where the file belongs is the
@@ -1055,6 +1059,7 @@ def _tokenize_span(
             text_out = text_out.replace("X", "x")
             text_out = re.sub(r"^([A-Z][a-h]?x?)n([+#]?)$", r"\1f1\2", text_out)
             text_out = re.sub(r"^([A-Z]x?[a-h])\?$", r"\g<1>7", text_out)
+            text_out = re.sub(r"^((?:[a-h]x)?[a-h])l(?=[^a-h\d])", r"\g<1>1", text_out)
         consumed = lost_symbol = ""
         number_at: int | None = None
         if kind == "move":
@@ -1254,6 +1259,9 @@ _NUMBER_BEFORE_A_WRECK = re.compile(r"(?<![A-Za-z\d])(\d(?:[ ]?\d){0,2})[ ]*$")
 #: stands between it and the move it announces.
 _STRANDED_NUMBER = re.compile(r"(?<![A-Za-z\d])(\d{1,3})\s*$")
 
+#: A bare number, then nothing but a board's side-to-move mark on its own line.
+_STRANDED_BEFORE_A_MARK = re.compile(r"(?<![A-Za-z\d])(\d{1,3})[ ]*\n\s*[WB][ ]*\n?\s*$")
+
 #: The same number printed as letters — `ll ... ♗d6` for `11 ... ♗d6`, the
 #: `l`/`1` confusion this corpus already repairs in a destination rank. On its
 #: own a letter is a letter; what makes this one a number is the ellipsis it
@@ -1335,6 +1343,11 @@ def _a_stranded_number(tokens: list[Token], at: int) -> tuple[re.Match[str] | No
         found = _STRANDED_NUMBER.search(token.raw)
         return found, found.group(1) if found else None
     if after.kind == "move":
+        # The side-to-move mark of a board in the next column, read between
+        # the number and its move: Grivas page 37, `41 \nB \n♖d7+`.
+        found = _STRANDED_BEFORE_A_MARK.search(token.raw)
+        if found is not None:
+            return found, found.group(1)
         # The number itself printed as letters, with the ellipsis that says it
         # is one. `11` opening a page is the case in this corpus: the scanner
         # reads `ll` and the running head swallows it.

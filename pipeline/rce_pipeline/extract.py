@@ -307,7 +307,7 @@ def _extract_page(
     if sort_blocks:
         blocks.sort(key=lambda b: (round(b["bbox"][1], 1), round(b["bbox"][0], 1)))
     else:
-        blocks = _cut_at_the_gutter(_finish_the_column(blocks, width), width)
+        blocks = _reading_order(blocks, width)
 
     chars: list[Char] = []
     for block_index, block in enumerate(blocks):
@@ -352,11 +352,13 @@ def _finish_the_column(blocks: list[dict], width: float) -> list[dict]:
     boxed aside). Sorting every page by column was measured twice and refused
     (Grivas page 27).
     """
-    def left(block: dict) -> bool:
-        return block["bbox"][2] <= width * 0.55
-
     def right(block: dict) -> bool:
         return block["bbox"][0] >= width * 0.45
+
+    def left(block: dict) -> bool:
+        # Not a block starting in the right half, however narrow: the `w`
+        # beside a right-column board ends inside the left half too.
+        return block["bbox"][2] <= width * 0.55 and not right(block)
 
     def resumes(above: dict, below: dict) -> bool:
         lines = above.get("lines") or [above]
@@ -377,6 +379,17 @@ def _finish_the_column(blocks: list[dict], width: float) -> list[dict]:
         k = next((n for n, block in enumerate(rest) if not left(block)), len(rest))
         order[i + 1:] = rest[:k] + read_early + rest[k:]
     return order
+
+
+def _reading_order(blocks: list[dict], width: float) -> list[dict]:
+    """The stream's blocks, with the two repairs of a two-column page applied.
+
+    Cut first: Grivas page 38 welds the left column's foot ("32 ♘f3! (D)")
+    to the right column's "10 0-0", after the whole right column was read.
+    Only once cut is the foot a left block that `_finish_the_column` can see
+    resuming the left column, and put back before the right one.
+    """
+    return _finish_the_column(_cut_at_the_gutter(blocks, width), width)
 
 
 def _cut_at_the_gutter(blocks: list[dict], width: float) -> list[dict]:
@@ -405,7 +418,9 @@ def _cut_at_the_gutter(blocks: list[dict], width: float) -> list[dict]:
     def two_columns(lines: list[dict]) -> bool:
         left = [line for line in lines if side(line) == "left"]
         right = [line for line in lines if side(line) == "right"]
-        if sum(len(text(line)) > 3 for line in left) < 2 \
+        # One line on the left is enough beside two on the right: Grivas
+        # page 38's foot of the column is the one line "32 ♘f3! (D)".
+        if sum(len(text(line)) > 3 for line in left) < 1 \
                 or sum(len(text(line)) > 3 for line in right) < 2:
             return False
         return any(abs(a["bbox"][1] - b["bbox"][1]) < (a["bbox"][3] - a["bbox"][1]) / 2
@@ -419,7 +434,12 @@ def _cut_at_the_gutter(blocks: list[dict], width: float) -> list[dict]:
             for column, into in (("left", order), ("right", held)):
                 part = [line for line in lines if side(line) == column]
                 if part:
-                    into.append(dict(block, lines=part))
+                    into.append(dict(block, lines=part, bbox=(
+                        min(line["bbox"][0] for line in part),
+                        min(line["bbox"][1] for line in part),
+                        max(line["bbox"][2] for line in part),
+                        max(line["bbox"][3] for line in part),
+                    )))
             continue
         order += held
         held = []
