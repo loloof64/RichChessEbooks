@@ -18,7 +18,11 @@
 >
 > **Next, later today with Laurent:** page 46 — Laurent: **the end of the
 > previous game is missing** (right column top, `33...♗f6! 34 gxh7+ ♔xh7 35
-> ♕h3 ... 43 ♗e1 b1♕+ 0-1`, all broken from `33...♗f6`); and (21 broken: the Movsesian -
+> ♕h3 ... 43 ♗e1 b1♕+ 0-1`, all broken from `33...♗f6`), **plus a variation
+> of that game** (Laurent did not say which: the broken one in the left column
+> is `28 ♕xh6?? ... 30 ♘xc7 (30 ♖c1 ♕xc1+! 31 ♗xc1 ♖g1!)`, read `♕fxcl+`;
+> the right column's "Otherwise: 29 ♕xh5 ... or 29 ♘xc7 ..." reads; ask him);
+> and (21 broken: the Movsesian -
 > Grivas opening `1 e4 c5 ... 11 ♗e3!?` is not started as a game, it opens
 > unscored at `11...♕c7`; also `30 ♕xc1+` read `♕fxcl+`, and `33...♗f6!`),
 > page 47 (9, same game), then pages 51-54 (51, 37, 7, 13 broken).
