@@ -1283,6 +1283,15 @@ def test_a_draw_the_scanner_spelled_is_a_result():
             ("move", "Kf3"), ("move", "Kf6"), ("result", "1/2-1/2")], raw
 
 
+def test_a_draw_printed_in_halves_is_a_result():
+    # Sakaev prints `½-½`, Markos `½–½` with an en dash: neither closed the
+    # game, which ran on into whatever the text cited next.
+    for raw in ("½-½", "½–½", "½ - ½"):
+        tokens = tokenize_pages([page_of(f"40 Kf3 Kf6 {raw} Lukacs - Grivas")])
+        assert [(t.kind, t.text) for t in tokens if t.kind in ("move", "result")] == [
+            ("move", "Kf3"), ("move", "Kf6"), ("result", "1/2-1/2")], raw
+
+
 def test_a_capture_and_its_recapture_are_two_moves():
     tokens = tokenize_pages([page_of("23 Rxc2 Rxc2 24 Qd3")])
     assert [t.text for t in tokens if t.kind == "move"] == ["Rxc2", "Rxc2", "Qd3"]

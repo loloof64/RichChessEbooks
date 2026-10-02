@@ -383,7 +383,7 @@ def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
         edits.append(
             (
                 start,
-                end,
+                end + (not swallowed and _space_with_no_room(page, end)),
                 [
                     Char(
                         char=glyph.figurine,
@@ -417,6 +417,25 @@ def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:
         height=page.height,
         text="".join(char.char for char in chars),
         chars=chars,
+    )
+
+
+def _space_with_no_room(page: Page, index: int) -> bool:
+    """Whether the space at `index` was invented between a symbol and its square.
+
+    Grivas page 31 prints `♕g5!` and the layer has `'it' g5`: a space whose
+    box starts where the `g` after it does. A space the book printed pushes the
+    next letter past its own width; this one takes no room at all, so nothing
+    stood between the symbol's ink and the square, and leaving it in reads
+    `g5` as a pawn move.
+    """
+    if index + 1 >= len(page.chars) or page.chars[index].char != " ":
+        return False
+    space, after = page.chars[index], page.chars[index + 1]
+    return (
+        after.char in _MOVE_BODY
+        and _rows_overlap(space.bbox, after.bbox)
+        and after.bbox.x < space.bbox.x + space.bbox.w / 2
     )
 
 

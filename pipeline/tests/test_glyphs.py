@@ -90,6 +90,30 @@ class TestRepair:
         assert file_.bbox.w > 0 and rank.bbox.w > 0
         assert rank.bbox.x + rank.bbox.w == 46.0
 
+    def test_a_space_with_no_ink_gap_does_not_part_symbol_and_square(self):
+        # Grivas page 31, "not 26 ♘xh4?! ♕g5!": the layer has `'it' g5`,
+        # the word boxed whole on its `'`, then a space starting where the
+        # `g` does. The queen's ink ends against the `g`: nothing was printed
+        # between them, and with the space left in `g5` was read as a pawn.
+        chars = [
+            Char(" ", BBox(67.45, 100.0, 2.3, LINE_HEIGHT), "GlyphLessFont", 10.0),
+            Char("'", BBox(69.61, 100.0, 8.88, LINE_HEIGHT), "GlyphLessFont", 10.0),
+        ] + [
+            Char(c, BBox(78.49, 100.0, 0.0, LINE_HEIGHT), "GlyphLessFont", 10.0)
+            for c in "it'"
+        ] + [
+            Char(" ", BBox(78.49, 100.0, 2.3, LINE_HEIGHT), "GlyphLessFont", 10.0),
+            Char("g", BBox(78.49, 100.0, 4.74, LINE_HEIGHT), "GlyphLessFont", 10.0),
+            Char("5", BBox(83.41, 100.0, 4.32, LINE_HEIGHT), "GlyphLessFont", 10.0),
+        ]
+        text = "".join(c.char for c in chars)
+        repaired = repair_page(
+            Page(number=1, width=472.0, height=624.0, text=text, chars=chars),
+            [glyph("Q", 69.84, 8.6)],
+        )
+
+        assert repaired.text == " ♕g5"
+
     def test_the_scan_s_f5_is_not_a_leftover(self):
         # Grivas page 16, "24 ♘f5 ♕b2+": the layer has `lL!rs`, `rs` being
         # how this scan spells f5 every time. Not a square at this stage, it

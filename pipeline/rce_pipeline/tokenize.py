@@ -52,6 +52,8 @@ _TOKEN_TEMPLATE = r"""
       # down: Sakaev's "B1)" and "B21)", page 86.
     | (?P<var_close>(?<!\s[A-Za-z])(?<!\s[A-Z][1-9])(?<!\s[A-Z][1-9][1-9])[)}}])
     | (?P<result>1-0|0-1|1/2-1/2|1/2|\*
+          # The draw in its own character, Sakaev's `½-½`, Markos' `½–½`.
+        | (?P<halves>½[ ]?[-–][ ]?½)
           # A draw a scanner spelled: `½-½` comes out of Grivas as `tf2.tf2`
           # and of Boussole as `Y2-Y2` -- two halves alike, ending in the 2,
           # joined by no space. A capture and its recapture, `Rxc2 Rxc2`,
@@ -990,7 +992,7 @@ def _tokenize_span(
         # Move numbers and promotions may carry internal spaces ("14 ." or
         # "e8 = Q"); squeeze them so downstream code sees canonical text.
         text_out = match.group() if kind == "annotation" else re.sub(r"[\s:]+|(?<=x)\.", "", match.group())
-        if kind == "result" and match.group("half"):
+        if kind == "result" and (match.group("half") or match.group("halves")):
             text_out = "1/2-1/2"
         if kind == "move":
             # `T X f5`: no alphabet has an `X` for a piece, so it is the sign.
