@@ -328,6 +328,9 @@ def recover_pieces(
 
 #: The move's own square, in file and rank.
 _FILES = frozenset("abcdefgh")
+#: A file as the scanner prints it after a symbol: Grivas' `r` for f (`lDr4`
+#: for ♘f4, page 46), put back as the file it is.
+_FILE_LOOKALIKES = {"r": "f"}
 _RANKS = frozenset("12345678")
 
 
@@ -346,14 +349,17 @@ def _file_the_symbol_swallowed(page: Page, start: int, end: int) -> Char | None:
     still have swallowed a *disambiguating* letter (`♘bd2` -> `♘d2`) and
     nothing on the page can tell — the reading is a move either way.
     """
-    if end <= start or page.chars[end - 1].char not in _FILES:
+    if end <= start or page.chars[end - 1].char not in _FILES | _FILE_LOOKALIKES.keys():
         return None
     after = page.chars[end : end + 2]
     if not after or after[0].char not in _RANKS:
         return None
     if len(after) > 1 and after[1].char in _FILES:
         return None
-    return page.chars[end - 1]
+    swallowed = page.chars[end - 1]
+    return dataclasses.replace(
+        swallowed, char=_FILE_LOOKALIKES.get(swallowed.char, swallowed.char)
+    )
 
 
 def repair_page(page: Page, glyphs: Iterable[PieceGlyph]) -> Page:

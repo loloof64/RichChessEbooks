@@ -2389,8 +2389,11 @@ def _resolve(
 
 
 #: A move naming its piece, a letter or digit, and then its square: `Nbd2` as
-#: the book prints it, and `B1g3` as a broken symbol leaves it.
-_DISAMBIGUATED = re.compile(r"^([KQRBN])([a-h1-8])(x?[a-h][1-8](?:=[QRBN])?)$")
+#: the book prints it, and `B1g3` as a broken symbol leaves it. The square's
+#: rank may be the scanner's letter for it, `Qfxcl` for ♕xc1: two repairs that
+#: each held alone, and together killed the move.
+_DISAMBIGUATED = re.compile(r"^([KQRBN])([a-h1-8])(x?[a-h][1-8SlI](?:=[QRBN])?)$")
+_RANK_LOOKALIKES = str.maketrans("SlI", "511")
 
 
 def _drop_a_false_disambiguator(
@@ -2419,7 +2422,7 @@ def _drop_a_false_disambiguator(
         return None
     piece, dropped, square = match.groups()
     try:
-        move = board.parse_san(piece + square)
+        move = board.parse_san(piece + square.translate(_RANK_LOOKALIKES))
     except (ValueError, AssertionError, chess.AmbiguousMoveError):
         return None
     san = board.san(move)

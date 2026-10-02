@@ -3248,3 +3248,17 @@ class TestAnAmbiguityTheScoreSettles:
         assert [(m.san, m.status) for m in result.moves][4:8] == [
             ("Nfd2", "uncertain"), ("e6", "ok"), ("Nf3", "ok"), ("Be7", "ok"),
         ]
+
+
+def test_a_wreck_letter_before_a_rank_spelled_as_a_letter_is_dropped():
+    # Page 46 of a scan, "30 ♖c1 ♕xc1+!": `'ifxcl+`, the queen restored over
+    # `'i`, its `f` left standing and the `1` read `l`. Each was repaired on
+    # its own; together the move died, and the line with it.
+    result = parse_tokens(moves(
+        ("move_number", "1"), ("move", "d4"), ("move", "e5"),
+        ("move_number", "2"), ("move", "Nf3"), ("move", "Qg5"),
+        ("move_number", "3"), ("move", "a3"), ("move", "Qfxcl+"),
+    ))
+    queen = result.moves[-1]
+
+    assert (queen.san, queen.status) == ("Qxc1", "uncertain")

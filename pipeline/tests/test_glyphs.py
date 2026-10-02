@@ -485,3 +485,12 @@ class TestModelGuard:
 
         with pytest.raises(ValueError, match="900"):
             GlyphClassifier(Other())
+
+
+def test_the_scan_s_f_before_a_lone_rank_is_put_back():
+    # Grivas page 46, "36 ♕g4+ ♔f7 37 ♘f4 ♘f8": the layer has `lDr4`, this
+    # scan's `r` for f. Taken with the knight's ink, `4` was left alone and
+    # the line died there.
+    repaired = repair_page(page("4 lDr4 "), [glyph("N", 30.0, 3 * CHAR_WIDTH)])
+
+    assert repaired.text == "4 ♘f4 "
