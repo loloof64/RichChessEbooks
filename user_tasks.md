@@ -36,7 +36,9 @@
 > why its games read badly** (a wrong board seeds a wrong game). **Page 15:
 > my reading of the diagram is very wrong.** Start there: compare the decoded
 > position with the page image square by square, find what the decoder
-> misreads, then check the book's other boards the same way.
+> misreads, then check the book's other boards the same way. **Laurent
+> suspects every diagram of the book may be wrong**: assume none is right
+> until checked against its image.
 
 > **Laurent, 2026-10-02 — done:** `rce` now asks at start, when GitHub has a
 > newer pipeline and it runs at a terminal: "Update now, before reading the
