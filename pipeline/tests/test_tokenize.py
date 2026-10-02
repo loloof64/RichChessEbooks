@@ -1311,6 +1311,16 @@ def test_a_side_to_move_mark_between_a_number_and_its_move():
         "41", "Rd7+", "Nf7", "42", "g5"]
 
 
+def test_a_white_number_spelled_in_letters_before_a_wreck():
+    # Page 42 of a scan, "11 ♘f3" under a board: the layer has `ll ll:\f3`,
+    # the number in letters and then the knight's own ink. The number was
+    # lost and "After 11 h4?!" was played as the game.
+    tokens = tokenize_pages([page_of_lines("10 g5 Nh7", "ll ll:\\f3 ", "After 11 h4?! f6!")],
+                            spellings={"ll:\\": "N"})
+    assert [t.text for t in tokens if t.kind in ("move", "move_number")][:5] == [
+        "10", "g5", "Nh7", "11", "f3"]
+
+
 def test_the_folio_alone_on_the_first_line_is_no_move_number():
     # Grivas page 36 opens on its folio `35`, alone on its line, and the
     # score goes on under it: `♘d3 f5 11 ♗d2`. Read as Black's 35th, it

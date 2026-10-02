@@ -1172,6 +1172,29 @@ class TestLostSymbol:
         # The queen reaches f6 too; castling after says the g8 knight left.
         assert (knight.san, knight.status) == ("Nf6", "uncertain")
 
+    def test_a_wrecked_square_two_pieces_reach_is_settled_by_the_score(self):
+        # Page 42 of a scan, "28 ♘d1! ♗f7 29 ♘f2": `lt::Jdl`, the knight's
+        # ink and `dl` for d1. The queen reaches d1 as well, the repair tied
+        # and gave up; the knight going on (here to e3) says which.
+        result = parse_tokens(moves(
+            ("move_number", "1"), ("move", "e4"), ("move", "e5"),
+            ("move_number", "2"), ("move", "Nc3"), ("move", "Nc6"),
+            ("move_number", "3"), ("move", "Qe2"), ("move", "Nf6"),
+        ) + [tok("move_number", "4"), tok("move", "dl", lost_symbol="lt::J")] + moves(
+            # The book's comment, a bracket inside it: "White is planning
+            # Nf2-g4 to exchange off Black's best piece (the e5-knight)."
+            ("text", "White is planning"), ("text", "lLif2"), ("text", "g4"),
+            ("text", "to exchange off Black's best piece"), ("var_open", "("),
+            ("text", "the"), ("text", "e5"), ("text", "-knight"), ("var_close", ")"),
+            ("text", ". Indeed, it is this knight"),
+            ("move_number", "4..."),
+            ("move", "Be7"),
+            ("move_number", "5"), ("move", "Ne3"),
+        ))
+        knight = next(m for m in result.moves if m.repair and m.repair["raw"] == "dl")
+
+        assert (knight.san, knight.status) == ("Nd1", "uncertain")
+
     def test_the_pawn_move_it_spells_is_never_the_answer(self):
         # a7-a6 is perfectly legal here, and `ll:\a6` used to be scored as it,
         # ok, at full confidence. The wreck says a piece was printed, so the

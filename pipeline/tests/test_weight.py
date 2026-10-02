@@ -81,6 +81,20 @@ class TestSplit:
     def test_no_ink_anywhere_is_refused(self):
         assert _split([0.0] * 60) is None
 
+    def test_a_bold_number_at_the_heavier_group_s_foot_is_bold(self):
+        # A scan's page 43: plain numbers at 0.00-0.02, bold ones from 0.09
+        # up to 0.3, and `32...` at 0.089. Otsu's split, dragged up by the
+        # heavier group's long tail, put it among the plain ones and the score
+        # resumed on the wrong move. The two groups' edges say where the gap is.
+        # Proportions as the book's 5818 numbers measure, a tenth of them.
+        plain = [0.0] * 222 + [0.01] * 36 + [0.02] * 10 + [0.03] * 2
+        bold = ([0.075] + [0.085] * 2 + [0.089] * 4 + [0.10] * 14 + [0.11] * 25
+                + [0.12] * 31 + [0.13] * 25 + [0.14] * 19 + [0.15] * 13 + [0.16] * 20
+                + [0.17] * 17 + [0.18] * 27 + [0.22] * 60 + [0.28] * 40)
+        split = _split(plain + bold)
+
+        assert split is not None and 0.02 < split < 0.089
+
 
 def test_a_black_number_keeps_the_whole_of_its_digit():
     # `4 ... exf4` on Grivas page 28: the box runs over the spaced dots, and a

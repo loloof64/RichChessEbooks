@@ -614,8 +614,10 @@ _SQUARE_LOOKAHEAD = 20
 
 #: How far the book's comment on a move may run before the score resumes.
 #: SuperAttaquant's is one paragraph, which the layer hands over as a text, a
-#: square the prose names, and the text after it — twice over at most.
-_PROSE_CROSSED = 8
+#: square the prose names, and the text after it — twice over at most. A
+#: scan's comment on `28 ♘d1!` (page 42) names three squares, one a wrecked
+#: move, and is eight texts long, its bracket not counted.
+_PROSE_CROSSED = 9
 
 
 def _the_score_after(
@@ -633,9 +635,10 @@ def _the_score_after(
     """
     out: list[Token] = []
     prose_from: int | None = None
+    brackets = 0
     for index in range(at, len(tokens)):
         token = tokens[index]
-        if prose_from is not None and index - prose_from >= _PROSE_CROSSED:
+        if prose_from is not None and index - prose_from - brackets >= _PROSE_CROSSED:
             break
         if token.kind == "move_number":
             number = int(re.match(r"\d+", token.text).group())
@@ -647,12 +650,18 @@ def _the_score_after(
             # caller asks: Markos page 98 prints one between `17...e5?` and
             # the `18.♖xh7` that tells the two lines it may continue apart.
             if prose_from is None:
-                prose_from = index
+                prose_from, brackets = index, 0
         elif token.kind == "move":
             if prose_from is None:
                 out.append(token)
                 if len(out) == most:
                     break
+        elif token.kind in ("var_open", "var_close") and prose_from is not None:
+            # A bracket inside the comment is the comment's: "to exchange off
+            # Black's best piece (the e5-knight)", page 42 of a scan. It is
+            # not counted as the comment's length.
+            brackets += 1
+            continue
         elif token.kind != "annotation":
             break
     return out
@@ -2618,6 +2627,14 @@ def _settle_lost_symbol(
                 repaired.append((legal, legal_san))
         if best_cost <= _MAX_REPAIR_COST and len(repaired) == 1:
             readings = repaired
+        elif best_cost <= _MAX_REPAIR_COST:
+            # Two pieces reach the repaired square -- `lt::Jdl` on page 42 of
+            # a scan, knight and queen both to d1. Handed on as candidates:
+            # the score after it says which, as it does for any ambiguity.
+            return _Resolution(None, plain, "broken", 0.0, {
+                "raw": raw, "reason": f"the piece printed as '{wreck}' was lost, and could be "
+                + ", ".join(san for _, san in repaired[:4]),
+            }, candidates=[san for _, san in repaired])
 
     sans = [san for _, san in readings]
     if len(readings) == 1:

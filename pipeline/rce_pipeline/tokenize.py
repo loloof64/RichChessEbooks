@@ -1183,6 +1183,11 @@ def _tokenize_span(
                 # spelling of a piece, then a square, is a move being
                 # announced, and prose has no such run in it.
                 announcing = _NUMBER_BEFORE_A_WRECK.search(text, cursor, start)
+                if announcing is None:
+                    spelled = _LETTERS_BEFORE_A_WRECK.search(text, cursor, start)
+                    if spelled is not None and not spelled.group(1).translate(
+                            _LETTERS_TO_DIGITS).startswith("0"):
+                        announcing = spelled
                 if announcing is not None:
                     number_at = announcing.start(1)
 
@@ -1195,7 +1200,9 @@ def _tokenize_span(
                     out.append(prose)
             out.append(Token(
                 kind="move_number",
-                text=re.sub(r"(?<=\d) (?=\d)", "", text[number_at:start]),
+                text=re.sub(
+                    r"(?<=\d) (?=\d)", "", text[number_at:start].translate(_LETTERS_TO_DIGITS)
+                ).strip(),
                 raw=page.text[number_at:start],
                 page=page.number,
                 start=number_at,
@@ -1254,6 +1261,10 @@ _WELDED_NUMBER = re.compile(r"(?<![A-Za-z\d])(\d{1,3})$")
 #: paragraph. A space inside the number is the font's, as in the token
 #: pattern: `1 1 Cf4` is `11 ♔f4` (Grivas page 28).
 _NUMBER_BEFORE_A_WRECK = re.compile(r"(?<![A-Za-z\d])(\d(?:[ ]?\d){0,2})[ ]*$")
+
+#: The same number spelled in the letters a scan puts for its digits, a space
+#: before the wreck: page 42 of a scan prints `11 ♘f3` as `ll ll:\f3`.
+_LETTERS_BEFORE_A_WRECK = re.compile(r"(?<![A-Za-z\d])([lO\d]*[lO][lO\d]*)[ ]+$")
 
 #: A bare move number ending a run of prose. Believed only where a diagram
 #: stands between it and the move it announces.

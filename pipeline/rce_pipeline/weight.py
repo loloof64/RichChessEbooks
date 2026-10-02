@@ -237,11 +237,15 @@ def _split(values: list[float]) -> float | None:
     # the split unusable anyway, and the separation test below refuses it.
     score = counts * (len(ordered) - counts) * (above - below) ** 2
     at = int(np.argmax(score))
-    split = float((ordered[at] + ordered[at + 1]) / 2)
 
     lighter, heavier = ordered[: at + 1], ordered[at + 1 :]
     ceiling = float(np.percentile(lighter, 100 - _EDGE))
     floor = float(np.percentile(heavier, _EDGE))
     if floor <= 0.0 or floor < _SEPARATION * ceiling:
         return None
-    return split
+    # Otsu's split finds the two groups, but its point is dragged towards the
+    # heavier group by its long tail: on a scan whose numbers leave nothing
+    # between 0.04 and 0.07 it fell at 0.090, and thirty-two bold numbers at
+    # the group's foot, page 43's `32...` among them, were read plain. The gap
+    # is between the two groups' edges.
+    return (ceiling + floor) / 2
