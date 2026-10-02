@@ -8,6 +8,7 @@ import importlib.util
 import itertools
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -49,6 +50,30 @@ def update_notice() -> str | None:
         return None
     return ("A newer version of rce is available. To install it:\n"
             "  pipx reinstall rce-pipeline")
+
+
+def offer_update(argv: list[str]) -> None:
+    """Ask, before the book is read, whether to install a newer rce first.
+
+    Accepted, pipx reinstalls the pipeline and the same command starts again
+    on the new version, told not to ask twice. Refused, or not at a terminal
+    to answer, the book is read with the version installed and the notice is
+    printed at the end as before.
+    """
+    notice = update_notice()
+    if notice is None or not sys.stdin.isatty():
+        return
+    print(notice.splitlines()[0])
+    try:
+        answer = input("Update now, before reading the book? [y/N] ")
+    except EOFError:
+        return
+    if answer.strip().lower() not in ("y", "yes", "o", "oui"):
+        return
+    if subprocess.run(["pipx", "reinstall", "rce-pipeline"]).returncode != 0:
+        print("The update failed; reading the book with the version installed.")
+        return
+    os.execvpe("rce", ["rce", *argv], {**os.environ, "RCE_NO_UPDATE_CHECK": "1"})
 
 
 def _installed_commit() -> str | None:
@@ -152,6 +177,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if not os.path.isfile(args.pdf):
         ap.error(f"no such file: {args.pdf}")
+    offer_update(sys.argv[1:] if argv is None else argv)
     output = args.output or os.path.splitext(args.pdf)[0] + ".rce"
     # Without the `glyphs` extra a scan cannot be read, and the report says so;
     # a book with a usable text layer never needed it.

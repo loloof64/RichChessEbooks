@@ -1,5 +1,11 @@
 # What I have to do next
 
+> **Laurent, 2026-10-02 — done:** `rce` now asks at start, when GitHub has a
+> newer pipeline and it runs at a terminal: "Update now, before reading the
+> book? [y/N]". Yes runs `pipx reinstall rce-pipeline` and restarts the same
+> command (`RCE_NO_UPDATE_CHECK=1` so it does not ask twice); only useful
+> after a push.
+
 > **Twenty-third session, night (2026-10-01/02) — Grivas pages 27-32, with
 > Laurent.** Pages named in the app's PDF numbering (page 28 = folio 27).
 > Committed: `4402110` (p27, a right column welded to the left one in one

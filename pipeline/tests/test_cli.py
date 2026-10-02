@@ -57,3 +57,22 @@ def test_no_update_check_without_a_git_install_or_a_network(monkeypatch):
     monkeypatch.setenv("RCE_NO_UPDATE_CHECK", "1")
     monkeypatch.setattr(cli, "_pipeline_commit", pipeline_commits("aaa", "bbb"))
     assert cli.update_notice() is None
+
+
+def test_a_newer_pipeline_is_offered_before_the_book_is_read(monkeypatch):
+    # Laurent: the update is offered as a question when rce starts, and is
+    # optional. Accepted, pipx reinstalls and the same command runs again on
+    # the new version, which does not ask a second time.
+    monkeypatch.setattr(cli, "update_notice", lambda: "A newer version of rce is available.")
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "y")
+    ran, relaunched = [], []
+    monkeypatch.setattr(cli.subprocess, "run", lambda cmd, **kw: ran.append(cmd) or
+                        cli.subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(cli.os, "execvpe", lambda f, args, env: relaunched.append((args, env)))
+
+    cli.offer_update(["book.pdf"])
+
+    assert ran == [["pipx", "reinstall", "rce-pipeline"]]
+    (args, env), = relaunched
+    assert args == ["rce", "book.pdf"] and env["RCE_NO_UPDATE_CHECK"] == "1"
