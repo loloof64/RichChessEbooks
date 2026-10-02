@@ -16,7 +16,9 @@
 > `rce_apercu/Grivas.rce`. **Nothing pushed yet** — push when Laurent says.
 > Laurent: pages 30, 31, 34, 40 ok as they are (one broken each, normal).
 >
-> **Next, later today with Laurent:** page 46 (21 broken: the Movsesian -
+> **Next, later today with Laurent:** page 46 — Laurent: **the end of the
+> previous game is missing** (right column top, `33...♗f6! 34 gxh7+ ♔xh7 35
+> ♕h3 ... 43 ♗e1 b1♕+ 0-1`, all broken from `33...♗f6`); and (21 broken: the Movsesian -
 > Grivas opening `1 e4 c5 ... 11 ♗e3!?` is not started as a game, it opens
 > unscored at `11...♕c7`; also `30 ♕xc1+` read `♕fxcl+`, and `33...♗f6!`),
 > page 47 (9, same game), then pages 51-54 (51, 37, 7, 13 broken).
