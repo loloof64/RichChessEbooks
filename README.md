@@ -59,12 +59,25 @@ pipx install "rce-pipeline[glyphs,pictures] @ git+https://github.com/loloof64/Ri
 pipx install "git+https://github.com/loloof64/RichChessEbooks.git#subdirectory=pipeline"
 ```
 
+**EPUB and DjVu books.** Both are converted to PDF first, and the `.rce` carries that
+PDF: the app shows an EPUB as fixed pages, not reflowed text. An EPUB needs nothing
+more. A DjVu needs the `ddjvu` command from djvulibre (about **5 MB**), and is read
+like a scan, so take the full install:
+
+| System | Command |
+|---|---|
+| Debian / Ubuntu | `sudo apt install djvulibre-bin` |
+| Fedora | `sudo dnf install djvulibre` |
+| macOS | `brew install djvulibre` |
+| Windows | the installer from [djvu.sourceforge.net](https://djvu.sourceforge.net/), with its folder on `PATH` |
+
 **3. Use it:**
 
 ```bash
 rce book.pdf                       # writes book.rce beside the PDF
 rce book.pdf --lang fr             # tell it the language of a book in letters
 rce book.pdf --first 20 --last 40  # a range of pages, to try a book quickly
+rce book.epub                      # an EPUB or a DjVu works the same way
 ```
 
 Open the `.rce` in the app, and tap the eye icon to see what was read and where the

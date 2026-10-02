@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from . import (
+    convert,
     diagrams,
     extract,
     figurines,
@@ -194,6 +195,10 @@ def run(
     """
     step = progress or (lambda name: None)
     os.makedirs(work_dir, exist_ok=True)
+
+    if convert.kind_of(pdf_path) != "pdf":
+        step("Converting the book to PDF")
+        pdf_path = convert.to_pdf(pdf_path, work_dir)
 
     step("Reading the text")
 

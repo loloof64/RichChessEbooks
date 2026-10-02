@@ -1,4 +1,4 @@
-"""`rce livre.pdf` — the pipeline from a terminal, for someone who never opens it."""
+"""`rce livre.pdf` (or .epub, .djvu) — the pipeline from a terminal, for someone who never opens it."""
 
 from __future__ import annotations
 
@@ -162,10 +162,10 @@ def _clock(seconds: float) -> str:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(
-        prog="rce", description="Turn a PDF chess book into a .rce archive for the reader app."
+        prog="rce", description="Turn a PDF, EPUB or DjVu chess book into a .rce archive for the reader app."
     )
-    ap.add_argument("pdf", help="the book")
-    ap.add_argument("-o", "--output", help="where to write the .rce (default: beside the PDF)")
+    ap.add_argument("pdf", help="the book: PDF, EPUB or DjVu")
+    ap.add_argument("-o", "--output", help="where to write the .rce (default: beside the book)")
     ap.add_argument("--first", type=int, default=1, metavar="PAGE", help="first page to read")
     ap.add_argument("--last", type=int, metavar="PAGE", help="last page to read")
     ap.add_argument(
