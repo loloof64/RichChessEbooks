@@ -1,5 +1,31 @@
 # What I have to do next
 
+> **Twenty-fourth session, 2026-10-02 — Grivas pages 31-43, with Laurent.**
+> Pages named in the app's PDF numbering. Committed: `283f230` (p31 `♕g5`
+> across a space with no room; `½-½` a result), `e705874` (p35 a board ending
+> its column placed after it; p36 folio, a number at a page's foot, a board
+> floating far behind its `(D)` confirms, `f2/e3` a plan), `8a28d11` (p37-39:
+> number before a board's `W`/`B`, welded column foot, `lb` knight, `c l♕+`,
+> analysis after a result never holds the next game's `1.`, prose ending in an
+> ellipsis spends the licence), `2599ac2` (p42-43: `ll` number before a
+> wreck, tied repairs settled by the score, a bracket inside a comment, weight
+> split between the groups' quartile edges). App: `1da9cae` no banner on a
+> repaired (blue) move. CLI: `aa0af3e`/`8259253` update offered at start, yes
+> by default. Grivas 1442 -> 974 broken; Markos and Sakaev lose only prose
+> citations ("...e5 break"), which Laurent wants not clickable. Archive in
+> `rce_apercu/Grivas.rce`. **Nothing pushed yet** — push when Laurent says.
+> Laurent: pages 30, 31, 34, 40 ok as they are (one broken each, normal).
+>
+> **Next, later today with Laurent:** page 46 (21 broken: the Movsesian -
+> Grivas opening `1 e4 c5 ... 11 ♗e3!?` is not started as a game, it opens
+> unscored at `11...♕c7`; also `30 ♕xc1+` read `♕fxcl+`, and `33...♗f6!`),
+> page 47 (9, same game), then pages 51-54 (51, 37, 7, 13 broken).
+> Measuring: `scratchpad` scripts are gone after the session; a whole book is
+> `pipeline.run(pdf, work_dir=..., output_path=..., glyph_model=
+> "rce_pipeline/data/classifier.pkl")`, ~35 min for this scan, five books in
+> parallel ~45 min. SuperAttaquant moved a little with the weight split
+> (807 ok vs 812), unexamined.
+
 > **Laurent, 2026-10-02 — done:** `rce` now asks at start, when GitHub has a
 > newer pipeline and it runs at a terminal: "Update now, before reading the
 > book? [Y/n]" (yes by default; never asked off a terminal). Yes runs `pipx reinstall rce-pipeline` and restarts the same
