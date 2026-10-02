@@ -1,5 +1,14 @@
 # What I have to do next
 
+> **Twenty-fifth session, 2026-10-02 afternoon — Grivas page 46, with Laurent.**
+> `72a9d6e`: `♕fxcl+` = ♕xc1+ (wreck letter + lookalike rank), `lDr4` = ♘f4
+> (a swallowed `r` put back as f). Whole book 974 -> 902 broken (46 21->6,
+> 54 13->0, 69 27->1, 53, 57, 63 better; **88 45->47** to look at). Archive
+> refreshed in `rce_apercu/Grivas.rce`. Nothing pushed.
+> **Next:** page 46's last 6 — `U ♗e3!?` is `11`, and after the Gofshtein
+> game in the note ends `0-1`, `11...♕c7` must resume the main game
+> (Movsesian - Grivas), not the note's closed one. Then page 47, 51-54.
+
 > **Twenty-fourth session, 2026-10-02 — Grivas pages 31-43, with Laurent.**
 > Pages named in the app's PDF numbering. Committed: `283f230` (p31 `♕g5`
 > across a space with no room; `½-½` a result), `e705874` (p35 a board ending
