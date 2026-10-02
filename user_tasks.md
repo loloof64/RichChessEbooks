@@ -31,6 +31,12 @@
 > "rce_pipeline/data/classifier.pkl")`, ~35 min for this scan, five books in
 > parallel ~45 min. SuperAttaquant moved a little with the weight split
 > (807 ok vs 812), unexamined.
+>
+> **Laurent on SuperAttaquant: I read its diagrams badly, and that may be
+> why its games read badly** (a wrong board seeds a wrong game). **Page 15:
+> my reading of the diagram is very wrong.** Start there: compare the decoded
+> position with the page image square by square, find what the decoder
+> misreads, then check the book's other boards the same way.
 
 > **Laurent, 2026-10-02 — done:** `rce` now asks at start, when GitHub has a
 > newer pipeline and it runs at a terminal: "Update now, before reading the
