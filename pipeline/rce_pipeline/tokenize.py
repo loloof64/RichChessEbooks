@@ -505,14 +505,69 @@ def tokenize_pages(
         blocks.setdefault(diagram.page, []).append(diagram)
 
     tokens: list[Token] = []
+    before: tuple[Page, int] | None = None
     for page in pages:
         read = _tokenize_page(
             page, token_re, to_san, blocks.get(page.number, []), spellings or {}
         )
         if read and read[0].kind == "text" and _only_furniture(read[0].raw):
             read = read[1:]
+        if read and _a_folio(read, page.number):
+            read = read[1:]
+        if before is not None and read and read[0].kind == "move":
+            tokens[before[1]:] = _number_left_at_the_foot(tokens[before[1]:], before[0])
+        before = (page, len(tokens))
         tokens.extend(read)
     return _read_numbers_the_scanner_spelled(_drop_a_bracket_nothing_closes(tokens))
+
+
+def _number_left_at_the_foot(read: list[Token], page: Page) -> list[Token]:
+    """The page's tokens, with the bare number its score ends on read as one.
+
+    Grivas page 35 ends `9 ♘e1 ♘d7 10` and page 36 opens on `♘d3`. A bare
+    figure is refused anywhere else -- every year and page number would be a
+    move number -- but behind a move, at the foot of a page whose next one
+    opens on a move, it is the number of that move.
+    """
+    last = max((i for i, t in enumerate(read) if t.kind in ("move", "annotation")), default=None)
+    if last is None or read[last].page != page.number:
+        return read
+    start = read[last].end
+    found = re.fullmatch(r"\s*(\d{1,3})\s*", page.text[start:])
+    if found is None or not 0 < int(found.group(1)) <= _LETTERS_CEILING:
+        return read
+    begin, end = start + found.start(1), start + found.end(1)
+    return read[: last + 1] + [Token(
+        kind="move_number", text=found.group(1), raw=page.text[begin:end],
+        page=page.number, start=begin, end=end, bbox=page.bbox_for(begin, end),
+        bold=_weight_of(page, begin, end),
+    )]
+
+
+#: How far a book's printed folio may stand from the PDF's page index: the
+#: pages before the first numbered one, a few dozen at most.
+_FOLIO_REACH = 40
+
+
+def _a_folio(read: list[Token], page: int) -> bool:
+    """Whether a page's first token is its folio, read as a move number.
+
+    Grivas page 36 opens on `35`, alone on its line, and the score carries on
+    under it from the page before. With a move behind it the folio reads as a
+    number, Black's 35th, and the score is sent into a variation. A move
+    number is never alone on a page's first line: the move it announces
+    would be on that line too.
+    """
+    first = read[0]
+    return (
+        first.kind == "move_number"
+        and first.text.isdigit()
+        and 0 <= page - int(first.text) <= _FOLIO_REACH
+        and len(read) > 1
+        and first.bbox is not None
+        and read[1].bbox is not None
+        and read[1].bbox.y + read[1].bbox.h <= first.bbox.y
+    )
 
 
 #: A line of a page's furniture: its running head in capitals, its folio, or
@@ -647,7 +702,8 @@ def _sides_to_move(page: Page, boards: list[BBox | None]) -> list[str]:
 
 #: A square joined by a hyphen to the move before or after it: a chain.
 _CHAINED_AFTER = re.compile(r"-[a-h][1-8]")
-_CHAINED_BEFORE = re.compile(r"[a-h][1-8]-$")
+# Or a slash between two destinations: "(...♕b6-f2/e3)", Grivas page 36.
+_CHAINED_BEFORE = re.compile(r"[a-h][1-8][-/]$")
 #: A pawn written square to square onto another file with no `x`: no move
 #: is shaped so, a chain of two squares is ("the pawn-chain g6-h7").
 _CHAIN_ACROSS_FILES = re.compile(r"([a-h])[1-8]-(?!\1)[a-h][1-8]")

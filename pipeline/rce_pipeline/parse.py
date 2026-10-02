@@ -1521,6 +1521,13 @@ def parse_tokens(
                     main_history[ply][0] for ply in range(awaited - 1, awaited - 1 - _LATE_REACH, -1)
                     if ply in main_history
                     and _squares_apart(main_history[ply][0].board_fen(), printed) <= 1
+                ), None) or next((
+                    # Further back, only the very position: a board can float
+                    # a column or a page from its `(D)` -- Grivas page 36's
+                    # "27 ♕c4!? (D)" lands under "34 b5?", fifteen plies on.
+                    main_history[ply][0] for ply in sorted(main_history, reverse=True)
+                    if ply < awaited - _LATE_REACH
+                    and main_history[ply][0].board_fen() == printed
                 ), None)
             if printed is None:
                 verdict = "unread" if diagram_table is None else "unreadable"

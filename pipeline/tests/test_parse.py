@@ -585,6 +585,41 @@ class TestBreakDiagnosis:
         assert (nf6.status, by_id[nf6.parent_id].san) == ("ok", "Ba4")
         assert not result.contradicted
 
+    def test_a_diagram_far_behind_the_game_still_fell_late(self):
+        # Grivas page 36 prints "27 ♕c4!? (D)" and the board falls at the
+        # head of the next column, under "34 b5?" fifteen plies on; page 34's
+        # board of "9 ♗g5!?" was met seventeen plies late. Read as
+        # corrections, both set the game back and the moves after broke.
+        board = chess.Board()
+        for san in ("e4", "e5", "Nf3", "Nc6"):
+            board.push_san(san)
+        rows = "/".join(
+            "".join(
+                piece.symbol() if (piece := board.piece_at(chess.square(file, rank))) else "."
+                for file in range(8)
+            )
+            for rank in range(7, -1, -1)
+        )
+        table = {char: char for char in rows if char != "/"}
+        score = ("e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O", "Be7",
+                 "Re1", "b5", "Bb3", "d6", "c3", "O-O", "h3", "Nb8", "d4", "Nbd7")
+        played = []
+        for ply, san in enumerate(score):
+            if ply % 2 == 0:
+                played.append(("move_number", f"{ply // 2 + 1}.", True))
+            played.append(("move", san, True))
+        result = parse_tokens(
+            weighed(*played) + [tok("diagram", rows)] + weighed(
+                ("move_number", "11.", True), ("move", "Nbd2", True), ("move", "Bb7", True),
+            ),
+            diagram_table=table,
+            weighted=True,
+        )
+
+        bb7 = next(m for m in result.moves if m.san == "Bb7")
+        assert bb7.status == "ok"
+        assert not result.contradicted
+
     def test_a_board_read_one_square_wrong_still_fell_late(self):
         # The same board of Grivas page 23 is read without its b2 pawn: one
         # square from the game's position, it was still taken for a

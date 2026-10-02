@@ -957,7 +957,22 @@ def _offset_for(page: Page, bbox: BBox) -> int:
         overlap = min(box.x + box.w, bbox.x + bbox.w) - max(box.x, bbox.x)
         if overlap > 0.5 * box.w:
             return _margin_start(page, _word_start(page, index), bbox)
-    return len(page.text)
+    # Nothing under it: the board ends its column, and goes after the last
+    # word printed above it there, not after the next column. Grivas page 34
+    # ends its left column on `9 ♗g5!? (D)`; met after the right column's
+    # `17...♔h8`, the board set the game back to move nine there.
+    above = [
+        index for index, char in enumerate(page.chars)
+        if char.bbox.w > 0 and char.bbox.h > 0 and char.bbox.y >= bbox.y + bbox.h
+        and min(char.bbox.x + char.bbox.w, bbox.x + bbox.w) - max(char.bbox.x, bbox.x)
+        > 0.5 * char.bbox.w
+    ]
+    if not above:
+        return len(page.text)
+    end = above[-1] + 1
+    while end < len(page.text) and not page.text[end].isspace():
+        end += 1
+    return end
 
 
 def _word_start(page: Page, index: int) -> int:

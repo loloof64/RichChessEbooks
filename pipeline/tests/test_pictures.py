@@ -328,6 +328,23 @@ def test_the_offset_never_lands_inside_a_line():
     assert pictures._offset_for(page, BBox(40.68, 311.0, 150.0, 150.0)) == 2
 
 
+def test_a_board_ending_its_column_comes_before_the_next_column():
+    """Grivas page 34 ends its left column on the board of `9 ♗g5!? (D)`,
+    nothing under it. Put at the end of the page, it was met after the right
+    column's `17...♔h8`, and set the game back to move nine there: the whole
+    of page 35 was played on that board."""
+    from rce_pipeline.extract import BBox, Char, Page
+
+    left = [Char(c, BBox(40.0 + 5 * i, 200.0, 5.0, 10.0), "F", 10.0)
+            for i, c in enumerate("g5 (D)")]
+    right = [Char(c, BBox(230.0 + 5 * i, 500.0, 5.0, 10.0), "F", 10.0)
+             for i, c in enumerate("Kh8")]
+    newline = Char("\n", BBox(0.0, 0.0, 0.0, 0.0), "", 0.0)
+    page = Page(number=1, width=432.0, height=648.0, text="g5 (D)\nKh8",
+                chars=left + [newline] + right)
+    assert pictures._offset_for(page, BBox(40.0, 23.0, 146.0, 146.0)) == 6
+
+
 def test_a_number_straddling_the_board_s_edge_stays_with_its_move():
     """Grivas page 22, `33 ♖af1` under the board, which stands 17 points in
     from the column's edge. The board landed

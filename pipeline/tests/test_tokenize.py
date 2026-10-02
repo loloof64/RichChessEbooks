@@ -880,6 +880,14 @@ class TestAPlanIsNotAMove:
 
         assert [t.raw for t in tokens if t.kind == "move"] == ["h5", "Bf5", "e2-e4", "Nf6"]
 
+    def test_a_square_after_a_slash_is_a_plan(self):
+        # Grivas page 36, "(...♕b6-f2/e3)": the queen's two destinations,
+        # the scan's queen a wreck, and `e3` was played as a pawn move.
+        text = "36 Qxd5 Qb8! Black will invade (... 'i!kb6-f2/e3), pursuing 37 Nxe5"
+        tokens = tokenize_pages([page_of(text)])
+
+        assert [t.raw for t in tokens if t.kind == "move"] == ["Qxd5", "Qb8", "Nxe5"]
+
     def test_a_run_of_one_side_s_moves_each_with_its_ellipsis_is_a_plan(self):
         # Page 26, "he wants to play ...♘g6, ...♘e4 and recapture"; page 39,
         # "intending to play ...♕c7, ...♘d7 and ...0-0-0". One side's moves
@@ -1281,6 +1289,37 @@ def test_a_draw_the_scanner_spelled_is_a_result():
         tokens = tokenize_pages([page_of(f"40 Kf3 Kf6 {raw} Lukacs - Grivas")])
         assert [(t.kind, t.text) for t in tokens if t.kind in ("move", "result")] == [
             ("move", "Kf3"), ("move", "Kf6"), ("result", "1/2-1/2")], raw
+
+
+def page_of_lines(*lines: str, number: int = 1) -> Page:
+    """A page of several lines, each a line lower than the one before."""
+    chars = [
+        Char(char=ch, bbox=BBox(float(i), 700.0 - 12 * row, 1.0, 10.0), font="Serif", size=10.0)
+        for row, line in enumerate(lines)
+        for i, ch in enumerate(line + "\n")
+    ]
+    text = "".join(line + "\n" for line in lines)
+    return Page(number=number, width=595.0, height=842.0, text=text, chars=chars)
+
+
+def test_the_folio_alone_on_the_first_line_is_no_move_number():
+    # Grivas page 36 opens on its folio `35`, alone on its line, and the
+    # score goes on under it: `♘d3 f5 11 ♗d2`. Read as Black's 35th, it
+    # sent the score into a variation.
+    tokens = tokenize_pages([page_of_lines("35 ", "Nd3 f5 11 Bd2", number=36)])
+    assert [t.text for t in tokens if t.kind == "move_number"] == ["11"]
+
+
+def test_a_number_ending_a_page_announces_the_move_opening_the_next():
+    # Grivas page 35 ends its score on `9 ♘e1 ♘d7 10` and page 36 opens on
+    # `♘d3`: a bare figure, refused anywhere else, and the move lost its
+    # number.
+    tokens = tokenize_pages([
+        page_of_lines("9 Ne1 Nd7 10 ", number=35),
+        page_of_lines("Nd3 f5 11 Bd2", number=36),
+    ])
+    assert [t.text for t in tokens if t.kind in ("move", "move_number")] == [
+        "9", "Ne1", "Nd7", "10", "Nd3", "f5", "11", "Bd2"]
 
 
 def test_a_draw_printed_in_halves_is_a_result():
