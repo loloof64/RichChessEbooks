@@ -49,8 +49,11 @@ class _BoardSheetState extends State<BoardSheet> {
   /// How long the note about a move the pipeline could not read stays up.
   static const _noticeFor = Duration(seconds: 4);
 
+  /// Only for a move the pipeline could not read. A repaired one has been
+  /// right so far (Laurent), and a banner over the board on each of them
+  /// only got in the way.
   late bool _noticeShown =
-      widget.move != null && widget.move!.status != MoveStatus.ok;
+      widget.move != null && widget.move!.status == MoveStatus.broken;
   Timer? _noticeTimer;
 
   @override
@@ -116,14 +119,14 @@ class _BoardSheetState extends State<BoardSheet> {
               alignment: Alignment.bottomCenter,
               children: [
                 _Board(fen: fen, lastMove: lastMove, orientation: _orientation),
-                if (move != null)
+                if (move != null && move.status == MoveStatus.broken)
                   IgnorePointer(
                     child: AnimatedOpacity(
                       opacity: _noticeShown ? 1 : 0,
                       duration: const Duration(milliseconds: 300),
                       child: Padding(
                         padding: const EdgeInsets.all(8),
-                        child: _StatusBanner(move: move),
+                        child: const _StatusBanner(),
                       ),
                     ),
                   ),
@@ -219,17 +222,12 @@ class _SideToMove extends StatelessWidget {
 }
 
 class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({required this.move});
-
-  final MoveNode move;
+  const _StatusBanner();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isBroken = move.status == MoveStatus.broken;
-    final colour = isBroken
-        ? theme.colorScheme.error
-        : theme.colorScheme.tertiary;
+    final colour = theme.colorScheme.error;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -241,19 +239,11 @@ class _StatusBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            isBroken ? Icons.error_outline : Icons.info_outline,
-            size: 18,
-            color: colour,
-          ),
+          Icon(Icons.error_outline, size: 18, color: colour),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              isBroken
-                  ? AppLocalizations.of(context).moveUnreadable
-                  : AppLocalizations.of(
-                      context,
-                    ).moveRepaired((move.confidence * 100).round()),
+              AppLocalizations.of(context).moveUnreadable,
               style: theme.textTheme.bodySmall?.copyWith(color: colour),
             ),
           ),

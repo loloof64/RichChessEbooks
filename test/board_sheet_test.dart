@@ -54,6 +54,32 @@ void main() {
     expect(find.text('Black to move'), findsOneWidget);
   });
 
+  testWidgets('a move the pipeline repaired opens with no notice', (tester) async {
+    // Laurent: the repaired (blue) moves have been right so far; a banner
+    // over the board on each of them only gets in the way.
+    final repaired = MoveNode.fromJson({
+      ...sampleMoves.first,
+      'status': 'uncertain',
+      'confidence': 0.5,
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 360,
+              child: BoardSheet(book: book, move: repaired),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.info_outline), findsNothing);
+  });
+
   testWidgets('switches from move to move and to a diagram', (tester) async {
     final diagram = DiagramEntry.fromJson(const {
       'page': 13,
